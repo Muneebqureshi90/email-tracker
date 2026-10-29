@@ -41,6 +41,7 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - Throwaway stack for manual checks: env file from `new-env.ps1 -EnvFile <scratch>` plus
   `MAILPULSE_PRIVATE_HOST_PORT=18080` / `MAILPULSE_PUBLIC_HOST_PORT=18081`, then `dev.ps1 -EnvFile ... -ProjectName mailpulse-check`.
 - Backend only: `cd backend; .\mvnw.cmd verify` (unit tests `*Test`, integration tests `*IT`).
+- Dashboard: `cd dashboard; npm run typecheck|lint|test|build`.
 - Extension: `cd extension; npm run typecheck|lint|test|build` (build -> `extension/dist`, load unpacked;
   App ID from `MAILPULSE_INBOXSDK_APP_ID` in infra/.env). Fixed ID `pdinoocioohoejhjbeepjdadkkjldgeo` (D-054).
 - New dependencies: only versions at least 14 days old, pinned exactly (D-036);
@@ -54,7 +55,10 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - `extension/` MV3, TS 6 strict, esbuild. `src/core` pure tested logic (pixel, DNR rules, notifications,
   retry queue); `src/gmail` the only InboxSDK code (compose session, thread marks, message views);
   `src/background` service worker (API client, handlers, poller); `src/popup`, `src/options` React.
-- `infra/` docker-compose.yml, `.env.example`. `scripts/` PowerShell helpers. `docs/` plan and decisions.
+- `dashboard/` React 19 + Vite 8 + Tailwind 4 + TanStack Query + React Router 8 + Recharts (lazy chunk).
+  `src/api` client/queries, `src/pages` one file per screen, `src/test` page tests with fetch stubs.
+  Built into the backend jar by `dev.ps1` (D-060); `npm run dev` proxies /api to 127.0.0.1:8080.
+- `infra/` docker-compose.yml (build context = repo root), `.env.example`. `scripts/` PowerShell helpers. `docs/` plan and decisions.
 
 ## Status
 - Step 0 approved 2026-10-29 (main). Step 1 spike tooling is on branch `step-1-spikes`, waiting for
@@ -65,3 +69,4 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
   (phase-2-public -> phase-3-extension -> phase-4-dashboard -> phase-5-links-alerts).
 - Phase 2 (Funnel scripts, autostart, SETUP.md) built on `phase-2-public`.
 - Phase 3 (extension, settings V2 for send mode / DNR / confidential) built on `phase-3-extension`.
+- Phase 4 (dashboard; contacts, reports, export, delete-all endpoints) built on `phase-4-dashboard`.

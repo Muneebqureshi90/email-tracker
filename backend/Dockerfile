@@ -1,11 +1,14 @@
-# MailPulse backend image. Versions follow the 14-day rule (DECISIONS D-036).
+# MailPulse backend image, with the built dashboard inside. Versions follow the 14-day rule (D-036).
+# Build context: the repository root (infra/docker-compose.yml). scripts\dev.ps1 builds
+# dashboard\dist first, so Node is not needed inside Docker.
 
 # Build stage: compile and package with Maven on JDK 25.
 FROM maven:3.9.12-eclipse-temurin-25 AS build
 WORKDIR /src
-COPY pom.xml .
+COPY backend/pom.xml .
 RUN mvn -B -q dependency:go-offline
-COPY src ./src
+COPY backend/src/main ./src/main
+COPY dashboard/dist ./src/main/resources/static
 RUN mvn -B -q package -DskipTests
 
 # Runtime stage: JRE only, unprivileged user.

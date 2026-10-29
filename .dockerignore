@@ -1,0 +1,5 @@
+# The image build (infra/docker-compose.yml, context = repository root) needs only these.
+*
+!backend/pom.xml
+!backend/src/main
+!dashboard/dist

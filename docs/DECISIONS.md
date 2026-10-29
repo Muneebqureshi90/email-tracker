@@ -338,3 +338,37 @@ direct dependency.
 8.12.2, was published on 2026-10-15, 14 calendar days before the install (a few hours short of 14×24
 hours). It is pinned with an npm `overrides` entry. Rule from now on: a version that fixes a high or
 critical advisory may be used once 14 calendar days have passed since its release.
+
+## Phase 4 decisions (2026-10-29)
+
+## D-060 Dashboard built on the PC, copied into the backend image — Accepted
+`dev.ps1` runs `npm ci` and `npm run build` in `dashboard/` and the Docker build copies
+`dashboard/dist` into the jar's `static/` folder. Options: a Node stage inside the Dockerfile. Why:
+Tailwind 4 and Vite 8 ship platform-specific native packages, and a lockfile made on Windows can miss
+the Linux ones; building on the host avoids that and keeps Node out of the image. The build context
+is the repository root with an allow-list `.dockerignore` (only `backend/pom.xml`, `backend/src/main`
+and `dashboard/dist` are sent to Docker).
+
+## D-061 Dashboard routes and a strict Content-Security-Policy — Accepted
+`DashboardController` forwards the app's own routes (`/emails/{id}` and so on) to `index.html`, so a
+notification link opens the right page in a new tab; everything else stays closed. The CSP has no
+`unsafe-inline`: React sets styles through the CSSOM, Vite emits files only, and the chart library
+loads as a separate chunk. Charts have a screen-reader table and no animation.
+
+## D-062 Reports from counted events in the owner's time zone — Accepted
+Daily (per hour) and weekly (per day, Monday start) reports count only `COUNTED` events, bucketed in
+Java with the settings time zone. "Opened" is the share of emails sent in the period that were ever
+opened or clicked. Top contacts give each recipient of an email that email's opens, because there are
+no per-recipient pixels (Phase 6).
+
+## D-063 Export and delete-all — Accepted
+`GET /api/export` returns one decrypted JSON file (emails with recipients, links and every event,
+contacts, accounts, settings). `DELETE /api/data` needs the exact text `DELETE ALL MY DATA` and the
+password, then runs one `TRUNCATE` of all tracking tables; the owner account, settings and tokens stay.
+It is deliberately not wrapped in a transaction, so a wrong password still counts towards the login
+lockout. Both are owner-only (extension tokens get 403).
+
+## D-064 One endpoint for per-email switches — Accepted (changes PLAN §6)
+PLAN §6 lists `PATCH /api/emails/{id}/tracking`. The existing `PATCH /api/emails/{id}/preferences`
+already carries `trackingEnabled` (and `notifications`, `followUpHours`), so the dashboard uses it and
+no second endpoint was added.

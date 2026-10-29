@@ -1,6 +1,6 @@
 # MailPulse stack: PostgreSQL + backend. Start with .\scripts\dev.ps1 (it passes infra\.env).
 # Postgres has no published port. Both backend ports are published on 127.0.0.1 only:
-#   8080 private API (and later the dashboard) - this PC only
+#   8080 private API and dashboard - this PC only
 #   8081 public tracking routes - Tailscale Funnel forwards /t/ and /c/ here
 name: mailpulse
 
@@ -23,7 +23,8 @@ services:
 
   backend:
     build:
-      context: ../backend
+      context: ..
+      dockerfile: backend/Dockerfile
     image: mailpulse-backend:local
     restart: unless-stopped
     depends_on:

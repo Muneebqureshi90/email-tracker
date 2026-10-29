@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Semantic colour tokens; the .dark class on <html> swaps them (lib/theme.ts). */
+@theme inline {
+  --color-bg: var(--mp-bg);
+  --color-surface: var(--mp-surface);
+  --color-raised: var(--mp-raised);
+  --color-fg: var(--mp-fg);
+  --color-muted: var(--mp-muted);
+  --color-line: var(--mp-line);
+  --color-accent: var(--mp-accent);
+  --color-accent-fg: var(--mp-accent-fg);
+  --color-good: var(--mp-good);
+  --color-warn: var(--mp-warn);
+  --color-bad: var(--mp-bad);
+  --color-chip: var(--mp-chip);
+  --font-sans: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+  --mp-bg: #f4f6f8;
+  --mp-surface: #ffffff;
+  --mp-raised: #eef2f5;
+  --mp-fg: #17212b;
+  --mp-muted: #5a6772;
+  --mp-line: #dce2e8;
+  --mp-accent: #0f766e;
+  --mp-accent-fg: #ffffff;
+  --mp-good: #15803d;
+  --mp-warn: #b45309;
+  --mp-bad: #b91c1c;
+  --mp-chip: #e9eef2;
+  --mp-chart-2: #6366f1;
+  color-scheme: light;
+}
+
+.dark {
+  --mp-bg: #0d1217;
+  --mp-surface: #141b22;
+  --mp-raised: #1a232c;
+  --mp-fg: #e5ecf2;
+  --mp-muted: #98a6b3;
+  --mp-line: #28323c;
+  --mp-accent: #2dd4bf;
+  --mp-accent-fg: #062320;
+  --mp-good: #4ade80;
+  --mp-warn: #fbbf24;
+  --mp-bad: #f87171;
+  --mp-chip: #1e2831;
+  --mp-chart-2: #a5b4fc;
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-bg font-sans text-fg antialiased;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-accent text-accent-fg hover:opacity-90;
+  }
+  .btn-quiet {
+    @apply border border-line bg-surface text-fg hover:bg-raised;
+  }
+  .btn-danger {
+    @apply bg-bad text-white hover:opacity-90;
+  }
+  .input {
+    @apply w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/30;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium;
+  }
+  .hint {
+    @apply mt-1 text-xs text-muted;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-chip px-2 py-0.5 text-xs font-medium;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted hover:bg-raised hover:text-fg;
+  }
+  .nav-link.active {
+    @apply bg-raised text-fg;
+  }
+  .table {
+    @apply w-full text-left text-sm;
+  }
+  .table th {
+    @apply border-b border-line px-4 py-2.5 text-xs font-semibold tracking-wide text-muted uppercase;
+  }
+  .table td {
+    @apply border-b border-line px-4 py-3 align-top;
+  }
+  .table tr:last-child td {
+    @apply border-b-0;
+  }
+}

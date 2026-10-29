@@ -5,8 +5,11 @@ import com.mailpulse.common.Sql;
 import com.mailpulse.common.crypto.BlindIndex;
 import com.mailpulse.common.crypto.FieldCipher;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -83,6 +86,21 @@ public class LinkRepository {
                         Sql.instant(rs, "first_clicked_at"),
                         Sql.instant(rs, "last_clicked_at")))
                 .list();
+    }
+
+    /** All links of all emails, grouped by email (data export). */
+    public Map<UUID, List<EmailApi.LinkView>> findAllByEmail() {
+        Map<UUID, List<EmailApi.LinkView>> result = new LinkedHashMap<>();
+        jdbc.sql("SELECT * FROM tracked_link ORDER BY tracked_email_id, created_at").query(rs -> {
+            result.computeIfAbsent(Sql.uuid(rs, "tracked_email_id"), id -> new ArrayList<>()).add(new EmailApi.LinkView(
+                    Sql.uuid(rs, "id"),
+                    cipher.decrypt(rs.getBytes("url_enc"), URL_COLUMN),
+                    rs.getBoolean("used"),
+                    rs.getInt("click_count"),
+                    Sql.instant(rs, "first_clicked_at"),
+                    Sql.instant(rs, "last_clicked_at")));
+        });
+        return result;
     }
 
     public Optional<String> url(UUID linkId) {

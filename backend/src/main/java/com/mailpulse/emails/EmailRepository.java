@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,21 @@ public class EmailRepository {
 
     public Optional<EmailRow> find(UUID id) {
         return jdbc.sql(SELECT + " WHERE te.id = :id").param("id", id).query(EmailRepository::map).optional();
+    }
+
+    public List<EmailRow> findByIds(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(SELECT + " WHERE te.id IN (:ids) ORDER BY te.sent_at DESC NULLS LAST, te.created_at DESC")
+                .param("ids", ids)
+                .query(EmailRepository::map)
+                .list();
+    }
+
+    /** Every stored email, oldest first (data export). */
+    public List<EmailRow> findAll() {
+        return jdbc.sql(SELECT + " ORDER BY te.created_at, te.id").query(EmailRepository::map).list();
     }
 
     Optional<EmailRow> findByClientRef(UUID clientRef) {

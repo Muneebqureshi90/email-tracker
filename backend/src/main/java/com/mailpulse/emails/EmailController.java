@@ -68,6 +68,12 @@ class EmailController {
         return queries.list(state, account, from, to, q, page, size);
     }
 
+    /** Gmail accounts seen so far, for the dashboard's account filter. */
+    @GetMapping("/accounts")
+    List<String> accounts() {
+        return queries.accounts();
+    }
+
     @GetMapping("/emails/{id}")
     EmailApi.EmailDetail detail(@PathVariable UUID id) {
         return queries.detail(id);

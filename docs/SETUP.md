@@ -109,14 +109,14 @@ Needs Java 25 and Docker Desktop running.
    ```
    Private API: `http://127.0.0.1:8080` (this PC only). Public tracking routes: `http://127.0.0.1:8081`.
    PostgreSQL has no port outside Docker.
-4. First run only: read the one-time setup code and choose your password (at least 12 characters).
-   Until the dashboard exists (Phase 4), do it from PowerShell:
+   `dev.ps1` first builds the dashboard (`dashboard\dist`, needs Node.js) and puts it into the
+   backend image, so Docker itself never needs Node.
+4. First run only: read the one-time setup code from the backend log, then open the dashboard at
+   http://127.0.0.1:8080, enter the code and choose your password (at least 12 characters):
    ```powershell
    docker compose -p mailpulse --env-file infra\.env -f infra\docker-compose.yml logs backend | Select-String 'setup code'
-   $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-   Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/api/auth/setup -ContentType 'application/json' `
-     -Body '{"setupCode":"XXXXX-XXXXX","password":"your long password here"}' -WebSession $session
    ```
+   Later visits show the sign-in page. Use a current Chrome, Edge or Firefox on this PC.
 5. Stop: `docker compose -p mailpulse --env-file infra\.env -f infra\docker-compose.yml down`
    (your data stays in the `mailpulse_db-data` volume). Never add `-v` unless you want to delete all data.
 

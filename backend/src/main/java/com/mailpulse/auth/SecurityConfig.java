@@ -1,6 +1,7 @@
 package com.mailpulse.auth;
 
 import com.mailpulse.common.MailPulseProperties;
+import com.mailpulse.common.web.DashboardController;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.time.Clock;
 import java.time.Duration;
@@ -30,6 +31,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -42,6 +44,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 class SecurityConfig {
+
+    /** PLAN §8.1: the dashboard loads only its own scripts, styles and data. */
+    static final String CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self'; "
+            + "img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; "
+            + "base-uri 'none'; form-action 'self'";
 
     @Bean
     @Order(1)
@@ -65,6 +72,9 @@ class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .bearerTokenResolver(new CookieBearerTokenResolver())
                         .authenticationEntryPoint(SecurityProblems.entryPoint())
@@ -76,6 +86,8 @@ class SecurityConfig {
                 .addFilterBefore(new ApiTokenAuthenticationFilter(apiTokens), BearerTokenAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.GET, DashboardController.ROUTES).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/index.html", "/assets/**", "/favicon.svg").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/status", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/setup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/emails", "/api/emails/*/links", "/api/self-views")

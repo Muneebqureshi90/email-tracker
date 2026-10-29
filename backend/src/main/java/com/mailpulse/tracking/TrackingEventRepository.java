@@ -2,8 +2,13 @@ package com.mailpulse.tracking;
 
 import com.mailpulse.common.Sql;
 import com.mailpulse.emails.EmailApi;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -123,6 +128,15 @@ public class TrackingEventRepository {
                 .update();
     }
 
+    /** Every event of every email, grouped by email (data export). */
+    public Map<UUID, List<EmailApi.EventView>> findAllByEmail() {
+        Map<UUID, List<EmailApi.EventView>> result = new LinkedHashMap<>();
+        jdbc.sql("SELECT * FROM tracking_event ORDER BY tracked_email_id, received_at, id").query(rs -> {
+            result.computeIfAbsent(Sql.uuid(rs, "tracked_email_id"), id -> new ArrayList<>()).add(eventView(rs));
+        });
+        return result;
+    }
+
     public List<EmailApi.EventView> findForEmail(UUID emailId, int limit) {
         return jdbc.sql("""
                 SELECT id, type, received_at, verdict, reason, source, tracked_link_id, user_agent, ip_prefix
@@ -130,16 +144,20 @@ public class TrackingEventRepository {
                 """)
                 .param("email", emailId)
                 .param("limit", limit)
-                .query((rs, row) -> new EmailApi.EventView(
-                        rs.getLong("id"),
-                        rs.getString("type"),
-                        Sql.instant(rs, "received_at"),
-                        rs.getString("verdict"),
-                        rs.getString("reason"),
-                        rs.getString("source"),
-                        Sql.uuid(rs, "tracked_link_id"),
-                        rs.getString("user_agent"),
-                        rs.getString("ip_prefix")))
+                .query((rs, row) -> eventView(rs))
                 .list();
+    }
+
+    private static EmailApi.EventView eventView(ResultSet rs) throws SQLException {
+        return new EmailApi.EventView(
+                rs.getLong("id"),
+                rs.getString("type"),
+                Sql.instant(rs, "received_at"),
+                rs.getString("verdict"),
+                rs.getString("reason"),
+                rs.getString("source"),
+                Sql.uuid(rs, "tracked_link_id"),
+                rs.getString("user_agent"),
+                rs.getString("ip_prefix"));
     }
 }

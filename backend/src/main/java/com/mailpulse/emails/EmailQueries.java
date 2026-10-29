@@ -4,6 +4,7 @@ import com.mailpulse.common.crypto.FieldCipher;
 import com.mailpulse.common.web.ApiException;
 import com.mailpulse.tracking.TrackingEventRepository;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -73,6 +74,10 @@ public class EmailQueries {
         return new EmailApi.Page<>(matches.subList(start, end), page, size, matches.size());
     }
 
+    public List<String> accounts() {
+        return addressBook.accountAddresses();
+    }
+
     public EmailApi.EmailDetail detail(UUID id) {
         var email = emails.find(id).orElseThrow(() -> ApiException.notFound("Email not found"));
         EmailApi.EmailSummary summary = summaries(List.of(email)).getFirst();
@@ -110,6 +115,15 @@ public class EmailQueries {
         Map<String, EmailApi.Mark> marks = emails.latestByGmailIds(accountId.get(), column, ids).stream()
                 .collect(Collectors.toMap(key, EmailQueries::mark));
         return new EmailApi.MarksResponse(marks);
+    }
+
+    /** Summaries in the order the repository returns them (newest sent first). */
+    public List<EmailApi.EmailSummary> summariesByIds(Collection<UUID> ids) {
+        return summaries(emails.findByIds(ids));
+    }
+
+    public List<EmailApi.EmailSummary> summarize(List<EmailRepository.EmailRow> rows) {
+        return summaries(rows);
     }
 
     private List<EmailApi.EmailSummary> summaries(List<EmailRepository.EmailRow> rows) {

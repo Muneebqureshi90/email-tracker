@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-  Builds and starts MailPulse (PostgreSQL + backend) in Docker, then waits until it is healthy.
+  Builds the dashboard, then builds and starts MailPulse (PostgreSQL + backend with the dashboard)
+  in Docker, and waits until it is healthy.
 .PARAMETER EnvFile
   Environment file (default infra\.env).
 .PARAMETER ProjectName
@@ -14,6 +15,20 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 if (-not $EnvFile) { $EnvFile = Join-Path $root 'infra\.env' }
 if (-not (Test-Path $EnvFile)) { throw "$EnvFile is missing. Run .\scripts\new-env.ps1 first." }
+
+# The backend image serves the dashboard, so build it first (needs Node.js; Docker does not).
+Push-Location (Join-Path $root 'dashboard')
+try {
+    $marker = 'node_modules\.package-lock.json'
+    if (-not (Test-Path $marker) -or (Get-Item 'package-lock.json').LastWriteTime -gt (Get-Item $marker).LastWriteTime) {
+        & npm ci --no-audit --no-fund --loglevel=error
+        if ($LASTEXITCODE -ne 0) { throw 'npm ci failed in dashboard' }
+    }
+    & npm run --silent build
+    if ($LASTEXITCODE -ne 0) { throw 'Dashboard build failed' }
+} finally {
+    Pop-Location
+}
 
 $compose = @('compose', '-p', $ProjectName, '--env-file', $EnvFile, '-f', (Join-Path $root 'infra\docker-compose.yml'))
 & docker @compose up -d --build
@@ -40,7 +55,7 @@ if (-not $healthy) { throw "Backend did not become healthy. Check: docker $($com
 
 Write-Host ''
 Write-Host "MailPulse is running."
-Write-Host "  Private API (this PC only): http://127.0.0.1:$privatePort"
+Write-Host "  Dashboard and API (this PC only): http://127.0.0.1:$privatePort"
 Write-Host "  Public tracking routes:     http://127.0.0.1:$publicPort/t/... (Tailscale Funnel exposes /t/ and /c/)"
 Write-Host "  First run? Find the one-time setup code with:"
 Write-Host "    docker $($compose -join ' ') logs backend | Select-String 'setup code'"

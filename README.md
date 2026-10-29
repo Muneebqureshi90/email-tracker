@@ -5,15 +5,25 @@ invisible pixel to emails you send; when the recipient's mail app loads it, Mail
 open and shows ✓/✓✓ marks in Gmail, desktop notifications and a dashboard. Everything runs on your
 own PC with free tools; no email body ever leaves your browser.
 
-Status: backend (Phase 1), public access through Tailscale Funnel (Phase 2) and the Chrome extension
-(Phase 3) are built. Install steps: [docs/SETUP.md](docs/SETUP.md).
+Status: backend (Phase 1), public access through Tailscale Funnel (Phase 2), the Chrome extension
+(Phase 3) and the dashboard (Phase 4) are built. Install steps: [docs/SETUP.md](docs/SETUP.md).
+
+## Screenshots
+Dashboard with test data (example.com addresses), light and dark:
+
+![Overview](docs/screenshots/overview.png)
+
+| | |
+|---|---|
+| ![Email detail with every request and why it counted](docs/screenshots/email-detail.png) | ![Reports](docs/screenshots/reports.png) |
+| ![Dark theme](docs/screenshots/overview-dark.png) | ![Settings](docs/screenshots/settings.png) |
 
 ## Quick start (Windows 11, PowerShell)
 Requires Java 25, Docker Desktop and Tailscale (see [docs/SETUP.md](docs/SETUP.md)).
 
 ```powershell
 .\scripts\new-env.ps1     # creates infra\.env with secrets - back up the encryption key!
-.\scripts\dev.ps1         # starts PostgreSQL + backend on 127.0.0.1:8080 (API) and 8081 (tracking)
+.\scripts\dev.ps1         # builds the dashboard, starts PostgreSQL + backend: dashboard/API 127.0.0.1:8080, tracking 8081
 .\scripts\funnel.ps1      # publishes only /t/ and /c/ on your Tailscale address and checks them
 .\scripts\autostart.ps1 -Install   # start everything at Windows sign-in
 .\scripts\verify.ps1      # all checks: build, unit and integration tests, dependency audit

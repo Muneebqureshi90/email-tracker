@@ -1,12 +1,14 @@
 package com.mailpulse.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.mailpulse.auth.OwnerService;
 import com.mailpulse.auth.SessionService;
 import com.mailpulse.common.web.PortRegistry;
 import com.mailpulse.tracking.EventFinalizer;
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,6 +128,16 @@ public abstract class IntegrationTest {
 
     protected TestHttp.Response fetchPixel(String token, String userAgent, String... extraHeaders) {
         return http.get(pub("/t/" + token + ".gif"), join(new String[] {"User-Agent", userAgent}, extraHeaders));
+    }
+
+    /** Moves past the send grace, loads the pixel through Gmail's proxy and lets the finalizer count it. */
+    protected void countOpen(TrackedEmail email) {
+        clock.advance(Duration.ofSeconds(20));
+        long before = eventCount(email.id());
+        assertThat(fetchPixel(email.token(), GMAIL_PROXY_UA).status()).isEqualTo(200);
+        await().atMost(Duration.ofSeconds(10)).until(() -> eventCount(email.id()) == before + 1);
+        clock.advance(Duration.ofSeconds(31));
+        finalizer.runOnce();
     }
 
     protected long eventCount(UUID emailId) {

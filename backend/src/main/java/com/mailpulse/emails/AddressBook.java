@@ -57,6 +57,31 @@ public class AddressBook {
                 .optional();
     }
 
+    /** Every Gmail account the extension has sent from, sorted. */
+    public List<String> accountAddresses() {
+        return jdbc.sql("SELECT address_enc FROM gmail_account")
+                .query((rs, row) -> cipher.decrypt(rs.getBytes("address_enc"), ACCOUNT_ADDRESS))
+                .list()
+                .stream()
+                .sorted()
+                .toList();
+    }
+
+    public Optional<UUID> findContactId(String normalizedAddress) {
+        return jdbc.sql("SELECT id FROM contact WHERE address_hash = :hash")
+                .param("hash", index.of(EMAIL_INDEX, normalizedAddress))
+                .query((rs, row) -> Sql.uuid(rs, "id"))
+                .optional();
+    }
+
+    public String contactAddress(byte[] encrypted) {
+        return cipher.decrypt(encrypted, CONTACT_ADDRESS);
+    }
+
+    public String contactName(byte[] encrypted) {
+        return cipher.decrypt(encrypted, CONTACT_NAME);
+    }
+
     public String accountAddress(byte[] encrypted) {
         return cipher.decrypt(encrypted, ACCOUNT_ADDRESS);
     }

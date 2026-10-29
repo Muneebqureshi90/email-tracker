@@ -5,7 +5,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /** Email address helpers: normalisation and the "open status may be unreliable" hint. */
-final class Addresses {
+public final class Addresses {
 
     /** Providers that block remote images by default, so an unopened email may simply be untrackable. */
     private static final Set<String> IMAGE_BLOCKING_DOMAINS = Set.of(
@@ -15,7 +15,7 @@ final class Addresses {
 
     private Addresses() {}
 
-    static String normalize(String address) {
+    public static String normalize(String address) {
         return address.trim().toLowerCase(Locale.ROOT);
     }
 
