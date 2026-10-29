@@ -1,0 +1,28 @@
+# Secrets and local config
+.env
+*.env.local
+*.pem
+*.key
+infra/cloudflared/*.json
+infra/cloudflared/config.yml
+
+# Build output
+node_modules/
+dist/
+build/
+target/
+.vite/
+coverage/
+*.log
+
+# Data
+backups/
+*.dump
+*.mmdb
+spikes/out/
+
+# IDE / OS
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
