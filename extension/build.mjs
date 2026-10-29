@@ -25,7 +25,7 @@ const appId = readAppId();
 if (!/^[A-Za-z0-9_-]{1,100}$/.test(appId)) throw new Error('MAILPULSE_INBOXSDK_APP_ID has unexpected characters');
 if (appId === PLACEHOLDER_APP_ID) {
   console.warn('InboxSDK App ID not set: Gmail shows a "register your App ID" bar. Register for free at');
-  console.warn('https://www.inboxsdk.com/register, put MAILPULSE_INBOXSDK_APP_ID=<id> in infra\\.env and rebuild.');
+  console.warn('https://register.inboxsdk.com/, put MAILPULSE_INBOXSDK_APP_ID=<id> in infra\\.env and rebuild.');
 }
 
 fs.rmSync('dist', { recursive: true, force: true });

@@ -165,7 +165,7 @@ so Docker restarts them after a crash.
 
 ## 8. Install the Chrome extension
 1. Register a free InboxSDK App ID (a one-time form on InboxSDK's site; the SDK needs it to load
-   without a warning bar): open https://www.inboxsdk.com/register and copy the App ID it shows.
+   without a warning bar): open https://register.inboxsdk.com/ and copy the App ID it shows.
 2. Open `infra\.env` and set:
    ```
    MAILPULSE_INBOXSDK_APP_ID=<the App ID>
