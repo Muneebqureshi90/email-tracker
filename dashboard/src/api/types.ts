@@ -84,6 +84,27 @@ export interface ActivityItem {
   source: string | null;
   linkUrl: string | null;
   shouldNotify: boolean;
+  alertType: AlertType | null;
+  alertText: string | null;
+}
+
+export type AlertType = 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL';
+export type AlertStatus = 'NEW' | 'SEEN' | 'DISMISSED' | 'SNOOZED';
+
+export interface AlertView {
+  id: string;
+  type: AlertType;
+  text: string;
+  status: AlertStatus;
+  createdAt: string;
+  snoozedUntil: string | null;
+  emailId: string;
+  subject: string | null;
+  recipients: string;
+}
+
+export interface AlertPage extends Page<AlertView> {
+  newCount: number;
 }
 
 export interface ActivityPage {
@@ -172,6 +193,8 @@ export interface CreatedToken {
 
 export interface Preferences {
   notifications?: boolean;
-  followUpHours?: number;
+  /** 0 = use the default from Settings. */
+  followUpHours?: 0 | 24 | 48 | 72;
   trackingEnabled?: boolean;
+  trackLinks?: boolean;
 }

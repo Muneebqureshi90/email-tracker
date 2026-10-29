@@ -48,6 +48,7 @@ class FakeCompose {
     descriptor.onValue((value) => (this.button = value));
   };
   addStatusBar = () => ({ el: this.statusBar });
+  status = () => this.statusBar.querySelector('span')?.textContent ?? '';
   on = (event: string, handler: Handler) => {
     this.handlers.set(event, handler);
   };
@@ -85,6 +86,7 @@ function status(config: ClientConfig = CONFIG): Status {
 
 /** A fake service worker: answers requests and records them. `register` decides when registration finishes. */
 function fakeWorker(options: { config?: ClientConfig; register?: () => Promise<unknown>; lookup?: unknown } = {}) {
+  // Test-only stand-in for the service worker.
   const requests: Request[] = [];
   const answer = (request: Request): Promise<unknown> => {
     requests.push(request);
@@ -97,6 +99,11 @@ function fakeWorker(options: { config?: ClientConfig; register?: () => Promise<u
         return Promise.resolve(options.lookup ?? null);
       case 'mp:update':
         return Promise.resolve({ delivered: true, queued: false });
+      case 'mp:registerLinks':
+        return Promise.resolve({
+          links: request.urls.map((url, index) => ({ linkId: `link-${index}`, originalUrl: url, trackedUrl: `${BASE}/c/LinkToken${index}xxxxxxxxxxxxxxx` })),
+          rejected: [],
+        });
       default:
         return Promise.resolve(true);
     }
@@ -107,7 +114,10 @@ function fakeWorker(options: { config?: ClientConfig; register?: () => Promise<u
 async function session(compose: FakeCompose, worker: ReturnType<typeof fakeWorker>) {
   const env = new GmailEnv('Me@Gmail.com', worker.ask);
   await env.refresh();
-  new ComposeSession(compose as unknown as ComposeView, env, worker.ask, () => '0b8f2c1a-3d4e-4f5a-8b6c-7d8e9f0a1b2c').start();
+  new ComposeSession(compose as unknown as ComposeView, env, worker.ask, {
+    newClientRef: () => '0b8f2c1a-3d4e-4f5a-8b6c-7d8e9f0a1b2c',
+    linkScanDelayMs: 0,
+  }).start();
   await flush();
 }
 
@@ -120,7 +130,7 @@ describe('ComposeSession', () => {
     const worker = fakeWorker();
     await session(compose, worker);
     expect(worker.requests.find((r) => r.type === 'mp:register')).toMatchObject({ account: 'me@gmail.com' });
-    expect(compose.statusBar.textContent).toBe('MailPulse: tracking on');
+    expect(compose.status()).toBe('MailPulse: tracking on');
 
     expect(compose.presend().cancelled).toBe(false);
     expect(pixels(compose).map((p) => p.token)).toEqual([TOKEN]);
@@ -141,7 +151,7 @@ describe('ComposeSession', () => {
   it('sends untracked when registration has not finished (fail open, no waiting)', async () => {
     const compose = new FakeCompose();
     await session(compose, fakeWorker({ register: () => new Promise(() => undefined) }));
-    expect(compose.statusBar.textContent).toBe('MailPulse: connecting…');
+    expect(compose.status()).toBe('MailPulse: connecting…');
     expect(compose.presend().cancelled).toBe(false);
     expect(pixels(compose)).toHaveLength(0);
   });
@@ -149,7 +159,7 @@ describe('ComposeSession', () => {
   it('says so when the backend cannot be reached', async () => {
     const compose = new FakeCompose();
     await session(compose, fakeWorker({ register: () => Promise.resolve(null) }));
-    expect(compose.statusBar.textContent).toContain('not reachable');
+    expect(compose.status()).toContain('not reachable');
     compose.presend();
     expect(pixels(compose)).toHaveLength(0);
   });
@@ -166,7 +176,7 @@ describe('ComposeSession', () => {
     await session(quoted, worker);
     expect(worker.requests.find((r) => r.type === 'mp:selfView')).toMatchObject({ context: 'COMPOSE' });
     quoted.button!.onClick({} as never);
-    expect(quoted.statusBar.textContent).toBe('MailPulse: this email will not be tracked');
+    expect(quoted.status()).toBe('MailPulse: this email will not be tracked');
     quoted.presend();
     expect(pixels(quoted)).toHaveLength(0);
   });
@@ -222,5 +232,51 @@ describe('ComposeSession', () => {
     compose.fire('destroy', { messageID: null, closedByInboxSDK: false });
     await flush();
     expect(worker.requests.find((r) => r.type === 'mp:update')).toMatchObject({ update: { status: 'SCHEDULED' } });
+  });
+});
+
+describe('ComposeSession extras (Phase 5)', () => {
+  const html =
+    '<div>See <a href="https://example.com/doc">the doc</a> and <a href="https://example.com/raw">https://example.com/raw</a></div>' +
+    '<div class="gmail_quote"><a href="https://example.com/old">old</a></div>';
+
+  it('tracks links of the new text only and reports the ones used', async () => {
+    const compose = new FakeCompose(html);
+    const worker = fakeWorker({ config: { ...CONFIG, linkTrackingDefault: true } });
+    await session(compose, worker);
+    compose.fire('bodyChanged');
+    await flush();
+    await flush();
+    expect(worker.requests.find((r) => r.type === 'mp:registerLinks')).toMatchObject({ emailId: EMAIL_ID, urls: ['https://example.com/doc'] });
+
+    compose.presend();
+    const hrefs = Array.from(compose.body.querySelectorAll('a')).map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual([`${BASE}/c/LinkToken0xxxxxxxxxxxxxxx`, 'https://example.com/raw', 'https://example.com/old']);
+    compose.sentEvent();
+    await flush();
+    expect(worker.requests.find((r) => r.type === 'mp:update')).toMatchObject({ update: { usedLinkIds: ['link-0'] } });
+  });
+
+  it('leaves links alone while link tracking is off (the default)', async () => {
+    const compose = new FakeCompose(html);
+    const worker = fakeWorker();
+    await session(compose, worker);
+    compose.fire('bodyChanged');
+    await flush();
+    compose.presend();
+    expect(worker.requests.some((r) => r.type === 'mp:registerLinks')).toBe(false);
+    expect(compose.body.querySelector('a')?.getAttribute('href')).toBe('https://example.com/doc');
+  });
+
+  it('saves the follow-up time chosen in the compose window', async () => {
+    const compose = new FakeCompose();
+    const worker = fakeWorker();
+    await session(compose, worker);
+    const select = compose.statusBar.querySelector('select')!;
+    expect(select.options[0]!.textContent).toBe('default (48 h)');
+    select.value = '72';
+    select.dispatchEvent(new Event('change'));
+    await flush();
+    expect(worker.requests.find((r) => r.type === 'mp:preferences')).toMatchObject({ emailId: EMAIL_ID, preferences: { followUpHours: 72 } });
   });
 });

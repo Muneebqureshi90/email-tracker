@@ -2,7 +2,7 @@
 import '@inboxsdk/core/background.js';
 import type { Broadcast } from '../core/messages';
 import { isRequest } from '../core/messages';
-import { emailIdOfNotification, type NotificationSpec } from '../core/notify';
+import { emailIdOfNotification, MUTE_BUTTON, type NotificationSpec } from '../core/notify';
 import { ApiClient } from './api';
 import { applyDnrRules } from './dnr';
 import { createHandlers, dispatch, testConnection, type HandlerDeps } from './handlers';
@@ -35,6 +35,7 @@ async function notify(specs: NotificationSpec[]): Promise<void> {
       message: spec.message,
       contextMessage: spec.contextMessage,
       priority: 0,
+      ...(spec.canMute ? { buttons: [{ title: MUTE_BUTTON }] } : {}),
     });
   }
 }
@@ -95,6 +96,25 @@ chrome.notifications.onClicked.addListener((notificationId) => {
     const emailId = emailIdOfNotification(notificationId);
     await chrome.tabs.create({ url: emailId ? `${backendUrl}/emails/${emailId}` : `${backendUrl}/activity` });
     await chrome.notifications.clear(notificationId);
+  })();
+});
+
+/** "Mute this email": no more notifications for it; opens and alerts are still recorded. */
+chrome.notifications.onButtonClicked.addListener((notificationId) => {
+  const emailId = emailIdOfNotification(notificationId);
+  if (!emailId) return;
+  void (async () => {
+    const muted = await handlers['mp:preferences']({ type: 'mp:preferences', emailId, preferences: { notifications: false } });
+    await chrome.notifications.clear(notificationId);
+    await chrome.notifications.create(`mp:muted:${emailId}`, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      title: muted ? 'Muted' : 'Could not mute',
+      message: muted
+        ? 'No more notifications for this email. Unmute it in the dashboard.'
+        : 'MailPulse is not reachable. Try again later.',
+      priority: 0,
+    });
   })();
 });
 

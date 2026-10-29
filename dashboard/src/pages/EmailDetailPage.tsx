@@ -46,6 +46,12 @@ function EmailView({ detail }: { detail: EmailDetail }) {
         <Stat label="Last opened" value={relativeTime(summary.lastOpenedAt, now)} />
         <Stat label="Clicks" value={summary.clickCount} hint={summary.lastClickedAt ? `last ${relativeTime(summary.lastClickedAt, now)}` : undefined} />
       </div>
+      {summary.openStatusUnreliable && !opened && (
+        <p role="note" className="mb-6 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm">
+          Open status may be unreliable: every recipient uses a mail provider that blocks images by default (for example
+          Outlook.com or Yahoo Mail), so an open may never be seen. A click still counts.
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Recipients" className="lg:col-span-2">
           <ul className="divide-y divide-line">
@@ -77,6 +83,22 @@ function EmailView({ detail }: { detail: EmailDetail }) {
               disabled={preferences.isPending}
               onChange={(trackingEnabled) => preferences.mutate({ trackingEnabled })}
             />
+            <label className="block py-2">
+              <span className="block text-sm font-medium">Follow-up reminder</span>
+              <span className="block text-xs text-muted">Alert me when it is still unopened after:</span>
+              <select
+                className="input mt-1"
+                value={detail.followUpHours ?? 0}
+                disabled={preferences.isPending}
+                onChange={(event) => preferences.mutate({ followUpHours: Number(event.target.value) as 0 | 24 | 48 | 72 })}
+              >
+                <option value={0}>Default from Settings</option>
+                <option value={24}>24 hours</option>
+                <option value={48}>48 hours</option>
+                <option value={72}>72 hours</option>
+              </select>
+            </label>
+            <p className="py-1 text-xs text-muted">Link tracking for this email: {detail.trackLinks ? 'on' : 'off'}</p>
             {preferences.isError && <ErrorBox error={preferences.error} />}
           </div>
         </Card>

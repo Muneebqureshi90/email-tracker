@@ -16,6 +16,10 @@ public enum Reason {
     BOT_HEAD,
     /** User agent of a known bot or scanner. */
     BOT_UA,
+    /** Click within seconds of sending: security scanners follow links on delivery. */
+    BOT_TIMING,
+    /** Several different links of one email clicked within two seconds: a scanner, not a person. */
+    BOT_BURST,
     /** Apple Mail Privacy Protection loads images on delivery, not when read. */
     PREFETCH,
     /** Tracking was switched off for this email. */

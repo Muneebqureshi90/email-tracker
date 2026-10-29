@@ -21,6 +21,8 @@ function item(id: number, overrides: Partial<ActivityItem> = {}): ActivityItem {
     source: 'GMAIL_PROXY',
     linkUrl: null,
     shouldNotify: true,
+    alertType: null,
+    alertText: null,
     ...overrides,
   };
 }
@@ -70,9 +72,17 @@ describe('notifications', () => {
     expect(notificationsFor([item(1, { shouldNotify: false })])).toEqual([]);
     const grouped = notificationsFor([item(1), item(2), item(3), item(4), item(5, { subject: null })]);
     expect(grouped).toHaveLength(1);
-    expect(grouped[0]).toMatchObject({ title: '5 new opens and clicks', emailId: null });
+    expect(grouped[0]).toMatchObject({ title: '5 new MailPulse updates', emailId: null });
     expect(grouped[0]!.message.split('\n')).toEqual(['Opened: Quarterly plan', 'Opened: Quarterly plan', 'Opened: (no subject)']);
     expect(emailIdOfNotification(grouped[0]!.id)).toBeNull();
+    expect(grouped[0]!.canMute).toBe(false);
+  });
+
+  it('word alerts by type and offer Mute this email', () => {
+    const [spike] = notificationsFor([item(9, { kind: 'ALERT', alertType: 'OPEN_SPIKE', alertText: 'Opened 3 times within 60 minutes' })]);
+    expect(spike).toMatchObject({ title: 'Hot: Quarterly plan', contextMessage: 'Opened 3 times within 60 minutes', canMute: true });
+    const [followUp] = notificationsFor([item(10, { kind: 'ALERT', alertType: 'FOLLOW_UP', alertText: 'Not opened 48 hours after sending' })]);
+    expect(followUp!.title).toBe('Follow up: Quarterly plan');
   });
 });
 
@@ -114,6 +124,7 @@ describe('text helpers', () => {
     const unopened = { ...mark, state: 'SENT' as const, openCount: 0, clickCount: 0, lastOpenedAt: null };
     expect(markTooltip(unopened, NOW)).toBe('MailPulse: Sent, not opened yet');
     expect(markIcon(unopened)).toBe(ICON_SENT);
+    expect(markTooltip({ ...unopened, openStatusUnreliable: true }, NOW)).toBe('MailPulse: Sent, not opened yet · open status may be unreliable');
   });
 
   it('format relative times', () => {

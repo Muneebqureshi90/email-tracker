@@ -372,3 +372,36 @@ lockout. Both are owner-only (extension tokens get 403).
 PLAN §6 lists `PATCH /api/emails/{id}/tracking`. The existing `PATCH /api/emails/{id}/preferences`
 already carries `trackingEnabled` (and `notifications`, `followUpHours`), so the dashboard uses it and
 no second endpoint was added.
+
+## Phase 5 decisions (2026-10-29)
+
+## D-065 Scanner clicks are flagged, not counted — Accepted
+Two click-only rules after the send grace: a click within 15 s of sending is `BOT_TIMING` (security
+scanners follow links on delivery), and three or more different links of one email clicked within
+2 s is `BOT_BURST`. Flagged clicks still redirect and stay visible in the email's timeline with the
+reason. A counted click alone marks the email as engaged (✓✓).
+
+## D-066 Alerts are activity items — Accepted
+Alerts live in an `alert` table (migration V3) and each one also becomes an `activity` row, so desktop
+notifications and the live dashboard need no second channel. Follow-up: checked every 5 minutes,
+raised once per email when nothing was opened or clicked within the email's follow-up time (per-email
+24/48/72 h or the default), and not raised more than 7 days after it was due (no flood after the PC
+was off). Open spike: raised when an open makes the count within the window reach the threshold,
+at most once per window. Revival: raised when an open follows at least `revivalDays` without opens.
+A muted email still gets alerts in the dashboard but no desktop notification. Snoozed alerts come
+back as new (and notify again) when the snooze ends.
+
+## D-067 Link tracking in the compose window — Accepted
+A "Track links" checkbox per compose window (default from Settings, off by default, D-029). While
+the owner types, the extension sends only the link URLs of the new text (1 s after the last change)
+and gets tracked URLs back; at send it rewrites those links synchronously. Quoted text is never
+changed, links not yet registered stay as they are (fail open), and links whose visible text is
+itself a URL are not rewritten, so the visible text and the real target never disagree (spam
+filters dislike that, and it looks like phishing).
+
+## D-068 The three small extras (Q8) — Accepted
+"Mute this email" is a button on single-email desktop notifications (it turns notifications off
+for that email through the extension token). The follow-up time can be chosen per email in the
+compose status bar and on the email page (default, 24, 48 or 72 hours). When every recipient uses a
+provider that blocks images by default, Gmail tooltips and the email page say "open status may be
+unreliable".

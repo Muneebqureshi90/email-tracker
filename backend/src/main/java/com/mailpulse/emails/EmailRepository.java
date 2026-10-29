@@ -140,11 +140,15 @@ public class EmailRepository {
                 .update();
     }
 
-    void updatePreferences(UUID id, boolean notify, Integer followUpHours, boolean trackingEnabled) {
-        jdbc.sql("UPDATE tracked_email SET notify = :notify, follow_up_hours = :followUp, tracking_enabled = :enabled WHERE id = :id")
+    void updatePreferences(UUID id, boolean notify, Integer followUpHours, boolean trackingEnabled, boolean trackLinks) {
+        jdbc.sql("""
+                UPDATE tracked_email SET notify = :notify, follow_up_hours = :followUp, tracking_enabled = :enabled,
+                    track_links = :links WHERE id = :id
+                """)
                 .param("notify", notify)
                 .param("followUp", followUpHours)
                 .param("enabled", trackingEnabled)
+                .param("links", trackLinks)
                 .param("id", id)
                 .update();
     }

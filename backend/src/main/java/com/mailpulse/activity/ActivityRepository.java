@@ -10,7 +10,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-/** Counted opens and clicks (and later alerts), in the order they were counted. The id is the feed cursor. */
+/** Counted opens, clicks and alerts, in the order they happened. The id is the feed cursor. */
 @Repository
 class ActivityRepository {
 
@@ -23,14 +23,17 @@ class ActivityRepository {
             boolean emailNotify,
             Instant occurredAt,
             String source,
-            UUID linkId) {}
+            UUID linkId,
+            String alertType,
+            String alertText) {}
 
     private static final String SELECT = """
             SELECT a.id, a.kind, a.tracked_email_id, a.created_at, te.subject_enc, te.notify,
-                   ev.received_at, ev.source, ev.tracked_link_id
+                   ev.received_at, ev.source, ev.tracked_link_id, al.type AS alert_type, al.details ->> 'text' AS alert_text
             FROM activity a
             JOIN tracked_email te ON te.id = a.tracked_email_id
             LEFT JOIN tracking_event ev ON ev.id = a.event_id
+            LEFT JOIN alert al ON al.id = a.alert_id
             """;
 
     private final JdbcClient jdbc;
@@ -44,6 +47,15 @@ class ActivityRepository {
                 .param("kind", kind)
                 .param("email", emailId)
                 .param("event", eventId)
+                .param("now", Sql.ts(now))
+                .query(Long.class)
+                .single();
+    }
+
+    long insertAlert(UUID emailId, UUID alertId, Instant now) {
+        return jdbc.sql("INSERT INTO activity (kind, tracked_email_id, alert_id, created_at) VALUES ('ALERT', :email, :alert, :now) RETURNING id")
+                .param("email", emailId)
+                .param("alert", alertId)
                 .param("now", Sql.ts(now))
                 .query(Long.class)
                 .single();
@@ -82,6 +94,8 @@ class ActivityRepository {
                 rs.getBoolean("notify"),
                 Sql.instant(rs, "received_at"),
                 rs.getString("source"),
-                Sql.uuid(rs, "tracked_link_id"));
+                Sql.uuid(rs, "tracked_link_id"),
+                rs.getString("alert_type"),
+                rs.getString("alert_text"));
     }
 }

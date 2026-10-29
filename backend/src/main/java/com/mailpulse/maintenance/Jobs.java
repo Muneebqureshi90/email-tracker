@@ -1,6 +1,7 @@
 package com.mailpulse.maintenance;
 
 import com.mailpulse.activity.ActivityStream;
+import com.mailpulse.alerts.AlertService;
 import com.mailpulse.tracking.EventFinalizer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
@@ -16,11 +17,13 @@ class Jobs {
     private final EventFinalizer finalizer;
     private final ActivityStream stream;
     private final MaintenanceService maintenance;
+    private final AlertService alerts;
 
-    Jobs(EventFinalizer finalizer, ActivityStream stream, MaintenanceService maintenance) {
+    Jobs(EventFinalizer finalizer, ActivityStream stream, MaintenanceService maintenance, AlertService alerts) {
         this.finalizer = finalizer;
         this.stream = stream;
         this.maintenance = maintenance;
+        this.alerts = alerts;
     }
 
     @Scheduled(fixedDelayString = "PT5S", initialDelayString = "PT5S")
@@ -31,6 +34,12 @@ class Jobs {
     @Scheduled(fixedDelayString = "PT25S")
     void keepStreamsAlive() {
         stream.heartbeat();
+    }
+
+    /** Follow-up reminders and finished snoozes; the Clock decides what is due. */
+    @Scheduled(fixedDelayString = "PT5M", initialDelayString = "PT2M")
+    void alerts() {
+        alerts.runScheduled();
     }
 
     @Scheduled(fixedDelayString = "PT1H", initialDelayString = "PT1M")

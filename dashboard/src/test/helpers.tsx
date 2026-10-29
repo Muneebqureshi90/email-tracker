@@ -21,7 +21,11 @@ type Handler = Answer | ((call: Call) => Answer);
  */
 export function mockApi(handlers: Record<string, Handler>): Call[] {
   const calls: Call[] = [];
-  const all: Record<string, Handler> = { 'GET /api/auth/status': { body: { setupRequired: false, authenticated: true } }, ...handlers };
+  const all: Record<string, Handler> = {
+    'GET /api/auth/status': { body: { setupRequired: false, authenticated: true } },
+    'GET /api/alerts': { body: { items: [], page: 0, size: 25, total: 0, newCount: 0 } },
+    ...handlers,
+  };
   vi.stubGlobal(
     'fetch',
     vi.fn((input: string, init: RequestInit = {}) => {

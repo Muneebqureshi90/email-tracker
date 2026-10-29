@@ -79,6 +79,20 @@ class TrackingRulesTest {
         assertThat(decide(SENT.plusSeconds(60), Source.GMAIL_PROXY, EmailStatus.SENT, false, true)).contains(Reason.DUPLICATE);
     }
 
+    @Test
+    void scannerClicksAreFlaggedButOpensAreNot() {
+        var early = new FinalizerRules.Facts(SENT.plusSeconds(12), Source.DIRECT, EmailStatus.SENT, SENT, false, false, EventType.CLICK, false);
+        var burst = new FinalizerRules.Facts(SENT.plusSeconds(60), Source.DIRECT, EmailStatus.SENT, SENT, false, false, EventType.CLICK, true);
+        var person = new FinalizerRules.Facts(SENT.plusSeconds(60), Source.DIRECT, EmailStatus.SENT, SENT, false, false, EventType.CLICK, false);
+        var earlyOpen = new FinalizerRules.Facts(SENT.plusSeconds(12), Source.GMAIL_PROXY, EmailStatus.SENT, SENT, false, false);
+        assertThat(FinalizerRules.decide(early, GRACE)).contains(Reason.BOT_TIMING);
+        assertThat(FinalizerRules.decide(burst, GRACE)).contains(Reason.BOT_BURST);
+        assertThat(FinalizerRules.decide(person, GRACE)).isEmpty();
+        assertThat(FinalizerRules.decide(earlyOpen, GRACE)).isEmpty();
+        var duplicateBurst = new FinalizerRules.Facts(SENT.plusSeconds(60), Source.DIRECT, EmailStatus.SENT, SENT, false, true, EventType.CLICK, true);
+        assertThat(FinalizerRules.decide(duplicateBurst, GRACE)).contains(Reason.BOT_BURST);
+    }
+
     private static java.util.Optional<Reason> decide(
             Instant receivedAt, Source source, EmailStatus status, boolean selfView, boolean duplicate) {
         return FinalizerRules.decide(new FinalizerRules.Facts(receivedAt, source, status, SENT, selfView, duplicate), GRACE);

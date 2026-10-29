@@ -74,6 +74,8 @@ export interface ActivityItem {
   source: string | null;
   linkUrl: string | null;
   shouldNotify: boolean;
+  alertType: 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL' | null;
+  alertText: string | null;
 }
 
 export interface ActivityPage {
@@ -82,3 +84,16 @@ export interface ActivityPage {
 }
 
 export type SelfViewContext = 'THREAD' | 'COMPOSE' | 'OTHER';
+
+export interface RegisterLinksResponse {
+  links: { linkId: string; originalUrl: string; trackedUrl: string }[];
+  rejected: string[];
+}
+
+/** Per-email switches. followUpHours 0 means "use the default". */
+export interface Preferences {
+  notifications?: boolean;
+  followUpHours?: 0 | 24 | 48 | 72;
+  trackingEnabled?: boolean;
+  trackLinks?: boolean;
+}

@@ -3,6 +3,8 @@ import type {
   ClientConfig,
   EmailUpdate,
   Mark,
+  Preferences,
+  RegisterLinksResponse,
   RegisterResponse,
   SelfViewContext,
   TokenLookup,
@@ -19,7 +21,9 @@ export type Request =
   | { type: 'mp:update'; emailId: string; update: EmailUpdate }
   | { type: 'mp:selfView'; account: string; tokens: string[]; context: SelfViewContext }
   | { type: 'mp:marks'; account: string; by: 'thread' | 'message'; ids: string[] }
-  | { type: 'mp:activity'; limit: number };
+  | { type: 'mp:activity'; limit: number }
+  | { type: 'mp:registerLinks'; emailId: string; urls: string[] }
+  | { type: 'mp:preferences'; emailId: string; preferences: Preferences };
 
 export type RequestType = Request['type'];
 export type RequestOf<K extends RequestType> = Extract<Request, { type: K }>;
@@ -56,6 +60,8 @@ export interface ResponseMap {
   'mp:selfView': boolean;
   'mp:marks': Record<string, Mark> | null;
   'mp:activity': ActivityItem[] | null;
+  'mp:registerLinks': RegisterLinksResponse | null;
+  'mp:preferences': boolean;
 }
 
 /** Messages from the service worker to Gmail tabs. */
@@ -72,6 +78,8 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<RequestType>([
   'mp:selfView',
   'mp:marks',
   'mp:activity',
+  'mp:registerLinks',
+  'mp:preferences',
 ]);
 
 export function isRequest(message: unknown): message is Request {

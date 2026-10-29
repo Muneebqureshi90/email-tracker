@@ -152,7 +152,8 @@ public class EmailService {
                 emailId,
                 request.notifications() == null ? email.notifications() : request.notifications(),
                 followUp,
-                request.trackingEnabled() == null ? email.trackingEnabled() : request.trackingEnabled());
+                request.trackingEnabled() == null ? email.trackingEnabled() : request.trackingEnabled(),
+                request.trackLinks() == null ? email.trackLinks() : request.trackLinks());
     }
 
     private EmailRepository.EmailRow requireEmail(UUID emailId) {

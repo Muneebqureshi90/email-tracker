@@ -44,6 +44,11 @@ public class ActivityService {
         return repository.insert(kind, emailId, eventId, now);
     }
 
+    /** An alert as an activity item (inside the caller's transaction). Returns the new activity id. */
+    public long recordAlert(UUID emailId, UUID alertId, Instant now) {
+        return repository.insertAlert(emailId, alertId, now);
+    }
+
     /** Pushes new items to open dashboard streams, after the finalizer's transaction has committed. */
     public void publish(Collection<Long> activityIds) {
         stream.publish(items(repository.findByIds(activityIds)));
@@ -71,7 +76,7 @@ public class ActivityService {
                         row.kind(),
                         row.emailId(),
                         cipher.decrypt(row.subjectEnc(), EmailService.SUBJECT_COLUMN),
-                        summary(recipients.getOrDefault(row.emailId(), List.of())),
+                        recipientSummary(recipients.getOrDefault(row.emailId(), List.of())),
                         row.occurredAt() == null ? row.createdAt() : row.occurredAt(),
                         row.source(),
                         row.linkId() == null ? null : links.url(row.linkId()).orElse(null),
@@ -79,11 +84,14 @@ public class ActivityService {
                             case "OPEN" -> current.notifyOpens();
                             case "CLICK" -> current.notifyClicks();
                             default -> current.notifyAlerts();
-                        }))
+                        },
+                        row.alertType(),
+                        row.alertText()))
                 .toList();
     }
 
-    private static String summary(List<EmailApi.Recipient> recipients) {
+    /** "Jane Doe" or "Jane Doe +2". */
+    public static String recipientSummary(List<EmailApi.Recipient> recipients) {
         if (recipients.isEmpty()) {
             return "";
         }

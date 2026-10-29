@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { api } from '../api/client';
-import { useAuthAction, useAuthStatus } from '../api/queries';
+import { useAlerts, useAuthAction, useAuthStatus } from '../api/queries';
 import { useLiveUpdates, type LiveState } from '../lib/live';
 import { useTheme, type ThemeChoice } from '../lib/theme';
 import { ErrorBox, Spinner } from './ui';
@@ -10,6 +10,7 @@ const NAV = [
   { to: '/', label: 'Overview', end: true },
   { to: '/emails', label: 'Emails' },
   { to: '/activity', label: 'Activity' },
+  { to: '/alerts', label: 'Alerts' },
   { to: '/contacts', label: 'Contacts' },
   { to: '/reports', label: 'Reports' },
   { to: '/settings', label: 'Settings' },
@@ -36,6 +37,8 @@ export function Layout() {
   const authenticated = auth.data?.authenticated === true;
   const live = useLiveUpdates(authenticated);
   const logout = useAuthAction(() => api<void>('/api/auth/logout', { method: 'POST' }));
+  const alerts = useAlerts('active', 0, authenticated);
+  const newAlerts = authenticated ? (alerts.data?.newCount ?? 0) : 0;
 
   if (auth.isPending) return <Spinner label="Opening MailPulse…" />;
   if (auth.isError) {
@@ -67,6 +70,11 @@ export function Layout() {
             {NAV.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className="nav-link" onClick={() => setMenuOpen(false)}>
                 {item.label}
+                {item.to === '/alerts' && newAlerts > 0 && (
+                  <span className="ml-auto rounded-full bg-warn px-2 text-xs font-semibold text-white" aria-label={`${newAlerts} new`}>
+                    {newAlerts}
+                  </span>
+                )}
               </NavLink>
             ))}
             <div className="mt-6 space-y-3 border-t border-line px-3 pt-4 text-sm">

@@ -57,6 +57,9 @@ Draft from Step 0. Spike results will confirm or correct each item.
   lost). The default send mode does not cancel anything.
 - The owner's own clicks on tracked links are marked only when Chrome opens the link directly;
   if Gmail first routes the click through google.com, that click can count.
+- Link tracking: links written out as a bare address (the text is the URL) are never rewritten,
+  and a link added in the last second before Send can stay untracked. Clicks in the first 15 seconds
+  after sending, or on three links at once, are treated as security scanners and not counted.
 - InboxSDK needs a free App ID from inboxsdk.com, and its telemetry is blocked by extension rules.
 
 ## Privacy and deliverability

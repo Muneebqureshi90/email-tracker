@@ -2,6 +2,9 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, query } from './client';
 import type {
   ActivityPage,
+  AlertPage,
+  AlertStatus,
+  AlertView,
   ApiToken,
   AuthStatus,
   ContactDetail,
@@ -35,10 +38,11 @@ export const keys = {
   settings: ['settings'] as const,
   tokens: ['tokens'] as const,
   accounts: ['accounts'] as const,
+  alerts: ['alerts'] as const,
 };
 
 /** Everything that changes when an open or click is counted. */
-export const LIVE_KEYS = [keys.emails, keys.activity, keys.contacts, keys.reports, ['email']];
+export const LIVE_KEYS = [keys.emails, keys.activity, keys.contacts, keys.reports, keys.alerts, ['email']];
 
 export const useAuthStatus = () => useQuery({ queryKey: keys.auth, queryFn: () => api<AuthStatus>('/api/auth/status') });
 
@@ -78,6 +82,23 @@ export const useReport = (period: 'daily' | 'weekly', date: string | undefined) 
 export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: () => api<Settings>('/api/settings') });
 export const useTokens = () => useQuery({ queryKey: keys.tokens, queryFn: () => api<ApiToken[]>('/api/tokens') });
 export const useAccounts = () => useQuery({ queryKey: keys.accounts, queryFn: () => api<string[]>('/api/accounts') });
+
+export const useAlerts = (status: 'active' | 'all', page: number, enabled = true) =>
+  useQuery({
+    enabled,
+    queryKey: [...keys.alerts, status, page],
+    queryFn: ({ signal }) => api<AlertPage>(`/api/alerts${query({ status, page, size: 25 })}`, { signal }),
+    placeholderData: keepPreviousData,
+  });
+
+export function useUpdateAlert() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; status: AlertStatus; snoozeHours?: number }) =>
+      api<AlertView>(`/api/alerts/${input.id}`, { method: 'PATCH', body: { status: input.status, snoozeHours: input.snoozeHours } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.alerts }),
+  });
+}
 
 export function useSaveSettings() {
   const client = useQueryClient();

@@ -113,6 +113,19 @@ public class TrackingEventRepository {
         return spec.query(Boolean.class).single();
     }
 
+    /** Different links of one email clicked between two instants, whatever their verdict. */
+    int distinctLinksClicked(UUID emailId, Instant from, Instant to) {
+        return jdbc.sql("""
+                SELECT count(DISTINCT tracked_link_id) FROM tracking_event
+                WHERE tracked_email_id = :email AND type = 'CLICK' AND received_at BETWEEN :from AND :to
+                """)
+                .param("email", emailId)
+                .param("from", Sql.ts(from))
+                .param("to", Sql.ts(to))
+                .query(Integer.class)
+                .single();
+    }
+
     void markIgnored(long id, Reason reason, Instant now) {
         jdbc.sql("UPDATE tracking_event SET verdict = 'IGNORED', reason = :reason, decided_at = :now WHERE id = :id")
                 .param("reason", reason.name())

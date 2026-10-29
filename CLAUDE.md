@@ -61,12 +61,13 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - `infra/` docker-compose.yml (build context = repo root), `.env.example`. `scripts/` PowerShell helpers. `docs/` plan and decisions.
 
 ## Status
-- Step 0 approved 2026-10-29 (main). Step 1 spike tooling is on branch `step-1-spikes`, waiting for
-  the owner's test run ("spikes done" starts the analysis; D-037 decides 15 s vs 30 s).
-- Phase 1 approved 2026-10-29 (no Swagger). Owner asked for Phases 2-5 in one run, no stops, one
-  branch each, verify + commit + push per phase, then one final report and merge into main.
-  Work happens in worktree `.worktrees/phase-1-backend`; branches are stacked
-  (phase-2-public -> phase-3-extension -> phase-4-dashboard -> phase-5-links-alerts).
-- Phase 2 (Funnel scripts, autostart, SETUP.md) built on `phase-2-public`.
-- Phase 3 (extension, settings V2 for send mode / DNR / confidential) built on `phase-3-extension`.
-- Phase 4 (dashboard; contacts, reports, export, delete-all endpoints) built on `phase-4-dashboard`.
+- Step 0 approved 2026-10-29 (main). Step 1 spike tooling is on branch `step-1-spikes` (not merged),
+  waiting for the owner's test run ("spikes done" starts the analysis; D-037 decides 15 s vs 30 s,
+  and spike results may flip the D-053 settings).
+- Phase 1 approved 2026-10-29. Phases 2-5 built in one run on the owner's request (2026-10-29), each on
+  its own stacked branch (phase-2-public, phase-3-extension, phase-4-dashboard, phase-5-links-alerts),
+  verified, pushed and fast-forwarded into `main`. Work happened in worktree `.worktrees/phase-1-backend`.
+- Next: owner checklist (final report): Java 25, Tailscale + Funnel, InboxSDK App ID, load the
+  extension, token, spikes, end-to-end Gmail test. Phase 6 only after explicit confirmation.
+- Throwaway test stack `mailpulse-check` (ports 18080/18081, env in the session scratchpad) may still
+  be running: `docker compose -p mailpulse-check down -v` removes it.

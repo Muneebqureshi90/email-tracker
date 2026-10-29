@@ -2,6 +2,7 @@ import type {
   ActivityPage,
   ClientConfig,
   MarksResponse,
+  RegisterLinksResponse,
   RegisterResponse,
   TokenLookup,
 } from '../core/api-types';
@@ -132,6 +133,17 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       const query = `account=${encodeURIComponent(account)}&${parameter}=${valid.map(encodeURIComponent).join(',')}`;
       const result = await deps.api.call<MarksResponse>('GET', `/api/marks?${query}`);
       return result.ok ? result.data.marks : null;
+    },
+    'mp:registerLinks': async ({ emailId, urls }) => {
+      const valid = [...new Set(urls.filter((url) => /^https?:\/\//i.test(url) && url.length <= 2048))].slice(0, 200);
+      if (!UUID.test(emailId) || valid.length === 0) return null;
+      const result = await deps.api.call<RegisterLinksResponse>('POST', `/api/emails/${emailId}/links`, { urls: valid });
+      return result.ok ? result.data : null;
+    },
+    'mp:preferences': async ({ emailId, preferences }) => {
+      if (!UUID.test(emailId)) return false;
+      const result = await deps.api.call('PATCH', `/api/emails/${emailId}/preferences`, preferences);
+      return result.ok;
     },
     'mp:activity': async ({ limit }) => {
       const size = Math.min(Math.max(Math.trunc(limit), 1), 50);

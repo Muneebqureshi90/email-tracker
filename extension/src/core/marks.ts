@@ -31,7 +31,11 @@ export function markTooltip(mark: Mark, now: number): string {
     parts.push(`Opened ${times(mark.openCount)}${last}`);
   }
   if (mark.clickCount > 0) parts.push(`${mark.clickCount} click${mark.clickCount === 1 ? '' : 's'}`);
-  if (parts.length === 0) parts.push('Sent, not opened yet');
+  if (parts.length === 0) {
+    parts.push('Sent, not opened yet');
+    // Q8: every recipient uses a provider that blocks images by default.
+    if (mark.openStatusUnreliable) parts.push('open status may be unreliable');
+  }
   return `MailPulse: ${parts.join(' · ')}`;
 }
 

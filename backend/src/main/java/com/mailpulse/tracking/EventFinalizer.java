@@ -1,6 +1,7 @@
 package com.mailpulse.tracking;
 
 import com.mailpulse.activity.ActivityService;
+import com.mailpulse.alerts.AlertService;
 import com.mailpulse.emails.EmailRepository;
 import com.mailpulse.emails.LinkRepository;
 import com.mailpulse.settings.Settings;
@@ -16,8 +17,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Decides pending events once the self-view hold has passed: a self-view report on either side of the
- * event, the send grace period, unsent drafts and duplicates all lead to IGNORED; the rest are COUNTED,
- * update the counters, and become activity (notifications and live dashboard updates).
+ * event, the send grace period, unsent drafts, scanner clicks and duplicates all lead to IGNORED; the rest
+ * are COUNTED, update the counters, become activity (notifications and live dashboard updates) and may
+ * raise alerts.
  */
 @Component
 public class EventFinalizer {
@@ -29,6 +31,7 @@ public class EventFinalizer {
     private final EmailRepository emails;
     private final LinkRepository links;
     private final ActivityService activity;
+    private final AlertService alerts;
     private final SettingsService settings;
     private final TransactionTemplate transactions;
     private final Clock clock;
@@ -39,6 +42,7 @@ public class EventFinalizer {
             EmailRepository emails,
             LinkRepository links,
             ActivityService activity,
+            AlertService alerts,
             SettingsService settings,
             TransactionTemplate transactions,
             Clock clock) {
@@ -47,6 +51,7 @@ public class EventFinalizer {
         this.emails = emails;
         this.links = links;
         this.activity = activity;
+        this.alerts = alerts;
         this.settings = settings;
         this.transactions = transactions;
         this.clock = clock;
@@ -73,7 +78,11 @@ public class EventFinalizer {
                         email.get().status(),
                         email.get().sentAt(),
                         selfViews.existsBetween(event.emailId(), event.receivedAt().minus(hold), event.receivedAt().plus(hold)),
-                        events.countedDuplicateExists(event, event.receivedAt().minus(dedupe)));
+                        events.countedDuplicateExists(event, event.receivedAt().minus(dedupe)),
+                        event.type(),
+                        event.type() == EventType.CLICK && events.distinctLinksClicked(event.emailId(),
+                                event.receivedAt().minus(FinalizerRules.BURST_WINDOW),
+                                event.receivedAt().plus(FinalizerRules.BURST_WINDOW)) >= FinalizerRules.BURST_LINKS);
                 Optional<Reason> reason = FinalizerRules.decide(facts, grace);
                 if (reason.isPresent()) {
                     events.markIgnored(event.id(), reason.get(), now);
@@ -87,6 +96,9 @@ public class EventFinalizer {
                     links.countClick(event.linkId(), event.receivedAt());
                 }
                 newActivity.add(activity.record(event.type().name(), event.emailId(), event.id(), now));
+                if (event.type() == EventType.OPEN) {
+                    newActivity.addAll(alerts.onOpenCounted(event.emailId(), event.receivedAt(), email.get().lastOpenedAt(), now));
+                }
             }
             return batch.size();
         });

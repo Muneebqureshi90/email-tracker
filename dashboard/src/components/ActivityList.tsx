@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import type { ActivityItem } from '../api/types';
 import { SOURCES, relativeTime } from '../lib/format';
+import { ALERT_LABELS } from '../pages/AlertsPage';
 
 const KINDS: Record<ActivityItem['kind'], { label: string; tone: string }> = {
   OPEN: { label: 'Opened', tone: 'text-good' },
@@ -9,6 +10,7 @@ const KINDS: Record<ActivityItem['kind'], { label: string; tone: string }> = {
 };
 
 function detail(item: ActivityItem): string {
+  if (item.kind === 'ALERT') return item.alertText ?? '';
   if (item.kind === 'CLICK' && item.linkUrl) {
     try {
       return `Link to ${new URL(item.linkUrl).host}`;
@@ -27,7 +29,7 @@ export function ActivityList({ items, now }: { items: ActivityItem[]; now: numbe
       {newestFirst.map((item) => (
         <li key={item.id}>
           <Link to={`/emails/${item.emailId}`} className="grid grid-cols-[5rem_1fr_auto] gap-3 px-4 py-3 text-sm hover:bg-raised/60">
-            <span className={`font-semibold ${KINDS[item.kind].tone}`}>{KINDS[item.kind].label}</span>
+            <span className={`font-semibold ${KINDS[item.kind].tone}`}>{item.alertType ? ALERT_LABELS[item.alertType].label : KINDS[item.kind].label}</span>
             <span className="min-w-0">
               <span className="block truncate font-medium">{item.subject || '(no subject)'}</span>
               <span className="block truncate text-xs text-muted">

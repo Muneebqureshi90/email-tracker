@@ -69,6 +69,8 @@ function activity(id: number): ActivityItem {
     source: 'GMAIL_PROXY',
     linkUrl: null,
     shouldNotify: true,
+    alertType: null,
+    alertText: null,
   };
 }
 

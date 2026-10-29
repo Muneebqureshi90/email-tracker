@@ -208,4 +208,52 @@ describe('overview and reports', () => {
   });
 });
 
+describe('alerts and per-email extras (Phase 5)', () => {
+  it('lists open alerts, shows the badge and snoozes one', async () => {
+    const alert = {
+      id: 'a1',
+      type: 'OPEN_SPIKE',
+      text: 'Opened 3 times within 60 minutes',
+      status: 'NEW',
+      createdAt: '2026-10-29T10:00:00Z',
+      snoozedUntil: null,
+      emailId: '7b0f3c52-1d9e-4f1a-9c41-2b9d6f0a1e11',
+      subject: 'Quarterly plan',
+      recipients: 'Jane Doe',
+    };
+    const calls = mockApi({
+      'GET /api/alerts': { body: { items: [alert], page: 0, size: 25, total: 1, newCount: 1 } },
+      'PATCH /api/alerts/a1': (call) => ({ body: { ...alert, ...(call.body as object) } }),
+    });
+    renderAt('/alerts');
+    expect(await screen.findByText('Opened 3 times within 60 minutes')).toBeTruthy();
+    expect(screen.getByText('Hot')).toBeTruthy();
+    expect(await screen.findByLabelText('1 new')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Snooze 1 day' }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'PATCH')?.body).toEqual({ status: 'SNOOZED', snoozeHours: 24 }));
+  });
+
+  it('sets the follow-up time per email and warns when open status is unreliable', async () => {
+    const id = '7b0f3c52-1d9e-4f1a-9c41-2b9d6f0a1e11';
+    const detail = {
+      summary: email({ openCount: 0, lastOpenedAt: null, firstOpenedAt: null, openStatusUnreliable: true }),
+      trackOpens: true,
+      trackLinks: false,
+      trackingEnabled: true,
+      notifications: true,
+      followUpHours: null,
+      gmailMessageId: null,
+      gmailThreadId: null,
+      cancelledAt: null,
+      links: [],
+      events: [],
+    };
+    const calls = mockApi({ [`GET /api/emails/${id}`]: { body: detail }, [`PATCH /api/emails/${id}/preferences`]: { status: 204 } });
+    renderAt(`/emails/${id}`);
+    expect((await screen.findByRole('note')).textContent).toContain('Open status may be unreliable');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /Follow-up reminder/ }), '72');
+    await waitFor(() => expect(calls.find((call) => call.method === 'PATCH')?.body).toEqual({ followUpHours: 72 }));
+  });
+});
+
 vi.setConfig({ testTimeout: 15_000 });

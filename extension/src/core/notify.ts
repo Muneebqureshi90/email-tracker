@@ -7,7 +7,11 @@ export interface NotificationSpec {
   message: string;
   contextMessage: string;
   emailId: string | null;
+  /** Offer the "Mute this email" button (single-email notifications only). */
+  canMute: boolean;
 }
+
+export const MUTE_BUTTON = 'Mute this email';
 
 const SOURCES: Record<string, string> = {
   GMAIL_PROXY: 'via Gmail',
@@ -31,11 +35,12 @@ function verbOf(item: ActivityItem): string {
     case 'CLICK':
       return 'Clicked';
     case 'ALERT':
-      return 'Alert';
+      return item.alertType === 'FOLLOW_UP' ? 'Follow up' : item.alertType === 'OPEN_SPIKE' ? 'Hot' : 'Opened again';
   }
 }
 
 function contextOf(item: ActivityItem): string {
+  if (item.kind === 'ALERT') return item.alertText ?? '';
   if (item.kind === 'CLICK' && item.linkUrl) {
     try {
       return `Link to ${new URL(item.linkUrl).host}`;
@@ -55,13 +60,14 @@ export function notificationsFor(items: readonly ActivityItem[], groupAbove = 3)
     return [
       {
         id: `mp:group:${last.id}`,
-        title: `${wanted.length} new opens and clicks`,
+        title: `${wanted.length} new MailPulse updates`,
         message: wanted
           .slice(-3)
           .map((item) => `${verbOf(item)}: ${subjectOf(item)}`)
           .join('\n'),
         contextMessage: 'MailPulse',
         emailId: null,
+        canMute: false,
       },
     ];
   }
@@ -71,6 +77,7 @@ export function notificationsFor(items: readonly ActivityItem[], groupAbove = 3)
     message: item.recipients || 'Recipient unknown',
     contextMessage: contextOf(item),
     emailId: item.emailId,
+    canMute: true,
   }));
 }
 

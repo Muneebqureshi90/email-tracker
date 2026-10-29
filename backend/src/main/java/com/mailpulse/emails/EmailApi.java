@@ -51,7 +51,7 @@ public final class EmailApi {
             @Size(max = 200) List<UUID> usedLinkIds) {}
 
     /** Any field left null keeps its value. followUpHours 0 removes the per-email override. */
-    public record PreferencesRequest(Boolean notifications, Integer followUpHours, Boolean trackingEnabled) {}
+    public record PreferencesRequest(Boolean notifications, Integer followUpHours, Boolean trackingEnabled, Boolean trackLinks) {}
 
     public record TokenLookup(UUID id, EmailStatus status) {}
 

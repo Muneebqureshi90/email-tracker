@@ -1,7 +1,7 @@
 # MailPulse — Plan
 
-Status: **Step 0 draft, waiting for owner approval.** Nothing here is built yet. Items marked
-**[Spike n]** are assumptions that Step 1 must prove before we build on them.
+Status: Step 0 approved and Phases 1-5 built (2026-10-29); Phase 6 waits for the owner. Items marked
+**[Spike n]** are still unproven until the Step 1 results are in; each one is a setting (DECISIONS D-053).
 
 Related: [FEATURES.md](FEATURES.md) · [DECISIONS.md](DECISIONS.md) · [LIMITATIONS.md](LIMITATIONS.md) ·
 research notes in [research/](research/).

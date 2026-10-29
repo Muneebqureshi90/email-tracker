@@ -6,7 +6,7 @@ open and shows ✓/✓✓ marks in Gmail, desktop notifications and a dashboard.
 own PC with free tools; no email body ever leaves your browser.
 
 Status: backend (Phase 1), public access through Tailscale Funnel (Phase 2), the Chrome extension
-(Phase 3) and the dashboard (Phase 4) are built. Install steps: [docs/SETUP.md](docs/SETUP.md).
+(Phase 3), the dashboard (Phase 4) and link tracking with alerts (Phase 5) are built. Install steps: [docs/SETUP.md](docs/SETUP.md).
 
 ## Screenshots
 Dashboard with test data (example.com addresses), light and dark:
@@ -17,6 +17,7 @@ Dashboard with test data (example.com addresses), light and dark:
 |---|---|
 | ![Email detail with every request and why it counted](docs/screenshots/email-detail.png) | ![Reports](docs/screenshots/reports.png) |
 | ![Dark theme](docs/screenshots/overview-dark.png) | ![Settings](docs/screenshots/settings.png) |
+| ![Alerts](docs/screenshots/alerts.png) | ![Emails on a phone](docs/screenshots/emails-phone.png) |
 
 ## Quick start (Windows 11, PowerShell)
 Requires Java 25, Docker Desktop and Tailscale (see [docs/SETUP.md](docs/SETUP.md)).

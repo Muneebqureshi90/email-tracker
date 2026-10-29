@@ -3,6 +3,7 @@ import { Layout } from './components/Layout';
 import { Empty, TextLink } from './components/ui';
 import { AccountPage } from './pages/AccountPage';
 import { ActivityPage } from './pages/ActivityPage';
+import { AlertsPage } from './pages/AlertsPage';
 import { AuthPage } from './pages/AuthPage';
 import { ContactDetailPage, ContactsPage } from './pages/ContactsPage';
 import { EmailDetailPage } from './pages/EmailDetailPage';
@@ -30,6 +31,7 @@ export const routes: RouteObject[] = [
       { path: 'emails', element: <EmailsPage /> },
       { path: 'emails/:id', element: <EmailDetailPage /> },
       { path: 'activity', element: <ActivityPage /> },
+      { path: 'alerts', element: <AlertsPage /> },
       { path: 'contacts', element: <ContactsPage /> },
       { path: 'contacts/:address', element: <ContactDetailPage /> },
       { path: 'reports', element: <ReportsPage /> },
