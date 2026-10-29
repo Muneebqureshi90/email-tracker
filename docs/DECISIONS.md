@@ -17,12 +17,12 @@ API) with separate DB roles. Why: the brief asks for it, half the moving parts, 
 the public connector plus the tunnel's path rules give two independent layers. Revisit if the public
 side ever needs to scale or run elsewhere.
 
-## D-004 Dashboard served by the backend on 127.0.0.1:8080 — Proposed
+## D-004 Dashboard served by the backend on 127.0.0.1:8080 — Accepted
 Options: separate nginx container; Vite dev server only. Why: same origin as the API, so no CORS for the
 dashboard, cookies and SSE just work, one container less. Vite dev server (with an `/api` proxy) is used
 only during development.
 
-## D-005 Dashboard session in an HttpOnly cookie — Proposed
+## D-005 Dashboard session in an HttpOnly cookie — Accepted
 JWT (HS256, 12 h) inside an `HttpOnly; SameSite=Strict` cookie, plus CSRF token, Origin check and Host
 allow-list. Options: JWT in `localStorage` + `Authorization` header; server-side sessions. Why:
 `EventSource` cannot send headers; scripts cannot read the cookie (XSS cannot steal it); still a JWT as
@@ -44,19 +44,19 @@ holding SSE (not an allowed offscreen reason), Web Push (needs Google's push ser
 Why: alarms survive service-worker shutdowns, wake the worker reliably, and 30 s keeps us inside the
 1-minute goal. Current Chrome docs allow intervals down to 1 s, older versions 30 s.
 
-## D-009 Gmail integration through InboxSDK behind an adapter — Pending Q3
+## D-009 Gmail integration through InboxSDK behind an adapter — Accepted (Q3)
 Options: gmail.js (last release 2025-01-01, XHR interception, no list-row API); custom DOM adapter (most
 work, breaks most often). Why InboxSDK: actively maintained (weekly releases in 2026), MIT/Apache-2.0,
 has every hook we need (presending/sent/sendCanceled, thread rows with tooltips, message views,
 `isElementInQuotedArea`). Cost: free App ID registration and telemetry that options cannot fully stop
 (see D-010). All InboxSDK calls live in `extension/src/gmail/` so a switch touches one folder.
 
-## D-010 Block InboxSDK telemetry — Proposed (Spike 1 verifies)
+## D-010 Block InboxSDK telemetry — Accepted (Spike 1 verifies)
 `eventTracking: false`, `globalErrorLogging: false`, plus DNR block rules for `||api.inboxsdk.com^` and
 `||pubsub.googleapis.com/v1/projects/mailfoogae/`. Why: the 2.2.33 source still sends passive events
 and SDK errors (with a hash of the Gmail address) even with both options off.
 
-## D-011 Register during compose, insert synchronously at send — Proposed (Spike 1 + Q6)
+## D-011 Register during compose, insert synchronously at send — Accepted (Q6; Spike 1 verifies)
 Options: (a) the brief's flow — register at send, wait up to 2 s, which in InboxSDK means cancelling
 `presending` and calling `send()` again; (b) register when the compose opens and register link URLs as
 they are typed, then insert pixel/links synchronously in `presending`. Why (b): zero delay at send,
@@ -64,7 +64,7 @@ no cancel-and-resend (safer with Undo Send, scheduled send, Send & archive, shor
 open is automatic. Cost: unsent drafts leave `DRAFT` rows (purged after 24 h) and a link typed in the
 last second may stay untracked. (a) stays as the fallback.
 
-## D-012 Layered self-view suppression with a hold window — Proposed (Spike 3 tunes)
+## D-012 Layered self-view suppression with a hold window — Accepted (Spike 3 tunes)
 DNR block/self-header for direct requests, optional DNR fragment rule, self-view reports, a 30 s
 `PENDING` hold, a 10 s send grace, and a full raw log (PLAN §4.3). Why: no single layer is reliable in
 Gmail because Google's proxy fetches the pixel for both sender and recipient. Evidence for the DNR
@@ -94,14 +94,14 @@ Own small classifier for the signals that matter (mail proxies, Apple MPP, known
 8.3 limited to browser/OS/device fields for clicks and direct opens. Options: ua-parser (lighter, less
 maintained); Yauaa for everything. Measure startup and memory in Phase 1 before final choice.
 
-## D-018 Field encryption at rest — Pending Q4
+## D-018 Field encryption at rest — Accepted: option B (Q4)
 Option A: none, rely on BitLocker and Postgres never being published. Option B: AES-256-GCM for
 subjects, addresses and names (key in `.env`, key version stored per value) + HMAC-SHA256 blind index
 for exact address lookups; subject search runs in memory after decrypting (fine for tens of thousands
 of emails). Trade-off: B protects dumps/backups and casual DB reads, costs SQL `LIKE` search and adds
 code; losing the key loses the data.
 
-## D-019 Java 25 + Spring Boot 4.1 — Pending Q5
+## D-019 Java 25 + Spring Boot 4.1 — Accepted (Q5)
 Options: stay on the installed JDK 21. Why 25: current LTS (support to 2031), supported by Boot 4.1.
 
 ## D-020 TypeScript 6.0.x — Accepted
@@ -112,7 +112,7 @@ revisit when typescript-eslint supports 7.
 Options: Vite + `@crxjs/vite-plugin` 3.0, WXT 0.21 (still 0.x), plain Vite multi-entry. Spikes use a
 single esbuild command. Decide after Spike 1 shows InboxSDK's bundling needs.
 
-## D-022 Charts with Recharts 3 — Proposed
+## D-022 Charts with Recharts 3 — Accepted
 Options: Chart.js, ECharts, visx. Why: React-native API, actively maintained (3.10.1, Oct 2026), enough
 for line/bar/heatmap-style charts.
 
@@ -121,7 +121,7 @@ Everything runs on the owner's Windows PC in Docker. No paid services, no cloud 
 purchase, no pricing/teams/billing features. Consequence: opens are lost and tracked links fail while
 the PC is off (LIMITATIONS.md), which drives D-029.
 
-## D-024 Git workflow — Pending Q9
+## D-024 Git workflow — Accepted (Q9)
 One branch per step/phase (`step-0-research`, `step-1-spikes`, `phase-1-backend`, …); after the
 owner's "approved", fast-forward `main`. Why: matches the approval gates; `main` only holds approved
 work.
@@ -138,7 +138,7 @@ Why: matches the common case of follow-ups in one thread. Revisit after reading 
 An open that passes every filter promotes `DRAFT`/`SCHEDULED`/`CANCELLED` to `SENT`. Why: covers missed
 `sent` callbacks (backend down, scheduled send) without losing real opens.
 
-## D-028 Public URL through Tailscale Funnel — Proposed (Q1)
+## D-028 Public URL through Tailscale Funnel — Accepted (Q1)
 A fully local setup cannot see opens: the recipient's mail app or Google's proxy must reach the pixel
 over the internet. Options:
 - Cloudflare named tunnel — stable, but needs an owned domain (yearly fee). Rejected: not free.
@@ -153,7 +153,7 @@ over the internet. Options:
 Risks: shared `*.ts.net` reputation (Spike 2 checks spam placement), unpublished bandwidth limits, and
 the hostname depends on the machine and tailnet names (renaming breaks sent pixels).
 
-## D-029 Link tracking off by default — Proposed (Q2)
+## D-029 Link tracking off by default — Accepted (Q2)
 The brief wants link tracking on by default. With a PC-only backend, a click while the PC is off shows
 the recipient an error page instead of the destination. Default off, per-email toggle on.
 
@@ -183,3 +183,29 @@ details for the same reason). Browser/OS/device appear only for clicks and direc
 ## D-035 Link tracking switch per email — Accepted (brief)
 The brief asks for a per-email link-tracking toggle. Mailsuite uses a per-link choice plus a global
 default. We follow the brief; a per-link choice can come later.
+
+## Owner answers, 2026-10-29
+"Approved, defaults" for Q1–Q10, plus six additions recorded below (D-036 to D-039) and in
+SETUP.md: InboxSDK pinned to a version at least 14 days old, a 15 s hold-window test in Spike 3,
+SETUP.md steps against Windows sleep, a spam-placement check in Spike 2, an encryption-key backup
+step, and no Apple device for testing. Q7 (Apple prefetch flagged, not counted) and Q8 (three small
+extras in v1) are accepted.
+
+## D-036 Dependency age rule — Accepted (owner)
+Install only versions published at least 14 days before the install date, pinned exactly (no `^`/`~`).
+npm: `npm install --save-exact --before=<today minus 14 days>` so transitive packages follow the same
+rule; the lockfile is committed. Maven: check the release date on Maven Central before adding or
+bumping a dependency. Step 1 pins `@inboxsdk/core` 2.2.30 (published 2026-10-08); 2.2.31–2.2.33 are
+newer than 14 days on 2026-10-29.
+
+## D-037 Self-view hold window: 15 s or 30 s — Pending Spike 3
+Spike 3 measures the gap between the extension's self-view report and Google's proxy fetch. Use 15 s if
+every observed gap plus a 3 s margin fits inside 15 s; otherwise keep 30 s. The measured numbers go here.
+
+## D-038 No Apple Mail testing — Accepted (owner)
+No Apple device is available. Apple Mail Privacy Protection detection relies on published signatures
+only; flagged events stay visible in the raw log so the rule can be corrected later.
+
+## D-039 Spike safety — Accepted
+The Step 1 test extension only touches emails whose subject contains a test code such as `[S1-B]`.
+All other emails send unchanged. It is removed after Step 1.

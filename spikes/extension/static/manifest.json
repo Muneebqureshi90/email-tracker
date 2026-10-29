@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "MailPulse Step 1 spike",
+  "version": "0.0.1",
+  "description": "Throwaway test extension for MailPulse Step 1. Remove after testing.",
+  "minimum_chrome_version": "120",
+  "permissions": ["scripting", "storage", "declarativeNetRequest", "declarativeNetRequestFeedback", "webRequest"],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://*.googleusercontent.com/*",
+    "https://*.ts.net/*",
+    "https://api.inboxsdk.com/*",
+    "https://pubsub.googleapis.com/*",
+    "http://127.0.0.1:8090/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{ "matches": ["https://mail.google.com/*"], "js": ["content.js"], "run_at": "document_end" }],
+  "action": { "default_title": "MailPulse spike", "default_popup": "popup.html" }
+}

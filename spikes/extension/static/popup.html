@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MailPulse spike</title>
+    <style>
+      body { font: 13px system-ui, sans-serif; width: 300px; margin: 12px; }
+      h1 { font-size: 14px; margin: 0 0 8px; }
+      fieldset { border: 1px solid #ccc; margin: 8px 0; padding: 6px 8px; }
+      label { display: block; margin: 2px 0; }
+      #status div { margin: 2px 0; }
+      .bad { color: #b91c1c; }
+      .good { color: #15803d; }
+    </style>
+  </head>
+  <body>
+    <h1>MailPulse Step 1 spike</h1>
+    <div id="status"></div>
+    <fieldset>
+      <legend>Send</legend>
+      <label><input type="checkbox" id="insertPixel" /> Insert pixel (only subjects with [S…] codes)</label>
+      <label><input type="checkbox" id="stripQuoted" /> Strip old pixels from quoted text</label>
+      <label><input type="radio" name="sendMode" value="presync" /> Mode A: insert instantly at send</label>
+      <label><input type="radio" name="sendMode" value="cancelResend" /> Mode B: cancel, wait 0.8 s, resend</label>
+    </fieldset>
+    <fieldset>
+      <legend>Self-view rules (DNR)</legend>
+      <label><input type="radio" name="dnrMode" value="observe" /> Observe (allow + log matches)</label>
+      <label><input type="radio" name="dnrMode" value="block" /> Block</label>
+      <label><input type="radio" name="dnrMode" value="off" /> Off</label>
+    </fieldset>
+    <button id="clearSent" type="button">Forget sent test emails</button>
+    <script src="popup.js"></script>
+  </body>
+</html>

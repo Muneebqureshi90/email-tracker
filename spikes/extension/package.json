@@ -1,0 +1,16 @@
+{
+  "name": "mailpulse-spike-extension",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Throwaway Step 1 spike extension for MailPulse. Never used by real code.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@inboxsdk/core": "2.2.30"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

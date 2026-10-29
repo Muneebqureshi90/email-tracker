@@ -30,8 +30,12 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - TypeScript strict mode, no `any`. TypeScript pinned to 6.0.x (typescript-eslint limit).
 
 ## Commands
-None yet — code starts in Step 1 (spikes) after approval.
+Step 1 spikes (throwaway, see spikes/README.md):
+- `.spikessetup.ps1 -AppId <sdk_id>` builds the test extension into spikes/extension/dist
+- `.spikesstart.ps1` starts the logger and Tailscale Funnel for /t/; `.spikesstop.ps1` turns Funnel off
+- `.spikesmark.ps1 "label"` writes a marker; `node spikes/logger/analyze.mjs` summarises spikes/out/
+- npm installs: `npm install --save-exact --before=<today minus 14 days>` (D-036)
 
 ## Status
-- Step 0 (research + plan) done on branch `step-0-research`; waiting for owner approval and answers to
-  PLAN §13 (Q1–Q10). Scope: personal, free, local-only; public address via Tailscale Funnel.
+- Step 0 approved 2026-10-29 (main). Step 1 tooling built and tested on branch `step-1-spikes`;
+  waiting for the owner to run spikes/README.md, then analysis and the Step 1 checkpoint.
