@@ -31,9 +31,9 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 
 ## Commands
 Step 1 spikes (throwaway, see spikes/README.md):
-- `.spikessetup.ps1 -AppId <sdk_id>` builds the test extension into spikes/extension/dist
-- `.spikesstart.ps1` starts the logger and Tailscale Funnel for /t/; `.spikesstop.ps1` turns Funnel off
-- `.spikesmark.ps1 "label"` writes a marker; `node spikes/logger/analyze.mjs` summarises spikes/out/
+- `.\spikes\setup.ps1 -AppId <sdk_id>` builds the test extension into spikes/extension/dist
+- `.\spikes\start.ps1` starts the logger and Tailscale Funnel for /t/; `.\spikes\stop.ps1` turns Funnel off
+- `.\spikes\mark.ps1 "label"` writes a marker; `node spikes/logger/analyze.mjs` summarises spikes/out/
 - npm installs: `npm install --save-exact --before=<today minus 14 days>` (D-036)
 
 ## Status
