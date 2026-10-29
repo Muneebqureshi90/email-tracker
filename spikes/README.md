@@ -42,8 +42,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
 ## Part 0 — One-time setup (about 15 min)
-1. Install Tailscale: `winget install --id Tailscale.Tailscale` (or https://tailscale.com/download/windows).
-   Open it and sign in (free plan).
+1. Install Tailscale: `winget install --id Tailscale.Tailscale`. Without winget: download the Windows
+   installer from https://tailscale.com/download/windows and run it. Open Tailscale and sign in (free plan).
 2. Open https://login.tailscale.com/admin/dns and turn on **MagicDNS** and **HTTPS Certificates**.
 3. Register a free InboxSDK App ID at https://register.inboxsdk.com/ and copy it (starts with `sdk_`).
 4. Build the test extension:

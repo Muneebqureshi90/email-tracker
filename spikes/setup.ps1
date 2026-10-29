@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 
 $tailscale = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
 if (-not (Test-Path $tailscale)) {
-    throw 'Tailscale is not installed. Run: winget install --id Tailscale.Tailscale  (then open Tailscale and sign in)'
+    throw 'Tailscale is not installed. Install it with: winget install --id Tailscale.Tailscale, or download the installer from https://tailscale.com/download/windows. Then open Tailscale and sign in.'
 }
 $state = & $tailscale status --json | ConvertFrom-Json
 if ($state.BackendState -ne 'Running') {

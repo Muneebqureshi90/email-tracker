@@ -8,8 +8,8 @@ Run commands in PowerShell from the project folder unless stated otherwise.
 |---|---|---|
 | Git, Chrome | already installed | Step 1 |
 | Node.js 24 LTS | already installed (24.19) | Step 1 |
-| Tailscale | `winget install --id Tailscale.Tailscale` | Step 1 |
-| Java 25 (Temurin) | `winget install --id EclipseAdoptium.Temurin.25.JDK` | Phase 1 |
+| Tailscale | `winget install --id Tailscale.Tailscale`, or without winget: download the Windows installer from https://tailscale.com/download/windows and run it | Step 1 |
+| Java 25 (Temurin) | `winget install --id EclipseAdoptium.Temurin.25.JDK`, or without winget: download the Windows x64 JDK `.msi` from https://adoptium.net/temurin/releases/?version=25&os=windows and run it with **Set JAVA_HOME variable** and **Add to PATH** switched on. Check with `java -version` in a new PowerShell window. | Phase 1 |
 | Docker Desktop | already installed (29.8) | Phase 1 |
 
 ## 2. Public address with Tailscale Funnel (free)
