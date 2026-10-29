@@ -29,3 +29,6 @@ Thumbs.db
 
 # Spike local config (contains the personal Funnel hostname)
 spikes/extension/spike.config.json
+
+# Git worktrees (parallel branches)
+.worktrees/
