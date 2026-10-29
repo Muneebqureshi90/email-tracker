@@ -211,7 +211,7 @@ browser). Documented in LIMITATIONS.md.
   ✓ grey = sent, not opened; ✓✓ green = opened or clicked; no mark = not tracked. Tooltip (plain
   text): "Opened 3 times, last 1 hour ago · 2 clicks".
 - If every recipient uses a provider that blocks images by default (for example Outlook.com, Yahoo,
-  Proton), the tooltip adds "open status may be unreliable" (proposed, small; Mailsuite does the same).
+  Proton), the tooltip adds "open status may be unreliable" (Q8; Mailsuite does the same).
 - Thread view: `MessageView.addAttachmentIcon` on each tracked message sent by the owner.
 
 ### 4.6 Notifications
@@ -220,7 +220,7 @@ browser). Documented in LIMITATIONS.md.
   `chrome.notifications` toast per item (grouped into one toast when there are more than 3).
 - The first run after install starts from the newest id (no backlog flood).
 - Clicking a toast opens `http://127.0.0.1:8080/emails/<id>`. A "Mute this email" button stops
-  further toasts for that email (proposed, small; Mailsuite has the same).
+  further toasts for that email (Q8; Mailsuite has the same).
 - Notification rules use the settings at the time of the event, so muting works immediately
   (Mailsuite freezes them per email at send time).
 - The dashboard receives the same items live over SSE (`GET /api/stream`).
@@ -228,7 +228,7 @@ browser). Documented in LIMITATIONS.md.
 ### 4.7 Alerts and reports
 
 - Rules run with the injectable `Clock`: follow-up (no counted open within N hours; default 48,
-  options 24/48/72, per-email override in the compose status bar — proposed), open spike (3+ opens
+  options 24/48/72, per-email override in the compose status bar, Q8), open spike (3+ opens
   within 60 min), revival (open after 7+ days without opens).
 - Alerts arrive as desktop notifications and in the dashboard. MailPulse never sends email
   (no SMTP, no Gmail send permission); Mailsuite emails its reminders and reports.
@@ -412,6 +412,9 @@ phone app (Apple Mail if available).
 5. Extra checks: InboxSDK with telemetry blocked (zero requests, no breakage); service worker →
    `127.0.0.1` under Local Network Access; Funnel passes `HEAD`, sets `X-Forwarded-For` and returns
    404 on other paths; spam-folder check for emails carrying `*.ts.net` pixels.
+6. Owner additions (2026-10-29): Spike 3 decides between a 15 s and a 30 s hold (D-037); Spike 2
+   records Inbox/Promotions/Spam (Gmail) and Focused/Other/Junk (Outlook.com) placement; no Apple
+   device, so Apple Mail is not tested (D-038). Test guide: spikes/README.md; results: spikes/RESULTS.md.
 
 **Phase 1 — Backend core.** Schema, public endpoints (`/t` and `/c`), ingest + finalizer, auth,
 tokens, email registration, self-views, marks, activity, SSE, settings. Done when `verify.ps1` passes

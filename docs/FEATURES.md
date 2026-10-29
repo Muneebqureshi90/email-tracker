@@ -4,8 +4,8 @@ Owner's scope (2026-10-29): personal use only, free tools only, runs on the owne
 teams and billing are out. Sources: research/mailsuite-product.md and research/mailsuite-helpcenter.md
 (read 2026-10-29). Mailsuite descriptions are paraphrased; MailPulse uses its own name, text and design.
 
-Scope key: **v1** = Phases 1–5 · **v1 (proposed)** = small addition found in research, needs the
-owner's OK (question Q8) · **later** = Phase 6, only after the owner confirms · **out** = not planned.
+Scope key: **v1** = Phases 1–5 · **v1 (Q8)** = small addition found in research, approved by the
+owner on 2026-10-29 · **later** = Phase 6, only after the owner confirms · **out** = not planned.
 
 ## Tracking
 
@@ -18,7 +18,7 @@ owner's OK (question Q8) · **later** = Phase 6, only after the owner confirms �
 | Per-email tracking switch | Checkbox next to Send ("track opens") plus a global default. | Compose button + setting. | **v1.** Compose toolbar toggle + default in Settings. |
 | Link click tracking | Per-link "track this link" plus a global "track clicks by default"; clicks redirect through Mailsuite. | Links rewritten to a redirect URL; server logs and redirects; scanner patterns filtered. | **v1 (Phase 5).** Per-email switch as the brief asks (D-035). **Default off**, because links fail while the PC is off (D-029). |
 | Bot / prefetch filtering | Separates human opens from Apple Mail Privacy Protection, scanners, preloading apps; clicks right after delivery treated as bots. | User-agent, timing and IP heuristics. | **v1.** Every raw event stored with a verdict and reason (PLAN §4.2–4.4). |
-| "Open status may be unreliable" | Tooltip warning for recipients whose mail service probably blocks images (~5–10%). | Recipient-domain list. | **v1 (proposed).** Same idea, small static list (Outlook.com, Yahoo, Proton…). |
+| "Open status may be unreliable" | Tooltip warning for recipients whose mail service probably blocks images (~5–10%). | Recipient-domain list. | **v1 (Q8).** Same idea, small static list (Outlook.com, Yahoo, Proton…). |
 | Self-open protection | Your own views are not counted. Three layers: replacing the Sent copy with a pixel-free one ("Debeaconizer", patented); extension rules that block your own pixel in Gmail tabs, including inside Google's proxy URLs; no tracking for emails to yourself. | Server-side Sent-copy swap; MV3 `declarativeNetRequest` rules on `*.googleusercontent.com`. | **v1**, own design: DNR rules on our host + self-view reports + 30 s hold + send grace (PLAN §4.3). Sent-copy swap **out** (patent, needs Gmail API — D-030). |
 | Emails to yourself | Not tracked; a warning is shown. | Recipient check in the extension. | **v1.** |
 | Plain-text mode | Warning; cannot be tracked. | Compose check. | **v1.** Notice; sends untracked. |
@@ -30,9 +30,9 @@ owner's OK (question Q8) · **later** = Phase 6, only after the owner confirms �
 
 | Mailsuite feature | What it does | Likely technical approach | MailPulse scope |
 |---|---|---|---|
-| Real-time desktop notifications | Chrome notification on every open; first click and first PDF view; "mute all of this type" and "mute this conversation" buttons. | Chrome notifications fed by a WebSocket. | **v1.** Every counted open and click, 30 s polling (D-008). **"Mute this email" button: v1 (proposed).** |
+| Real-time desktop notifications | Chrome notification on every open; first click and first PDF view; "mute all of this type" and "mute this conversation" buttons. | Chrome notifications fed by a WebSocket. | **v1.** Every counted open and click, 30 s polling (D-008). **"Mute this email" button: v1 (Q8).** |
 | Email notifications | Email on the first open. | Server sends email. | **out.** MailPulse never sends email (D-033). |
-| "Not opened" reminder | Reminder if not opened within 24/48/72 h; default in settings, override per email in compose; snooze/disable from the reminder email. | Server scheduler + email. | **v1.** Desktop notification + dashboard alert; default 48 h. **Per-email override in compose: v1 (proposed).** |
+| "Not opened" reminder | Reminder if not opened within 24/48/72 h; default in settings, override per email in compose; snooze/disable from the reminder email. | Server scheduler + email. | **v1.** Desktop notification + dashboard alert; default 48 h. **Per-email override in compose: v1 (Q8).** |
 | "No reply" reminder ("monitor reply") | Reminder if nobody replied within 24/48/72 h. | Server reads the thread via the Gmail API. | **later.** Needs reply detection. |
 | Open spike ("hot conversation") alert | Alert when an email gets several opens in a short time (threshold not published). | Server rule on recent opens. | **v1.** 3+ opens within 60 min (editable). |
 | Revival alert | Alert when an old email is opened again (threshold not published). | Server rule on gap since last open. | **v1.** Open after 7+ days without opens (editable). |
