@@ -14,6 +14,8 @@ Requires Java 25, Docker Desktop and Tailscale (see [docs/SETUP.md](docs/SETUP.m
 ```powershell
 .\scripts\new-env.ps1     # creates infra\.env with secrets - back up the encryption key!
 .\scripts\dev.ps1         # starts PostgreSQL + backend on 127.0.0.1:8080 (API) and 8081 (tracking)
+.\scripts\funnel.ps1      # publishes only /t/ and /c/ on your Tailscale address and checks them
+.\scripts\autostart.ps1 -Install   # start everything at Windows sign-in
 .\scripts\verify.ps1      # all checks: build, unit and integration tests, dependency audit
 ```
 

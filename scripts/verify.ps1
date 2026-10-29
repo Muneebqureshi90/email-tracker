@@ -10,9 +10,25 @@ param([switch]$SkipAudit)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 
+Write-Host '== Scripts: PowerShell syntax and ASCII-only text'
+# Windows PowerShell 5.1 reads BOM-less scripts in the ANSI code page, so scripts stay ASCII.
+$scriptProblems = @()
+foreach ($script in Get-ChildItem (Join-Path $root 'scripts') -Filter *.ps1) {
+    $tokens = $null
+    $parseErrors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+    foreach ($e in $parseErrors) { $scriptProblems += "$($script.Name):$($e.Extent.StartLineNumber) $($e.Message)" }
+    if ([System.IO.File]::ReadAllBytes($script.FullName) | Where-Object { $_ -gt 127 } | Select-Object -First 1) {
+        $scriptProblems += "$($script.Name): contains non-ASCII characters"
+    }
+}
+if ($scriptProblems) { throw "Script problems:`n$($scriptProblems -join "`n")" }
+
 # java and docker write to stderr; Windows PowerShell 5.1 would turn that into errors under 'Stop'.
+# mvnw uses JAVA_HOME when it is set, so check that Java first.
+$java = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\java.exe' } else { 'java' }
 $ErrorActionPreference = 'Continue'
-$javaSettings = & java -XshowSettings:properties -version 2>&1 | Out-String
+$javaSettings = & $java -XshowSettings:properties -version 2>&1 | Out-String
 docker info --format '{{.ServerVersion}}' 2>&1 | Out-Null
 $dockerExit = $LASTEXITCODE
 $ErrorActionPreference = 'Stop'

@@ -34,7 +34,12 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
   (needs Java 25 on PATH and Docker running), OWASP audit when `NVD_API_KEY` is set.
 - `.\scripts\new-env.ps1` — creates `infra\.env` with secrets once; never overwrites it.
 - `.\scripts\dev.ps1` — builds and starts PostgreSQL + backend in Docker (127.0.0.1:8080 / 8081).
-- `.\scripts\backup.ps1` — pg_dump into `backups\`; restore steps in docs/SETUP.md §6.
+- `.\scripts\funnel.ps1 [-Action on|status|off]` — Tailscale Funnel mounts for /t/ and /c/ only, then
+  `check-public.ps1` (pixel 200, everything else 404). `-BaseUrl http://127.0.0.1:8081` tests without Tailscale.
+- `.\scripts\autostart.ps1 -Install|-Remove` — Startup-folder shortcut; at sign-in starts Docker stack + Funnel.
+- `.\scripts\backup.ps1` — pg_dump into `backups\`; restore steps in docs/SETUP.md §8.
+- Throwaway stack for manual checks: env file from `new-env.ps1 -EnvFile <scratch>` plus
+  `MAILPULSE_PRIVATE_HOST_PORT=18080` / `MAILPULSE_PUBLIC_HOST_PORT=18081`, then `dev.ps1 -EnvFile ... -ProjectName mailpulse-check`.
 - Backend only: `cd backend; .\mvnw.cmd verify` (unit tests `*Test`, integration tests `*IT`).
 - New dependencies: only versions at least 14 days old, pinned exactly (D-036);
   npm: `npm install --save-exact --before=<today minus 14 days>`.
@@ -48,6 +53,9 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 
 ## Status
 - Step 0 approved 2026-10-29 (main). Step 1 spike tooling is on branch `step-1-spikes`, waiting for
-  the owner's test run.
-- Phase 1 (backend core) built on branch `phase-1-backend` (worktree `.worktrees/phase-1-backend`);
-  waiting for the owner's approval.
+  the owner's test run ("spikes done" starts the analysis; D-037 decides 15 s vs 30 s).
+- Phase 1 approved 2026-10-29 (no Swagger). Owner asked for Phases 2-5 in one run, no stops, one
+  branch each, verify + commit + push per phase, then one final report and merge into main.
+  Work happens in worktree `.worktrees/phase-1-backend`; branches are stacked
+  (phase-2-public -> phase-3-extension -> phase-4-dashboard -> phase-5-links-alerts).
+- Phase 2 (Funnel scripts, autostart, SETUP.md) built on `phase-2-public`.

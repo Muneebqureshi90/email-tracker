@@ -234,7 +234,7 @@ Phase 1 only needs the signals in EventClassifier (mail proxies, Apple prefetch,
 parser such as Yauaa is only useful for device details on clicks and direct opens (D-034), so it is
 deferred to the phase that shows them.
 
-## D-044 No Swagger UI — Proposed (owner to confirm)
+## D-044 No Swagger UI — Accepted (owner, 2026-10-29)
 The brief mentions Swagger on the private port. Phase 1 leaves it out: the API contract is PLAN §6
 and every endpoint is exercised by integration tests. springdoc can be added on the private port
 later if wanted (one dependency).
@@ -259,3 +259,36 @@ checksum-verified portable Temurin 25.0.4.1 in a temporary folder.
 Inside Docker, requests arrive from the Docker gateway (private address ranges), so
 `X-Forwarded-For` is trusted only from 127.0.0.1, ::1, 172.16.0.0/12, 192.168.0.0/16 and
 10.0.0.0/8. Only processes on this PC can reach the published ports.
+
+## Owner answers, 2026-10-29 (after Phase 1)
+"Phase 1 approved. No Swagger." Then: build Phases 2-5 in one run without stopping or asking;
+take the recommended default for every open decision and log it here; make every part that the
+spikes have not proven yet a setting (self-view hold, send mode, DNR blocking, confidential-mode
+tracking); use placeholders for anything that needs the owner (Tailscale sign-in, InboxSDK App ID,
+test accounts) and list them in the final checklist.
+
+## Phase 2 decisions (2026-10-29)
+
+## D-049 Funnel mounts managed by scripts/funnel.ps1 — Accepted
+`tailscale funnel --bg --https=443 --set-path=/t http://127.0.0.1:<public port>/t`, and the same for
+`/c`. If the pixel does not answer through the mount, the script falls back to the bare-port target
+(the same A/B check as Spike 2, because Tailscale's path handling is not documented). `off` removes
+only these two mounts (`--set-path=... off`) instead of `funnel reset`, which would also delete any
+other Serve/Funnel settings on the PC.
+
+## D-050 Start with Windows through a Startup-folder shortcut — Accepted
+Options: a Task Scheduler logon task (registering one often needs administrator rights), a Windows
+service (needs administrator rights and starts before Docker Desktop). Why: no administrator rights,
+visible under Task Manager → Startup apps, removed with one command. Docker Desktop's own sign-in
+setting and `restart: unless-stopped` bring the containers back; the script also starts a stopped
+stack and re-checks the Funnel mounts.
+
+## D-051 Line endings — Accepted (owner)
+`* text=auto eol=lf` and `core.autocrlf false`, as the owner asked. `*.cmd` and `*.bat` keep CRLF
+because cmd.exe misreads LF-only batch files (labels and `goto`). PowerShell scripts stay ASCII so
+Windows PowerShell 5.1 reads them correctly without a byte-order mark; verify.ps1 checks this.
+
+## D-052 Public checks from the PC plus one phone check — Accepted
+`check-public.ps1` tests the Funnel paths from the PC (MagicDNS routes the request to the PC's own
+Tailscale node). A phone on mobile data proves the internet path. No external uptime monitor,
+because that would be another third party seeing the address.

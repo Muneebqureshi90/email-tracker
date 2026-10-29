@@ -1,7 +1,24 @@
 # MailPulse setup (Windows 11)
 
-This guide grows with each phase. Sections marked with a phase apply from that phase on.
-Run commands in PowerShell from the project folder unless stated otherwise.
+Run commands in PowerShell from the project folder unless stated otherwise. If PowerShell refuses
+to run scripts, first run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
+
+## 0. From an empty PC to a working MailPulse
+Follow the sections in this order. Each one ends with a check.
+
+1. Install the tools (section 1).
+2. Sign in to Tailscale and allow Funnel (section 2).
+3. Keep the PC awake on mains power (section 3).
+4. Create the secrets file and back up the encryption key (sections 4 and 5).
+5. Start MailPulse and choose your password (section 5).
+6. Publish the tracking routes with Funnel and check them from outside (section 6).
+7. Start everything automatically at sign-in (section 7).
+8. Set up backups (section 8).
+
+Moving to a new PC: do steps 1-7 on the new PC, copy `infra\.env` from your key backup (the same
+`MAILPULSE_ENCRYPTION_KEY`), restore the latest dump (section 8), and give the new PC the **same
+Tailscale machine name** as the old one (remove the old machine in the Tailscale admin console
+first, then rename the new one). Every email you already sent points at that name.
 
 ## 1. Tools
 | Tool | Install | Needed from |
@@ -13,13 +30,14 @@ Run commands in PowerShell from the project folder unless stated otherwise.
 | Docker Desktop | already installed (29.8) | Phase 1 |
 
 ## 2. Public address with Tailscale Funnel (free)
-Recipients' mail apps must reach the pixel over the internet. Only `/t/` (and later `/c/`) is
-published; the API, dashboard and database stay on `127.0.0.1`.
+Recipients' mail apps must reach the pixel over the internet. Only `/t/` and `/c/` are published;
+the API, dashboard and database stay on `127.0.0.1`.
 
 1. Install Tailscale (table above), open it and sign in. The free Personal plan is enough.
 2. In the admin console (https://login.tailscale.com/admin/dns) turn on **MagicDNS** and
    **HTTPS Certificates**.
-3. The first `tailscale funnel` command prints a link to allow Funnel for this PC. Open it and approve.
+3. The first `.\scripts\funnel.ps1` run (section 6) may print a link to allow Funnel for this PC.
+   Open it, approve, and run the script again.
 4. Your public address is shown by:
    ```powershell
    (& "$env:ProgramFiles\Tailscale\tailscale.exe" status --json | ConvertFrom-Json).Self.DNSName
@@ -61,7 +79,7 @@ powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 1
 powercfg /setactive SCHEME_CURRENT
 ```
 
-## 4. Back up the encryption key outside the PC (from Phase 1)
+## 4. Back up the encryption key outside the PC
 `.\scripts\new-env.ps1` (section 5) creates `infra\.env` with `MAILPULSE_ENCRYPTION_KEY`. Subjects,
 email addresses, names and link URLs in the database and in every backup are encrypted with it.
 **Without the key that data cannot be read,** including from backups.
@@ -74,11 +92,10 @@ email addresses, names and link URLs in the database and in every backup are enc
 3. Never put the key in git, email, chat, or cloud notes as plain text.
 4. `new-env.ps1` never overwrites an existing `infra\.env`. If you ever create a new key, repeat
    these steps; old backups need the old key.
-5. Restoring a backup (section 6) only works with the matching key in `infra\.env`.
+5. Restoring a backup (section 8) only works with the matching key in `infra\.env`.
 
-## 5. Run MailPulse (from Phase 1)
-Needs Java 25 and Docker Desktop running. Run from the project folder; if PowerShell refuses to run
-scripts, first run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
+## 5. Run MailPulse
+Needs Java 25 and Docker Desktop running.
 
 1. Create the secrets file (reads your Tailscale address; or pass `-PublicBaseUrl https://<pc>.<tailnet>.ts.net`):
    ```powershell
@@ -102,7 +119,50 @@ scripts, first run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
 5. Stop: `docker compose -p mailpulse --env-file infra\.env -f infra\docker-compose.yml down`
    (your data stays in the `mailpulse_db-data` volume). Never add `-v` unless you want to delete all data.
 
-## 6. Backup and restore
+## 6. Publish the tracking routes (Tailscale Funnel)
+With MailPulse running (section 5):
+
+```powershell
+.\scripts\funnel.ps1             # mounts /t/ and /c/ on https://<pc>.<tailnet>.ts.net and checks them
+.\scripts\funnel.ps1 -Action status
+.\scripts\funnel.ps1 -Action off # stops publishing (opens and clicks no longer arrive)
+```
+
+`funnel.ps1` runs `tailscale funnel --bg --https=443 --set-path=/t ...` and the same for `/c`.
+`--bg` keeps both mounts across reboots until you turn them off. Other Serve/Funnel settings on
+the PC are not touched. Afterwards it runs `.\scripts\check-public.ps1`, which must print
+`PASS` for every line:
+
+- `GET /t/<random>.gif` returns the 43-byte GIF and `HEAD` returns 200;
+- `GET /c/<random>` reaches MailPulse (`404 Not found`);
+- `/`, `/api/...`, `/actuator/health` and path tricks return 404.
+
+These checks run from the PC itself. To prove the internet reaches the PC, switch Wi-Fi **off** on
+your phone and open `https://<pc>.<tailnet>.ts.net/t/phone-check.gif` in the phone browser: it
+shows a blank page. Then do the end-to-end test in the final checklist (an open from another
+account appears in MailPulse).
+
+`.\scripts\check-public.ps1 -BaseUrl http://127.0.0.1:8081` checks the public port without Tailscale.
+
+## 7. Start with Windows
+After a reboot or sign-in MailPulse should come back by itself:
+
+1. Docker Desktop → Settings → General → turn on **Start Docker Desktop when you sign in to your
+   computer**.
+2. Tailscale starts with Windows by default, and the Funnel mounts persist (`--bg`).
+3. Add the MailPulse sign-in task (a shortcut in your Startup folder, no administrator rights):
+   ```powershell
+   .\scripts\autostart.ps1 -Install
+   ```
+   At each sign-in it waits for Docker, starts the containers (`docker compose up -d`, no rebuild),
+   waits until the backend is healthy, and re-checks the Funnel mounts. Log:
+   `%LOCALAPPDATA%\MailPulse\autostart.log`.
+4. Check: restart the PC, sign in, wait two minutes, then run `.\scripts\funnel.ps1 -Action status`.
+
+Remove it with `.\scripts\autostart.ps1 -Remove`. The containers also use `restart: unless-stopped`,
+so Docker restarts them after a crash.
+
+## 8. Backup and restore
 Backup (MailPulse must be running):
 ```powershell
 .\scripts\backup.ps1            # writes backups\mailpulse-<date>-<time>.dump (git-ignored)
@@ -122,13 +182,14 @@ docker @compose start backend
 These exact steps were tested in Phase 1: back up, delete all emails, restore, and the email, its
 counted open and the owner account came back and decrypted correctly.
 
-## 7. Checks before every commit
+## 9. Checks before every commit
 ```powershell
 .\scripts\verify.ps1
 ```
-Runs the backend build with all unit and integration tests (needs Java 25 and Docker running).
-It also runs the OWASP dependency audit when `NVD_API_KEY` is set; without the key the audit is
-skipped with a warning. A free key is available at https://nvd.nist.gov/developers/request-an-api-key.
+Checks the PowerShell scripts, then runs the backend build with all unit and integration tests
+(needs Java 25 and Docker running). It also runs the OWASP dependency audit when `NVD_API_KEY` is
+set; without the key the audit is skipped with a warning. A free key is available at
+https://nvd.nist.gov/developers/request-an-api-key.
 
-## 8. Step 1 spikes
+## 10. Step 1 spikes
 See [spikes/README.md](../spikes/README.md) on the `step-1-spikes` branch.

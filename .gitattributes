@@ -1,3 +1,8 @@
-# Shell scripts must keep LF endings on every OS.
-mvnw text eol=lf
-*.sh text eol=lf
+# LF everywhere (owner request). Windows batch files keep CRLF: cmd.exe misreads LF-only batch files.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.gif binary
+*.ico binary
+*.jar binary
