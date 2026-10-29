@@ -108,9 +108,10 @@ Options: stay on the installed JDK 21. Why 25: current LTS (support to 2031), su
 TypeScript 7.0.2 is the latest release, but `typescript-eslint` 8.72.1 supports `<6.1.0`. Pin 6.0.x and
 revisit when typescript-eslint supports 7.
 
-## D-021 Extension build tooling — Proposed (decide in Phase 3)
-Options: Vite + `@crxjs/vite-plugin` 3.0, WXT 0.21 (still 0.x), plain Vite multi-entry. Spikes use a
-single esbuild command. Decide after Spike 1 shows InboxSDK's bundling needs.
+## D-021 Extension build tooling — Accepted (Phase 3): plain esbuild
+Options: Vite + `@crxjs/vite-plugin` 3.0, WXT 0.21 (still 0.x), plain Vite multi-entry. Chosen: one
+esbuild script (`extension/build.mjs`), as in the spikes. InboxSDK only needs `pageWorld.js` copied,
+so a framework adds nothing but dependencies.
 
 ## D-022 Charts with Recharts 3 — Accepted
 Options: Chart.js, ECharts, visx. Why: React-native API, actively maintained (3.10.1, Oct 2026), enough
@@ -292,3 +293,48 @@ Windows PowerShell 5.1 reads them correctly without a byte-order mark; verify.ps
 `check-public.ps1` tests the Funnel paths from the PC (MagicDNS routes the request to the PC's own
 Tailscale node). A phone on mobile data proves the internet path. No external uptime monitor,
 because that would be another third party seeing the address.
+
+## Phase 3 decisions (2026-10-29)
+
+## D-053 Unproven extension behaviour is a setting — Accepted (owner request)
+The spikes have not run yet, so every uncertain part can be switched without new code: self-view
+hold (`selfViewWindowSeconds`, default 30), send mode (`PRESYNC` = insert the pixel synchronously at
+send, default; `CANCEL_RESEND` = cancel, register with a 2 s limit, insert, send again), DNR blocking
+of the owner's own pixel loads (default on) and tracking of confidential-mode emails (default on).
+They live in the backend `settings` row (migration V2) so there is one place to change them (the
+dashboard), and reach the extension through `GET /api/config`.
+
+## D-054 Fixed extension ID from a committed public key — Accepted
+`extension/static/manifest.json` carries a public key, so the unpacked extension always has the ID
+`pdinoocioohoejhjbeepjdadkkjldgeo` and `MAILPULSE_EXTENSION_ORIGINS` can be pre-filled. The private key
+was never stored (no Chrome Web Store upload). Options: a key generated per install (one more setup
+step). The ID is not a secret: the API still needs the bearer token and is only on 127.0.0.1.
+
+## D-055 Gmail DOM checks without spike evidence — Accepted (Spike 1 revisits)
+Plain-text mode is not detected (no reliable signal known; Gmail drops the pixel, so the email is
+only untracked). Confidential mode is detected from the English "Content expires" notice. For
+scheduled send the pixel goes in when the schedule menu opens and the email is reported as
+`SCHEDULED` when the window closes, because `presending`/`sent` may not fire. All in LIMITATIONS.md.
+
+## D-056 Extension security boundaries — Accepted
+Content scripts never call the API; the service worker does, with the token kept in
+`chrome.storage.local` restricted to trusted contexts (content scripts cannot read it). The backend
+URL must be `http://127.0.0.1:<port>` or `http://localhost:<port>`, so the token cannot be sent
+elsewhere. Lint bans `innerHTML`, `outerHTML`, `insertAdjacentHTML`, InboxSDK's HTML insert and
+`dangerouslySetInnerHTML`; notifications and tooltips are plain text.
+
+## D-057 Pause switch is local to the browser — Accepted
+The popup switch "Track emails I send from Gmail" is stored in the extension, not the backend, so it
+works even when the backend is down. The backend's "track new emails by default" decides the
+starting state of each compose window; a button in the compose toolbar changes it per email.
+
+## D-058 Live marks through Kefir streams — Accepted
+InboxSDK views accept Kefir observables and re-render when they emit, so ✓ turns into ✓✓ without
+reloading Gmail. `kefir` 3.8.8 (already inside InboxSDK's dependency tree, published years ago) is a
+direct dependency.
+
+## D-059 Security fixes count the 14 days by calendar date — Accepted
+`npm audit` found eight high advisories in `undici` 8.12.1, a test-only dependency of jsdom. The fix,
+8.12.2, was published on 2026-10-15, 14 calendar days before the install (a few hours short of 14×24
+hours). It is pinned with an npm `overrides` entry. Rule from now on: a version that fixes a high or
+critical advisory may be used once 14 calendar days have passed since its release.

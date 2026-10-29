@@ -37,7 +37,7 @@ services:
       MAILPULSE_JWT_SECRET: ${MAILPULSE_JWT_SECRET:?Run .\scripts\new-env.ps1 to create infra\.env}
       MAILPULSE_SELF_SECRET: ${MAILPULSE_SELF_SECRET:?Run .\scripts\new-env.ps1 to create infra\.env}
       MAILPULSE_PUBLIC_BASE_URL: ${MAILPULSE_PUBLIC_BASE_URL:?Set your Tailscale Funnel address in infra\.env}
-      MAILPULSE_EXTENSION_ORIGINS: ${MAILPULSE_EXTENSION_ORIGINS:-}
+      MAILPULSE_EXTENSION_ORIGINS: ${MAILPULSE_EXTENSION_ORIGINS:-chrome-extension://pdinoocioohoejhjbeepjdadkkjldgeo}
       MAILPULSE_BIND_ADDRESS: 0.0.0.0
       # Requests reach the container from Docker's gateway; trust X-Forwarded-For only from there.
       MAILPULSE_TRUSTED_PROXIES: 127.0.0.1/32,::1/128,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8

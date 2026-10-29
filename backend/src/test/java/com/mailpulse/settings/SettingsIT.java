@@ -25,6 +25,9 @@ class SettingsIT extends IntegrationTest {
         assertThat(settings.get("retentionDays").asInt()).isEqualTo(365);
         assertThat(settings.get("ipMode").asString()).isEqualTo("TRUNCATED");
         assertThat(settings.get("countApplePrefetch").asBoolean()).isFalse();
+        assertThat(settings.get("sendMode").asString()).isEqualTo("PRESYNC");
+        assertThat(settings.get("dnrBlocking").asBoolean()).isTrue();
+        assertThat(settings.get("trackConfidential").asBoolean()).isTrue();
     }
 
     @Test
@@ -34,17 +37,22 @@ class SettingsIT extends IntegrationTest {
         Map<String, Object> changed = TestHttp.JSON.convertValue(original, Map.class);
         try {
             for (Map.Entry<String, Object> invalid : Map.<String, Object>of(
-                    "selfViewWindowSeconds", 2, "followUpHours", 36, "timeZone", "Mars/Olympus", "retentionDays", 1).entrySet()) {
+                    "selfViewWindowSeconds", 2, "followUpHours", 36, "timeZone", "Mars/Olympus", "retentionDays", 1, "sendMode", "LATER").entrySet()) {
                 Map<String, Object> body = new java.util.HashMap<>(changed);
                 body.put(invalid.getKey(), invalid.getValue());
                 assertThat(http.put(api("/api/settings"), body, asOwner()).status()).as(invalid.getKey()).isEqualTo(400);
             }
             changed.put("timeZone", "Asia/Karachi");
             changed.put("followUpHours", 72);
+            changed.put("sendMode", "CANCEL_RESEND");
+            changed.put("dnrBlocking", false);
             assertThat(http.put(api("/api/settings"), changed, asOwner()).status()).isEqualTo(200);
             JsonNode saved = http.get(api("/api/settings"), asOwner()).json();
             assertThat(saved.get("timeZone").asString()).isEqualTo("Asia/Karachi");
             assertThat(saved.get("followUpHours").asInt()).isEqualTo(72);
+            assertThat(saved.get("sendMode").asString()).isEqualTo("CANCEL_RESEND");
+            assertThat(saved.get("dnrBlocking").asBoolean()).isFalse();
+            assertThat(http.get(api("/api/config"), asExtension()).json().get("sendMode").asString()).isEqualTo("CANCEL_RESEND");
         } finally {
             assertThat(http.put(api("/api/settings"), original, asOwner()).status()).isEqualTo(200);
         }
@@ -57,5 +65,10 @@ class SettingsIT extends IntegrationTest {
         assertThat(config.get("selfHeaderName").asString()).isEqualTo("X-MailPulse-Self");
         assertThat(config.get("selfHeaderValue").asString()).isEqualTo("test-self-secret");
         assertThat(config.get("linkTrackingDefault").asBoolean()).isFalse();
+        assertThat(config.get("sendMode").asString()).isEqualTo("PRESYNC");
+        assertThat(config.get("dnrBlocking").asBoolean()).isTrue();
+        assertThat(config.get("trackConfidential").asBoolean()).isTrue();
+        assertThat(config.get("selfViewWindowSeconds").asInt()).isEqualTo(30);
+        assertThat(config.get("followUpHours").asInt()).isEqualTo(48);
     }
 }

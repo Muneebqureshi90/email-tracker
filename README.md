@@ -5,8 +5,8 @@ invisible pixel to emails you send; when the recipient's mail app loads it, Mail
 open and shows ✓/✓✓ marks in Gmail, desktop notifications and a dashboard. Everything runs on your
 own PC with free tools; no email body ever leaves your browser.
 
-Status: backend core (Phase 1) is built. The Chrome extension and the dashboard come in later
-phases (see [docs/PLAN.md](docs/PLAN.md)).
+Status: backend (Phase 1), public access through Tailscale Funnel (Phase 2) and the Chrome extension
+(Phase 3) are built. Install steps: [docs/SETUP.md](docs/SETUP.md).
 
 ## Quick start (Windows 11, PowerShell)
 Requires Java 25, Docker Desktop and Tailscale (see [docs/SETUP.md](docs/SETUP.md)).

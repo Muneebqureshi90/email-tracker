@@ -29,7 +29,8 @@ class SettingsRepository {
                     spike_opens = :spikeOpens, spike_window_minutes = :spikeWindow, revival_days = :revivalDays,
                     retention_days = :retentionDays, ip_mode = :ipMode, count_apple_prefetch = :countApplePrefetch,
                     notify_opens = :notifyOpens, notify_clicks = :notifyClicks, notify_alerts = :notifyAlerts,
-                    time_zone = :timeZone, updated_at = :now
+                    time_zone = :timeZone, send_mode = :sendMode, dnr_blocking = :dnrBlocking,
+                    track_confidential = :trackConfidential, updated_at = :now
                 WHERE id = 1
                 """)
                 .param("trackingDefault", s.trackingDefault())
@@ -48,6 +49,9 @@ class SettingsRepository {
                 .param("notifyClicks", s.notifyClicks())
                 .param("notifyAlerts", s.notifyAlerts())
                 .param("timeZone", s.timeZone())
+                .param("sendMode", s.sendMode().name())
+                .param("dnrBlocking", s.dnrBlocking())
+                .param("trackConfidential", s.trackConfidential())
                 .param("now", Sql.ts(now))
                 .update();
     }
@@ -69,6 +73,9 @@ class SettingsRepository {
                 rs.getBoolean("notify_opens"),
                 rs.getBoolean("notify_clicks"),
                 rs.getBoolean("notify_alerts"),
-                rs.getString("time_zone"));
+                rs.getString("time_zone"),
+                Settings.SendMode.valueOf(rs.getString("send_mode")),
+                rs.getBoolean("dnr_blocking"),
+                rs.getBoolean("track_confidential"));
     }
 }

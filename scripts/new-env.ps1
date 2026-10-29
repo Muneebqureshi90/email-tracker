@@ -49,7 +49,9 @@ $lines = @(
     "MAILPULSE_JWT_SECRET=$(New-Base64 48)",
     "MAILPULSE_SELF_SECRET=$(New-Hex 32)",
     "MAILPULSE_PUBLIC_BASE_URL=$PublicBaseUrl",
-    'MAILPULSE_EXTENSION_ORIGINS='
+    "MAILPULSE_EXTENSION_ORIGINS=chrome-extension://pdinoocioohoejhjbeepjdadkkjldgeo",
+    '# Free App ID from https://www.inboxsdk.com/register (docs\SETUP.md). Rebuild the extension after setting it.',
+    'MAILPULSE_INBOXSDK_APP_ID='
 )
 New-Item -ItemType Directory -Force -Path (Split-Path $EnvFile -Parent) | Out-Null
 [System.IO.File]::WriteAllText($EnvFile, ($lines -join "`n") + "`n")  # UTF-8 without BOM

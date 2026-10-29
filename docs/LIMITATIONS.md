@@ -40,8 +40,23 @@ Draft from Step 0. Spike results will confirm or correct each item.
 - The extension depends on InboxSDK and on Gmail's web UI. A Gmail change can break marks or hooks
   until InboxSDK ships a fix. Sending itself must never break.
 - Emails sent from the Gmail phone app or any other client are not tracked.
-- Plain-text mode cannot carry an image, so those emails are sent untracked (with a notice).
-  Confidential mode behaviour is to be confirmed in Step 1.
+- Plain-text mode cannot carry an image. The extension cannot detect plain-text mode yet (InboxSDK
+  has no API for it and Step 1 has not recorded the DOM), so such an email gets the pixel inserted,
+  Gmail drops it, and the email stays "not opened" for good.
+- Confidential mode is detected from the English Gmail interface only ("Content expires" notice).
+  It matters only when the setting "Track confidential-mode emails" is off (default on).
+- Scheduled send: the pixel goes in when the schedule menu opens, because Gmail may not fire the
+  normal send event for scheduled emails (Step 1 checks). Such emails show as "scheduled" until the
+  first open.
+- Replies: Gmail may keep the quoted earlier message out of the editor and add it when sending. Old
+  MailPulse pixels inside that hidden quote cannot be removed and can count as opens of the older
+  email. Step 1 checks how often this happens.
+- "Sent only to yourself" compares exact addresses; Gmail aliases such as you+news@gmail.com count as
+  other recipients.
+- "Send & archive" in the cancel-and-resend send mode re-sends with a plain send (the archive step is
+  lost). The default send mode does not cancel anything.
+- The owner's own clicks on tracked links are marked only when Chrome opens the link directly;
+  if Gmail first routes the click through google.com, that click can count.
 - InboxSDK needs a free App ID from inboxsdk.com, and its telemetry is blocked by extension rules.
 
 ## Privacy and deliverability

@@ -30,7 +30,7 @@ class SettingsController {
         return settings.update(body);
     }
 
-    /** What the extension needs: where pixels live, the self-request header, and tracking defaults. */
+    /** What the extension needs: where pixels live, the self-request header, defaults and behaviour switches. */
     @GetMapping("/api/config")
     ClientConfig config() {
         Settings current = settings.current();
@@ -40,7 +40,12 @@ class SettingsController {
                 SELF_HEADER,
                 selfSecret == null || selfSecret.isBlank() ? null : selfSecret,
                 current.trackingDefault(),
-                current.linkTrackingDefault());
+                current.linkTrackingDefault(),
+                current.sendMode(),
+                current.dnrBlocking(),
+                current.trackConfidential(),
+                current.selfViewWindowSeconds(),
+                current.followUpHours());
     }
 
     record ClientConfig(
@@ -48,5 +53,10 @@ class SettingsController {
             String selfHeaderName,
             String selfHeaderValue,
             boolean trackingDefault,
-            boolean linkTrackingDefault) {}
+            boolean linkTrackingDefault,
+            Settings.SendMode sendMode,
+            boolean dnrBlocking,
+            boolean trackConfidential,
+            int selfViewWindowSeconds,
+            int followUpHours) {}
 }

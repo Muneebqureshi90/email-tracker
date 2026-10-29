@@ -10,6 +10,8 @@ import java.util.Set;
 /**
  * Owner-editable rules. {@code selfViewWindowSeconds} is the self-view hold: an open waits this long
  * before it counts, and is dropped if the owner viewed the email within this many seconds of it.
+ * {@code sendMode}, {@code dnrBlocking} and {@code trackConfidential} steer the extension until the
+ * Step 1 spikes settle them (DECISIONS D-053).
  */
 public record Settings(
         boolean trackingDefault,
@@ -27,12 +29,21 @@ public record Settings(
         boolean notifyOpens,
         boolean notifyClicks,
         boolean notifyAlerts,
-        @NotBlank @Size(max = 64) String timeZone) {
+        @NotBlank @Size(max = 64) String timeZone,
+        @NotNull SendMode sendMode,
+        boolean dnrBlocking,
+        boolean trackConfidential) {
 
     public static final Set<Integer> FOLLOW_UP_OPTIONS = Set.of(24, 48, 72);
 
     public enum IpMode {
         TRUNCATED,
         OFF
+    }
+
+    /** How the extension adds the pixel: synchronously at send, or by cancelling and re-sending. */
+    public enum SendMode {
+        PRESYNC,
+        CANCEL_RESEND
     }
 }

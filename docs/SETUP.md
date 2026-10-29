@@ -13,10 +13,11 @@ Follow the sections in this order. Each one ends with a check.
 5. Start MailPulse and choose your password (section 5).
 6. Publish the tracking routes with Funnel and check them from outside (section 6).
 7. Start everything automatically at sign-in (section 7).
-8. Set up backups (section 8).
+8. Install the Chrome extension and connect it (section 8).
+9. Set up backups (section 9).
 
 Moving to a new PC: do steps 1-7 on the new PC, copy `infra\.env` from your key backup (the same
-`MAILPULSE_ENCRYPTION_KEY`), restore the latest dump (section 8), and give the new PC the **same
+`MAILPULSE_ENCRYPTION_KEY`), restore the latest dump (section 9), and give the new PC the **same
 Tailscale machine name** as the old one (remove the old machine in the Tailscale admin console
 first, then rename the new one). Every email you already sent points at that name.
 
@@ -92,7 +93,7 @@ email addresses, names and link URLs in the database and in every backup are enc
 3. Never put the key in git, email, chat, or cloud notes as plain text.
 4. `new-env.ps1` never overwrites an existing `infra\.env`. If you ever create a new key, repeat
    these steps; old backups need the old key.
-5. Restoring a backup (section 8) only works with the matching key in `infra\.env`.
+5. Restoring a backup (section 9) only works with the matching key in `infra\.env`.
 
 ## 5. Run MailPulse
 Needs Java 25 and Docker Desktop running.
@@ -162,7 +163,46 @@ After a reboot or sign-in MailPulse should come back by itself:
 Remove it with `.\scripts\autostart.ps1 -Remove`. The containers also use `restart: unless-stopped`,
 so Docker restarts them after a crash.
 
-## 8. Backup and restore
+## 8. Install the Chrome extension
+1. Register a free InboxSDK App ID (a one-time form on InboxSDK's site; the SDK needs it to load
+   without a warning bar): open https://www.inboxsdk.com/register and copy the App ID it shows.
+2. Open `infra\.env` and set:
+   ```
+   MAILPULSE_INBOXSDK_APP_ID=<the App ID>
+   MAILPULSE_EXTENSION_ORIGINS=chrome-extension://pdinoocioohoejhjbeepjdadkkjldgeo
+   ```
+   `new-env.ps1` already writes the second line; the extension ID is fixed by the public key in
+   `extension\static\manifest.json`. Restart so the backend accepts the extension: `.\scripts\dev.ps1`.
+3. Build the extension:
+   ```powershell
+   cd extension; npm ci; npm run build; cd ..
+   ```
+4. Chrome → `chrome://extensions` → turn on **Developer mode** → **Load unpacked** → choose the
+   `extension\dist` folder. The card must show ID `pdinoocioohoejhjbeepjdadkkjldgeo`.
+5. Create an API token for the extension: dashboard `http://127.0.0.1:8080` → **Extension tokens**
+   → **Create** (or from PowerShell, below). The token is shown once and starts with `mp_`.
+   ```powershell
+   $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+   Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/auth/login -ContentType 'application/json' `
+     -Body '{"password":"your long password here"}' -WebSession $session
+   (Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/tokens -ContentType 'application/json' `
+     -Body '{"name":"Chrome extension"}' -WebSession $session).token
+   ```
+6. Click the MailPulse icon → **Settings** → paste the token → **Save and connect**. The badge must
+   say **Connected**, and the page lists your tracking address and settings. If Chrome asks whether
+   the extension may access devices on your local network, click **Allow** (it only talks to
+   `127.0.0.1`).
+7. Reload Gmail. A new compose window shows the MailPulse pulse button and the line
+   "MailPulse: tracking on". Click the button to switch tracking off for one email.
+
+After pulling a new version: `cd extension; npm run build`, then click the reload arrow on the
+extension card.
+
+Settings that Step 1 has not proven yet (DECISIONS D-053) are in the dashboard under Settings:
+self-view hold (default 30 s), send mode (insert at send, or cancel and re-send), blocking your own
+views with Chrome rules (default on) and tracking confidential-mode emails (default on).
+
+## 9. Backup and restore
 Backup (MailPulse must be running):
 ```powershell
 .\scripts\backup.ps1            # writes backups\mailpulse-<date>-<time>.dump (git-ignored)
@@ -182,14 +222,15 @@ docker @compose start backend
 These exact steps were tested in Phase 1: back up, delete all emails, restore, and the email, its
 counted open and the owner account came back and decrypted correctly.
 
-## 9. Checks before every commit
+## 10. Checks before every commit
 ```powershell
 .\scripts\verify.ps1
 ```
-Checks the PowerShell scripts, then runs the backend build with all unit and integration tests
+Checks the PowerShell scripts, builds and tests the extension and the dashboard (typecheck, lint,
+unit tests, build, `npm audit`), then runs the backend build with all unit and integration tests
 (needs Java 25 and Docker running). It also runs the OWASP dependency audit when `NVD_API_KEY` is
 set; without the key the audit is skipped with a warning. A free key is available at
 https://nvd.nist.gov/developers/request-an-api-key.
 
-## 10. Step 1 spikes
+## 11. Step 1 spikes
 See [spikes/README.md](../spikes/README.md) on the `step-1-spikes` branch.

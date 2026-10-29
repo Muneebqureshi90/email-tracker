@@ -41,6 +41,8 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - Throwaway stack for manual checks: env file from `new-env.ps1 -EnvFile <scratch>` plus
   `MAILPULSE_PRIVATE_HOST_PORT=18080` / `MAILPULSE_PUBLIC_HOST_PORT=18081`, then `dev.ps1 -EnvFile ... -ProjectName mailpulse-check`.
 - Backend only: `cd backend; .\mvnw.cmd verify` (unit tests `*Test`, integration tests `*IT`).
+- Extension: `cd extension; npm run typecheck|lint|test|build` (build -> `extension/dist`, load unpacked;
+  App ID from `MAILPULSE_INBOXSDK_APP_ID` in infra/.env). Fixed ID `pdinoocioohoejhjbeepjdadkkjldgeo` (D-054).
 - New dependencies: only versions at least 14 days old, pinned exactly (D-036);
   npm: `npm install --save-exact --before=<today minus 14 days>`.
 
@@ -49,6 +51,9 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
   rate limiter, client IP), `auth`, `settings`, `emails`, `tracking`, `activity`, `maintenance`.
   Schema: `backend/src/main/resources/db/migration`. Tests share one Spring context
   (`support/IntegrationTest`) with PostgreSQL 18 in Testcontainers and a `MutableClock`.
+- `extension/` MV3, TS 6 strict, esbuild. `src/core` pure tested logic (pixel, DNR rules, notifications,
+  retry queue); `src/gmail` the only InboxSDK code (compose session, thread marks, message views);
+  `src/background` service worker (API client, handlers, poller); `src/popup`, `src/options` React.
 - `infra/` docker-compose.yml, `.env.example`. `scripts/` PowerShell helpers. `docs/` plan and decisions.
 
 ## Status
@@ -59,3 +64,4 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
   Work happens in worktree `.worktrees/phase-1-backend`; branches are stacked
   (phase-2-public -> phase-3-extension -> phase-4-dashboard -> phase-5-links-alerts).
 - Phase 2 (Funnel scripts, autostart, SETUP.md) built on `phase-2-public`.
+- Phase 3 (extension, settings V2 for send mode / DNR / confidential) built on `phase-3-extension`.
