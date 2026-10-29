@@ -62,18 +62,73 @@ powercfg /setactive SCHEME_CURRENT
 ```
 
 ## 4. Back up the encryption key outside the PC (from Phase 1)
-Phase 1 creates `infra\.env` with `MAILPULSE_ENCRYPTION_KEY`. Subjects and email addresses in the
-database and in every backup are encrypted with it. **Without the key that data cannot be read,**
-including from backups.
+`.\scripts\new-env.ps1` (section 5) creates `infra\.env` with `MAILPULSE_ENCRYPTION_KEY`. Subjects,
+email addresses, names and link URLs in the database and in every backup are encrypted with it.
+**Without the key that data cannot be read,** including from backups.
 
-1. After Phase 1 setup, open `infra\.env` and copy the value of `MAILPULSE_ENCRYPTION_KEY`.
+1. After running `new-env.ps1`, open `infra\.env` and copy the value of `MAILPULSE_ENCRYPTION_KEY`.
 2. Store it outside the PC, in at least one of these:
    - a password manager entry named "MailPulse encryption key";
    - a USB stick kept away from the PC;
    - a printed copy kept with your important papers.
 3. Never put the key in git, email, chat, or cloud notes as plain text.
-4. If the key is ever rotated, repeat these steps; old backups need the old key.
-5. The restore steps (added in Phase 1) include a test that uses this stored copy.
+4. `new-env.ps1` never overwrites an existing `infra\.env`. If you ever create a new key, repeat
+   these steps; old backups need the old key.
+5. Restoring a backup (section 6) only works with the matching key in `infra\.env`.
 
-## 5. Step 1 spikes
-See [spikes/README.md](../spikes/README.md).
+## 5. Run MailPulse (from Phase 1)
+Needs Java 25 and Docker Desktop running. Run from the project folder; if PowerShell refuses to run
+scripts, first run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
+
+1. Create the secrets file (reads your Tailscale address; or pass `-PublicBaseUrl https://<pc>.<tailnet>.ts.net`):
+   ```powershell
+   .\scripts\new-env.ps1
+   ```
+2. Back up the encryption key now (section 4).
+3. Build and start PostgreSQL and the backend:
+   ```powershell
+   .\scripts\dev.ps1
+   ```
+   Private API: `http://127.0.0.1:8080` (this PC only). Public tracking routes: `http://127.0.0.1:8081`.
+   PostgreSQL has no port outside Docker.
+4. First run only: read the one-time setup code and choose your password (at least 12 characters).
+   Until the dashboard exists (Phase 4), do it from PowerShell:
+   ```powershell
+   docker compose -p mailpulse --env-file infra\.env -f infra\docker-compose.yml logs backend | Select-String 'setup code'
+   $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+   Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/api/auth/setup -ContentType 'application/json' `
+     -Body '{"setupCode":"XXXXX-XXXXX","password":"your long password here"}' -WebSession $session
+   ```
+5. Stop: `docker compose -p mailpulse --env-file infra\.env -f infra\docker-compose.yml down`
+   (your data stays in the `mailpulse_db-data` volume). Never add `-v` unless you want to delete all data.
+
+## 6. Backup and restore
+Backup (MailPulse must be running):
+```powershell
+.\scripts\backup.ps1            # writes backups\mailpulse-<date>-<time>.dump (git-ignored)
+```
+Copy backups somewhere outside the PC as well. Subjects, addresses and URLs inside a dump stay
+encrypted; you need the key from section 4 to read them.
+
+Restore a dump (replaces the current data):
+```powershell
+$compose = @('compose', '-p', 'mailpulse', '--env-file', 'infra\.env', '-f', 'infra\docker-compose.yml')
+docker @compose stop backend
+docker @compose cp backups\mailpulse-YYYYMMDD-HHMMSS.dump db:/tmp/restore.dump
+docker @compose exec -T db pg_restore -U mailpulse -d mailpulse --clean --if-exists /tmp/restore.dump
+docker @compose exec -T db rm -f /tmp/restore.dump
+docker @compose start backend
+```
+These exact steps were tested in Phase 1: back up, delete all emails, restore, and the email, its
+counted open and the owner account came back and decrypted correctly.
+
+## 7. Checks before every commit
+```powershell
+.\scripts\verify.ps1
+```
+Runs the backend build with all unit and integration tests (needs Java 25 and Docker running).
+It also runs the OWASP dependency audit when `NVD_API_KEY` is set; without the key the audit is
+skipped with a warning. A free key is available at https://nvd.nist.gov/developers/request-an-api-key.
+
+## 8. Step 1 spikes
+See [spikes/README.md](../spikes/README.md) on the `step-1-spikes` branch.

@@ -1,0 +1,54 @@
+# MailPulse stack: PostgreSQL + backend. Start with .\scripts\dev.ps1 (it passes infra\.env).
+# Postgres has no published port. Both backend ports are published on 127.0.0.1 only:
+#   8080 private API (and later the dashboard) - this PC only
+#   8081 public tracking routes - Tailscale Funnel forwards /t/ and /c/ here
+name: mailpulse
+
+services:
+  db:
+    image: postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mailpulse
+      POSTGRES_USER: mailpulse
+      POSTGRES_PASSWORD: ${MAILPULSE_DB_PASSWORD:?Run .\scripts\new-env.ps1 to create infra\.env}
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mailpulse -d mailpulse"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [internal]
+
+  backend:
+    build:
+      context: ../backend
+    image: mailpulse-backend:local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MAILPULSE_DB_URL: jdbc:postgresql://db:5432/mailpulse
+      MAILPULSE_DB_USER: mailpulse
+      MAILPULSE_DB_PASSWORD: ${MAILPULSE_DB_PASSWORD}
+      MAILPULSE_ENCRYPTION_KEY: ${MAILPULSE_ENCRYPTION_KEY:?Run .\scripts\new-env.ps1 to create infra\.env}
+      MAILPULSE_JWT_SECRET: ${MAILPULSE_JWT_SECRET:?Run .\scripts\new-env.ps1 to create infra\.env}
+      MAILPULSE_SELF_SECRET: ${MAILPULSE_SELF_SECRET:?Run .\scripts\new-env.ps1 to create infra\.env}
+      MAILPULSE_PUBLIC_BASE_URL: ${MAILPULSE_PUBLIC_BASE_URL:?Set your Tailscale Funnel address in infra\.env}
+      MAILPULSE_EXTENSION_ORIGINS: ${MAILPULSE_EXTENSION_ORIGINS:-}
+      MAILPULSE_BIND_ADDRESS: 0.0.0.0
+      # Requests reach the container from Docker's gateway; trust X-Forwarded-For only from there.
+      MAILPULSE_TRUSTED_PROXIES: 127.0.0.1/32,::1/128,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${MAILPULSE_PRIVATE_HOST_PORT:-8080}:8080"
+      - "127.0.0.1:${MAILPULSE_PUBLIC_HOST_PORT:-8081}:8081"
+    networks: [internal]
+
+volumes:
+  db-data:
+
+networks:
+  internal:

@@ -1,0 +1,9 @@
+# Test-only values. Never reuse these keys anywhere else.
+mailpulse:
+  public-port: 0
+  public-base-url: https://track.test
+  encryption-key: bWFpbHB1bHNlLXRlc3QtZW5jcnlwdGlvbi1rZXktMzI=
+  jwt-secret: bWFpbHB1bHNlLXRlc3Qtand0LXNlY3JldC13aXRoLTQ4LWJ5dGVzLWxlbmd0aCEh
+  self-header-secret: test-self-secret
+  extension-origins: chrome-extension://abcdefghijklmnopabcdefghijklmnop
+  jobs-enabled: false

@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: mailpulse
+  datasource:
+    url: ${MAILPULSE_DB_URL:jdbc:postgresql://127.0.0.1:5432/mailpulse}
+    username: ${MAILPULSE_DB_USER:mailpulse}
+    password: ${MAILPULSE_DB_PASSWORD:}
+  threads:
+    virtual:
+      enabled: true
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  # Private connector: API, dashboard, health. Only ever published on 127.0.0.1.
+  port: ${MAILPULSE_PRIVATE_PORT:8080}
+  address: ${MAILPULSE_BIND_ADDRESS:127.0.0.1}
+  error:
+    whitelabel:
+      enabled: false
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+mailpulse:
+  # Public connector: only GET/HEAD /t/{token}.gif and /c/{token}.
+  public-port: ${MAILPULSE_PUBLIC_PORT:8081}
+  public-base-url: ${MAILPULSE_PUBLIC_BASE_URL:http://127.0.0.1:8081}
+  allowed-host-names: 127.0.0.1,localhost,[::1],::1
+  dashboard-origins: http://127.0.0.1:8080,http://localhost:8080
+  extension-origins: ${MAILPULSE_EXTENSION_ORIGINS:}
+  trusted-proxies: ${MAILPULSE_TRUSTED_PROXIES:127.0.0.1/32,::1/128}
+  encryption-key: ${MAILPULSE_ENCRYPTION_KEY:}
+  jwt-secret: ${MAILPULSE_JWT_SECRET:}
+  self-header-secret: ${MAILPULSE_SELF_SECRET:}
+  session-ttl: 12h
+  session-cookie-secure: false
+  ingest-queue-capacity: 10000
+  jobs-enabled: true

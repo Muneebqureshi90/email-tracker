@@ -29,13 +29,25 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - Fail open: tracking must never block, delay or break sending.
 - TypeScript strict mode, no `any`. TypeScript pinned to 6.0.x (typescript-eslint limit).
 
-## Commands
-Step 1 spikes (throwaway, see spikes/README.md):
-- `.\spikes\setup.ps1 -AppId <sdk_id>` builds the test extension into spikes/extension/dist
-- `.\spikes\start.ps1` starts the logger and Tailscale Funnel for /t/; `.\spikes\stop.ps1` turns Funnel off
-- `.\spikes\mark.ps1 "label"` writes a marker; `node spikes/logger/analyze.mjs` summarises spikes/out/
-- npm installs: `npm install --save-exact --before=<today minus 14 days>` (D-036)
+## Commands (PowerShell, from the project folder)
+- `.\scripts\verify.ps1` — gate before every commit: backend build, unit + integration tests
+  (needs Java 25 on PATH and Docker running), OWASP audit when `NVD_API_KEY` is set.
+- `.\scripts\new-env.ps1` — creates `infra\.env` with secrets once; never overwrites it.
+- `.\scripts\dev.ps1` — builds and starts PostgreSQL + backend in Docker (127.0.0.1:8080 / 8081).
+- `.\scripts\backup.ps1` — pg_dump into `backups\`; restore steps in docs/SETUP.md §6.
+- Backend only: `cd backend; .\mvnw.cmd verify` (unit tests `*Test`, integration tests `*IT`).
+- New dependencies: only versions at least 14 days old, pinned exactly (D-036);
+  npm: `npm install --save-exact --before=<today minus 14 days>`.
+
+## Layout
+- `backend/` Spring Boot 4.1.1, Java 25, packages by feature: `common` (ports, filters, crypto,
+  rate limiter, client IP), `auth`, `settings`, `emails`, `tracking`, `activity`, `maintenance`.
+  Schema: `backend/src/main/resources/db/migration`. Tests share one Spring context
+  (`support/IntegrationTest`) with PostgreSQL 18 in Testcontainers and a `MutableClock`.
+- `infra/` docker-compose.yml, `.env.example`. `scripts/` PowerShell helpers. `docs/` plan and decisions.
 
 ## Status
-- Step 0 approved 2026-10-29 (main). Step 1 tooling built and tested on branch `step-1-spikes`;
-  waiting for the owner to run spikes/README.md, then analysis and the Step 1 checkpoint.
+- Step 0 approved 2026-10-29 (main). Step 1 spike tooling is on branch `step-1-spikes`, waiting for
+  the owner's test run.
+- Phase 1 (backend core) built on branch `phase-1-backend` (worktree `.worktrees/phase-1-backend`);
+  waiting for the owner's approval.

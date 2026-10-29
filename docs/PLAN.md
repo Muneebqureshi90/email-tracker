@@ -250,7 +250,7 @@ If field encryption is approved (question Q4), the columns marked 🔒 hold AES-
 | `contact` | `id`, `address` 🔒, `address_hash` (unique), `display_name` 🔒, `first_seen_at`, `last_emailed_at` | Lower-cased, trimmed address. |
 | `recipient` | `id`, `tracked_email_id`, `contact_id`, `kind` (`TO`/`CC`/`BCC`), `position` | |
 | `tracking_token` | `token` (PK, 24 chars), `tracked_email_id`, `recipient_id` (null in v1), `kind` (`PIXEL`), `created_at` | Ready for per-recipient pixels later. |
-| `tracked_link` | `id`, `tracked_email_id`, `token` (unique), `original_url`, `used`, `click_count`, `first_clicked_at`, `last_clicked_at` | URL validated `http`/`https`, ≤ 2048 chars. |
+| `tracked_link` | `id`, `tracked_email_id`, `token` (unique), `url_enc` 🔒, `url_hash` (unique per email), `used`, `click_count`, `first_clicked_at`, `last_clicked_at` | URL validated `http`/`https`, ≤ 2048 chars, no credentials (D-045). |
 | `tracking_event` | `id`, `tracked_email_id`, `tracked_link_id`, `type` (`OPEN`/`CLICK`), `received_at`, `http_method`, `user_agent` (≤ 512), `ip_prefix` (nullable), `source` (`GMAIL_PROXY`/`OUTLOOK_PROXY`/`YAHOO_PROXY`/`APPLE_MPP`/`SCANNER`/`DIRECT`/`UNKNOWN`), `client`, `device`, `os`, `country` (nullable), `verdict` (`PENDING`/`COUNTED`/`IGNORED`), `reason`, `decided_at` | Partial index on `PENDING`. Reasons: `SELF`, `SELF_VIEW`, `SEND_GRACE`, `DUPLICATE`, `BOT_HEAD`, `BOT_UA`, `BOT_TIMING`, `BOT_BURST`, `PREFETCH`. |
 | `self_view` | `id`, `tracked_email_id`, `received_at`, `context` (`THREAD`/`COMPOSE`/`OTHER`) | Kept 2 days. |
 | `activity` | `id` (bigserial = feed cursor and SSE event id), `kind` (`OPEN`/`CLICK`/`ALERT`), `tracked_email_id`, `event_id`, `alert_id`, `created_at` | Source of the feed, SSE and extension polling. |
@@ -341,17 +341,18 @@ extension/src/
   connector itself also rejects everything except the two routes (defence in depth).
 - Private API: published only on `127.0.0.1`. Host header must be `127.0.0.1:8080` or
   `localhost:8080` (blocks DNS-rebinding attacks).
-- Dashboard session: JWT (HS256, 12 h) in an `HttpOnly; SameSite=Strict; Path=/` cookie; Spring Security
-  CSRF token for unsafe methods; `Origin` must be the dashboard origin.
+- Dashboard session: JWT (HS256, 12 h) in an `HttpOnly; SameSite=Strict; Path=/` cookie. No CSRF token:
+  SameSite=Strict, a CORS allow-list that rejects every other origin, and JSON-only bodies (D-040).
 - Extension: bearer tokens, stored as SHA-256 hashes, scoped, revocable, `last_used_at` visible.
 - CORS: only `chrome-extension://<pinned id>` (and `http://127.0.0.1:5173` in the dev profile).
-- Passwords: Argon2id. First-run setup needs the one-time code from the backend log, so a website
+- Passwords: BCrypt, 12–72 bytes (D-041). First-run setup needs the one-time code from the backend log, so a website
   cannot claim the account by posting to localhost first.
 - Headers: CSP `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;
   connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, `nosniff`,
   `Referrer-Policy: no-referrer`, no `Server` header.
-- Rate limits (Bucket4j, in memory): public 60 req/min per client IP and 600/min overall; when over
-  the limit the pixel still returns the GIF but nothing is recorded; clicks get `429`. Login 5/min.
+- Rate limits (own in-memory token bucket, D-042): public 120 req/min per client and 1,200/min overall;
+  when over the limit the pixel still returns the GIF but nothing is recorded; clicks get `429`.
+  Login 5/min with a 15-minute lockout after 10 failures.
 - Logging: no addresses, subjects, tokens or full URLs in logs; access logs off.
 - Secrets in `.env` (git-ignored), `.env.example` committed. DB password random per install.
 - Dependency audit in `verify.ps1`: OWASP dependency-check (Maven) and `npm audit --audit-level=high`.
@@ -365,7 +366,7 @@ extension/src/
 | Open redirect | `/c` only redirects to URLs stored at registration; `http`/`https` only; no request parameters used. | A stolen extension token could register a malicious target — see below. |
 | XSS via subjects / user agents | React escaping only; no `dangerouslySetInnerHTML`; extension uses `textContent`; strict CSP; length limits. | Low. |
 | Stolen extension token | Works only against `127.0.0.1` (attacker needs local access); scoped (no export, delete, settings, tokens); hashed at rest; revocable; last-used shown. | A local attacker could create redirect links on the tracking domain until revoked. |
-| CSRF / DNS rebinding against localhost | SameSite=Strict cookie + CSRF token + Origin check + Host allow-list; Chrome's Local Network Access prompt adds another barrier. | Low. |
+| CSRF / DNS rebinding against localhost | SameSite=Strict cookie + CORS allow-list + JSON-only bodies + Host allow-list; Chrome's Local Network Access prompt adds another barrier. | Low. |
 | Local database access | Postgres not published; strong random password; optional field encryption (Q4); recommend BitLocker; backups land in a git-ignored folder. | Anyone with full control of the PC can read everything — out of scope. |
 | Third parties seeing data | Funnel relays see only encrypted traffic and IPs; InboxSDK telemetry blocked by DNR (Spike 1 proves zero requests). | Tailscale stays in the path (encrypted). |
 | Supply chain | Pinned versions, lockfiles, dependency audits, no remote code in the extension. | Medium; accepted. |

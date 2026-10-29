@@ -209,3 +209,53 @@ only; flagged events stay visible in the raw log so the rule can be corrected la
 ## D-039 Spike safety — Accepted
 The Step 1 test extension only touches emails whose subject contains a test code such as `[S1-B]`.
 All other emails send unchanged. It is removed after Step 1.
+
+## Phase 1 decisions (2026-10-29)
+
+## D-040 No CSRF tokens: SameSite=Strict + CORS allow-list — Accepted (supersedes part of D-005)
+The session cookie is `SameSite=Strict`, so browsers never attach it to cross-site requests. The CORS
+filter covers every path and rejects any cross-origin request whose origin is not the dashboard or the
+pinned extension (tested: a POST from `https://evil.example` gets 403). Request bodies are JSON only,
+which a plain HTML form cannot send. Options: Spring Security CSRF tokens (double-submit cookie).
+Why: same protection here with less moving parts for the dashboard and the extension.
+
+## D-041 BCrypt for the owner password — Accepted (changes PLAN §8.1)
+Spring Security's default delegating encoder (BCrypt). Argon2id would need the BouncyCastle library.
+BCrypt only reads the first 72 bytes, so passwords are limited to 12–72 bytes.
+
+## D-042 Own rate limiter — Accepted
+A 60-line in-memory token bucket driven by the injectable Clock, instead of Bucket4j: one dependency
+less and easy to test. Public routes: 120 requests/min per client, 1,200/min overall; when over the
+limit the pixel still answers but nothing is recorded, clicks get 429. Login, setup and password
+change: 5/min each, plus a 15-minute lockout after 10 failed logins.
+
+## D-043 User-agent parsing stays small — Accepted (updates D-017)
+Phase 1 only needs the signals in EventClassifier (mail proxies, Apple prefetch, scanners). A full
+parser such as Yauaa is only useful for device details on clicks and direct opens (D-034), so it is
+deferred to the phase that shows them.
+
+## D-044 No Swagger UI — Proposed (owner to confirm)
+The brief mentions Swagger on the private port. Phase 1 leaves it out: the API contract is PLAN §6
+and every endpoint is exercised by integration tests. springdoc can be added on the private port
+later if wanted (one dependency).
+
+## D-045 Link URLs are encrypted too — Accepted
+Q4 covered subjects and addresses. Tracked link URLs can be just as private (shared document links),
+so they are AES-GCM encrypted as well, with a blind index to keep one row per email and URL.
+The redirect decrypts one value per click.
+
+## D-046 Spring JDBC (JdbcClient) instead of JPA — Accepted
+Counters, `FOR UPDATE SKIP LOCKED`, `ON CONFLICT` upserts and blind-index lookups read more clearly
+as explicit SQL. No lazy loading or entity state to reason about.
+
+## D-047 Container images — Accepted
+Version-pinned tags whose software release is at least 14 days old: `postgres:18.6-alpine`,
+`eclipse-temurin:25.0.4.1_1-jre`, `maven:3.9.12-eclipse-temurin-25`. Official images are rebuilt
+for operating-system patches under the same tag; those rebuilds are accepted. The backend runs as
+an unprivileged user. While the owner's own Java 25 install was pending, the build used a
+checksum-verified portable Temurin 25.0.4.1 in a temporary folder.
+
+## D-048 Trusted proxies in Docker — Accepted
+Inside Docker, requests arrive from the Docker gateway (private address ranges), so
+`X-Forwarded-For` is trusted only from 127.0.0.1, ::1, 172.16.0.0/12, 192.168.0.0/16 and
+10.0.0.0/8. Only processes on this PC can reach the published ports.
