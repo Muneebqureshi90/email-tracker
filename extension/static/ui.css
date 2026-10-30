@@ -5,8 +5,8 @@
   --fg: #1f2933;
   --muted: #5f6b76;
   --line: #e1e5ea;
-  --accent: #0f766e;
-  --accent-hover: #0d655e;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
   --accent-fg: #ffffff;
   --good: #188038;
   --good-bg: #e6f4ea;
@@ -27,9 +27,9 @@
     --fg: #e6edf3;
     --muted: #9aa7b4;
     --line: #2a333d;
-    --accent: #2dd4bf;
-    --accent-hover: #5eead4;
-    --accent-fg: #062320;
+    --accent: #818cf8;
+    --accent-hover: #a5b4fc;
+    --accent-fg: #0b0d12;
     --good: #81c995;
     --good-bg: #16301f;
     --warn: #fdd663;
