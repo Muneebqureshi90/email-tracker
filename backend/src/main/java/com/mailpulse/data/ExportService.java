@@ -1,6 +1,7 @@
 package com.mailpulse.data;
 
 import com.mailpulse.contacts.ContactQueries;
+import com.mailpulse.documents.DocumentQueries;
 import com.mailpulse.emails.EmailApi;
 import com.mailpulse.emails.EmailQueries;
 import com.mailpulse.emails.EmailRepository;
@@ -35,19 +36,22 @@ class ExportService {
             List<EmailApi.LinkView> links,
             List<EmailApi.EventView> events) {}
 
+    /** @param documents every document with its links and events (names and labels, never the files) */
     record Export(
             String format,
             Instant exportedAt,
             Settings settings,
             List<String> accounts,
             List<ExportedEmail> emails,
-            List<ContactQueries.ContactSummary> contacts) {}
+            List<ContactQueries.ContactSummary> contacts,
+            List<DocumentQueries.ExportedDocument> documents) {}
 
     private final EmailRepository emails;
     private final EmailQueries emailQueries;
     private final LinkRepository links;
     private final TrackingEventRepository events;
     private final ContactQueries contacts;
+    private final DocumentQueries documents;
     private final SettingsService settings;
     private final Clock clock;
 
@@ -57,6 +61,7 @@ class ExportService {
             LinkRepository links,
             TrackingEventRepository events,
             ContactQueries contacts,
+            DocumentQueries documents,
             SettingsService settings,
             Clock clock) {
         this.emails = emails;
@@ -64,6 +69,7 @@ class ExportService {
         this.links = links;
         this.events = events;
         this.contacts = contacts;
+        this.documents = documents;
         this.settings = settings;
         this.clock = clock;
     }
@@ -95,6 +101,7 @@ class ExportService {
                 settings.current(),
                 emailQueries.accounts(),
                 exported,
-                contacts.all());
+                contacts.all(),
+                documents.exportAll());
     }
 }

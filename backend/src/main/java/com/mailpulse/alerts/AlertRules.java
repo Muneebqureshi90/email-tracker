@@ -9,6 +9,8 @@ final class AlertRules {
 
     /** A follow-up older than this past its due time is not raised any more (no flood after an outage). */
     static final Duration FOLLOW_UP_LATEST = Duration.ofDays(7);
+    /** Counted views of one document link that raise DOC_VIEWS (once per link). */
+    static final int DOC_VIEWS = 3;
 
     private AlertRules() {}
 
@@ -24,6 +26,11 @@ final class AlertRules {
     /** At least `threshold` counted opens within the window, and no spike alert for it yet. */
     static boolean openSpike(int opensInWindow, int threshold, boolean alreadyRaisedInWindow) {
         return opensInWindow >= threshold && !alreadyRaisedInWindow;
+    }
+
+    /** The link's views reached DOC_VIEWS and it has no DOC_VIEWS alert yet. */
+    static boolean documentViews(int countedViews, boolean alreadyRaised) {
+        return countedViews >= DOC_VIEWS && !alreadyRaised;
     }
 
     /** The silence before this open, when it lasted at least `revivalDays`. */

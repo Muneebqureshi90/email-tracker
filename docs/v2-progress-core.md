@@ -24,20 +24,31 @@ Branch `v2-core`. Contract: docs/v2-contract.md. Decisions D-069 onwards.
   Tests: `ListsAndCardIT`.
 - Docs: contract (activity paging, settings validation, `/d/{token}/info`, Pagination section), LIMITATIONS (live
   opens, no email read time, the double-open explanation and the phone tip).
+- Documents (item 1, D-077 to D-085): V6 schema; PDF upload (magic bytes, 10 MB, 100 max, cleaned names),
+  AES-256-GCM files, rename, new version, delete; links (one working link per email, 200 on repeat; share links with
+  label, expiry, download switch, revoke); public `/d/{token}`, `/info`, `/pdf`, `/file`, `/beat`, `/d/_/**` viewer
+  files with the viewer CSP, friendly 404/410/403/429/503 pages; PortRoutingFilter and SecurityConfig (extension:
+  GET /api/documents and POST links with emailId); counting with the click rules, reload merge, wall-clock guard,
+  DOC_READ at `docReadSeconds`; activity fields and `openNumber` for DOC_*, notify rules; DOC_VIEWS alert;
+  `Mark.documentViews`, card and search documents, `EmailDetail.documentLinks/documentEvents`, export, delete-all,
+  retention. Tests: DocumentFilesTest, DocumentRulesTest, PortRoutingFilterTest, AlertRulesTest, DocumentsIT,
+  DocumentViewsIT, MaintenanceIT (document retention).
+- Scripts and docs (item 2): funnel.ps1 mounts `/d/` (on, off, mapping B); check-public.ps1 checks the `/d/` routes and
+  reports whether the viewer is packaged; CLAUDE.md hard rule for port 8081 and the Funnel line; LIMITATIONS
+  "Document links"; contract details for the document fields and routes.
 
 ## Not done (next, in this order)
-1. Documents: storage (AES-256-GCM), API, links, public `/d/` routes, viewer CSP, PortRoutingFilter and
-   SecurityConfig for `/d/`, DOC_VIEW/DOC_READ/DOC_DOWNLOAD counting, DOC_VIEWS alert, document notifications,
-   `Mark.documentViews` and the card's `documents`.
-2. `scripts/funnel.ps1` and `scripts/check-public.ps1` for `/d/`, the CLAUDE.md hard rule, the documents notes in
-   LIMITATIONS.
-3. `scripts/seed-demo.ps1`.
-4. Delay measurement on a throwaway stack.
+1. `scripts/seed-demo.ps1` (skipped on the coordinator's request).
+2. Delay measurement on a throwaway stack (skipped on the coordinator's request).
 
 ## Gaps
 - The V4 time-zone migration is tested only for the default (UTC) row; the `USER` branch is a one-line SQL `CASE`.
 - Alerts raised by an open that the owner later marks as "That was me" stay (D-072).
+- Documents: no "That was me" for document events; two visible tabs of one reader within a reload window can add
+  time twice; the page count is null for PDFs whose page tree is compressed (D-078).
+- The viewer packaging (Dockerfile, classpath:/static/viewer/) is the coordinator's part; without it `/d/{token}`
+  answers 503.
 
 ## Measured delays
-Not measured yet (item 5). Expected for an email open: the 30 s hold plus up to 5 s for the finalizer, then the
+Not measured yet. Expected for an email open: the 30 s hold plus up to 5 s for the finalizer, then the
 extension's poll interval.

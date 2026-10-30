@@ -18,8 +18,9 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 
 ## Hard rules
 - Never store or send email bodies. The extension sends only account, subject, recipients, link URLs.
-- Public port 8081 serves only `GET/HEAD /t/{token}.gif` and `/c/{token}`; everything else 404.
-  The internet reaches it only through Tailscale Funnel mounts for `/t/` and `/c/`.
+- Public port 8081 serves only `GET/HEAD /t/{token}.gif` and `/c/{token}`, and the document routes:
+  `GET/HEAD /d/{token}`, `/d/{token}/info|pdf|file`, `/d/_/{viewer file}`, `POST /d/{token}/beat`; everything else 404.
+  The internet reaches it only through Tailscale Funnel mounts for `/t/`, `/c/` and `/d/`.
 - `/api/**`, actuator and API docs only on 127.0.0.1:8080. Postgres is never published.
 - Tokens: 18 random bytes, base64url (24 chars). No emails, names or sequential IDs in public URLs.
 - `/c/{token}` redirects only to the stored URL. Never read a target URL from the request.
@@ -34,8 +35,9 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
   (needs Java 25 on PATH and Docker running), OWASP audit when `NVD_API_KEY` is set.
 - `.\scripts\new-env.ps1` — creates `infra\.env` with secrets once; never overwrites it.
 - `.\scripts\dev.ps1` — builds and starts PostgreSQL + backend in Docker (127.0.0.1:8080 / 8081).
-- `.\scripts\funnel.ps1 [-Action on|status|off]` — Tailscale Funnel mounts for /t/ and /c/ only, then
-  `check-public.ps1` (pixel 200, everything else 404). `-BaseUrl http://127.0.0.1:8081` tests without Tailscale.
+- `.\scripts\funnel.ps1 [-Action on|status|off]` — Tailscale Funnel mounts for /t/, /c/ and /d/ only, then
+  `check-public.ps1` (pixel 200, document routes reach MailPulse, everything else 404). `-BaseUrl http://127.0.0.1:8081`
+  tests without Tailscale.
 - `.\scripts\autostart.ps1 -Install|-Remove` — Startup-folder shortcut; at sign-in starts Docker stack + Funnel.
 - `.\scripts\backup.ps1` — pg_dump into `backups\`; restore steps in docs/SETUP.md §8.
 - Throwaway stack for manual checks: env file from `new-env.ps1 -EnvFile <scratch>` plus

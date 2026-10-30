@@ -5,16 +5,19 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
-/** The final decision for a pending event, once its self-view hold has passed. Pure, so it is easy to test. */
-final class FinalizerRules {
+/**
+ * The final decision for a pending event, once its self-view hold has passed. Pure, so it is easy to test.
+ * Document views and downloads are decided with the click rules (status and sentAt are null for a share link).
+ */
+public final class FinalizerRules {
 
     /** Clicks this soon after sending come from scanners that check links on delivery (PLAN §4.4). */
-    static final Duration CLICK_TIMING = Duration.ofSeconds(15);
+    public static final Duration CLICK_TIMING = Duration.ofSeconds(15);
     /** Clicks on this many different links of one email within BURST_WINDOW are a scanner. */
-    static final int BURST_LINKS = 3;
-    static final Duration BURST_WINDOW = Duration.ofSeconds(2);
+    public static final int BURST_LINKS = 3;
+    public static final Duration BURST_WINDOW = Duration.ofSeconds(2);
 
-    record Facts(
+    public record Facts(
             Instant receivedAt,
             Source source,
             EmailStatus status,
@@ -32,7 +35,7 @@ final class FinalizerRules {
 
     private FinalizerRules() {}
 
-    static Optional<Reason> decide(Facts facts, Duration sendGrace) {
+    public static Optional<Reason> decide(Facts facts, Duration sendGrace) {
         if (facts.selfViewNearby()) {
             return Optional.of(Reason.SELF_VIEW);
         }

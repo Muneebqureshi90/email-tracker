@@ -234,10 +234,13 @@ public class EmailRepository {
                 .list();
     }
 
+    /** Drafts nobody ever reached: no tracking event and no event on a document link inserted while composing. */
     public int deleteStaleDrafts(Instant createdBefore) {
         return jdbc.sql("""
                 DELETE FROM tracked_email te WHERE te.status = 'DRAFT' AND te.created_at < :before
                   AND NOT EXISTS (SELECT 1 FROM tracking_event ev WHERE ev.tracked_email_id = te.id)
+                  AND NOT EXISTS (SELECT 1 FROM document_link dl JOIN document_event de ON de.link_id = dl.id
+                                  WHERE dl.tracked_email_id = te.id)
                 """)
                 .param("before", Sql.ts(createdBefore))
                 .update();

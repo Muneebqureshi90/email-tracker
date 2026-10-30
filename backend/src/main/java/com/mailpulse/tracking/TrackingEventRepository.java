@@ -115,7 +115,7 @@ public class TrackingEventRepository {
     }
 
     /** Different links of one email clicked between two instants, whatever their verdict. */
-    int distinctLinksClicked(UUID emailId, Instant from, Instant to) {
+    public int distinctLinksClicked(UUID emailId, Instant from, Instant to) {
         return jdbc.sql("""
                 SELECT count(DISTINCT tracked_link_id) FROM tracking_event
                 WHERE tracked_email_id = :email AND type = 'CLICK' AND received_at BETWEEN :from AND :to

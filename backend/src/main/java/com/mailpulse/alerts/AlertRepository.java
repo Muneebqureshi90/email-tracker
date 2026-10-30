@@ -15,16 +15,20 @@ import tools.jackson.databind.json.JsonMapper;
 @Repository
 class AlertRepository {
 
+    /** emailId and subjectEnc are null for a DOC_VIEWS alert of a share link; the document fields only for DOC_VIEWS. */
     record AlertRow(UUID id, String type, UUID emailId, Instant createdAt, String status, Instant snoozedUntil, String text,
-            byte[] subjectEnc) {}
+            byte[] subjectEnc, UUID documentId, byte[] documentNameEnc, byte[] linkLabelEnc) {}
 
     record FollowUpCandidate(UUID emailId, Instant sentAt, int hours, int opens, int clicks) {}
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final String SELECT = """
             SELECT a.id, a.type, a.tracked_email_id, a.created_at, a.status, a.snoozed_until, a.details ->> 'text' AS text,
-                   te.subject_enc
-            FROM alert a JOIN tracked_email te ON te.id = a.tracked_email_id
+                   te.subject_enc, dl.document_id, d.name_enc AS document_name_enc, dl.label_enc AS link_label_enc
+            FROM alert a
+            LEFT JOIN tracked_email te ON te.id = a.tracked_email_id
+            LEFT JOIN document_link dl ON dl.id = a.document_link_id
+            LEFT JOIN document d ON d.id = dl.document_id
             """;
 
     private final JdbcClient jdbc;
@@ -33,14 +37,27 @@ class AlertRepository {
         this.jdbc = jdbc;
     }
 
-    void insert(UUID id, AlertType type, UUID emailId, Instant now, Map<String, Object> details) {
-        jdbc.sql("INSERT INTO alert (id, type, tracked_email_id, created_at, details) VALUES (:id, :type, :email, :now, CAST(:details AS jsonb))")
+    /** @param documentLinkId the document link of a DOC_VIEWS alert, otherwise null */
+    void insert(UUID id, AlertType type, UUID emailId, UUID documentLinkId, Instant now, Map<String, Object> details) {
+        jdbc.sql("""
+                INSERT INTO alert (id, type, tracked_email_id, document_link_id, created_at, details)
+                VALUES (:id, :type, :email, :link, :now, CAST(:details AS jsonb))
+                """)
                 .param("id", id)
                 .param("type", type.name())
                 .param("email", emailId)
+                .param("link", documentLinkId)
                 .param("now", Sql.ts(now))
                 .param("details", JSON.writeValueAsString(details))
                 .update();
+    }
+
+    boolean existsForLink(UUID documentLinkId, AlertType type) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM alert WHERE document_link_id = :link AND type = :type)")
+                .param("link", documentLinkId)
+                .param("type", type.name())
+                .query(Boolean.class)
+                .single();
     }
 
     boolean existsSince(UUID emailId, AlertType type, Instant since) {
@@ -141,6 +158,9 @@ class AlertRepository {
                 rs.getString("status"),
                 Sql.instant(rs, "snoozed_until"),
                 rs.getString("text"),
-                rs.getBytes("subject_enc"));
+                rs.getBytes("subject_enc"),
+                Sql.uuid(rs, "document_id"),
+                rs.getBytes("document_name_enc"),
+                rs.getBytes("link_label_enc"));
     }
 }

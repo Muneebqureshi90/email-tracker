@@ -7,8 +7,11 @@ import java.util.HexFormat;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-/** Decisions that can be made from the request alone, at the moment it arrives. */
-final class EventClassifier {
+/**
+ * Decisions that can be made from the request alone, at the moment it arrives. Document views and downloads
+ * use the same rules as clicks (documents package).
+ */
+public final class EventClassifier {
 
     private static final Pattern SCANNER = Pattern.compile(
             "(?i)(bot\\b|bot/|crawler|spider|curl/|wget/|python-requests|python-urllib|go-http-client|java/|okhttp"
@@ -19,7 +22,7 @@ final class EventClassifier {
 
     private EventClassifier() {}
 
-    static Source source(String userAgent) {
+    public static Source source(String userAgent) {
         if (userAgent == null || userAgent.isBlank()) {
             return Source.UNKNOWN;
         }
@@ -39,13 +42,18 @@ final class EventClassifier {
     }
 
     static Optional<Reason> immediateReason(RawEvent event, Source source, boolean trackingEnabled, boolean countApplePrefetch) {
-        if (event.selfMarked()) {
+        return immediateReason(event.selfMarked(), event.method(), source, trackingEnabled, countApplePrefetch);
+    }
+
+    public static Optional<Reason> immediateReason(
+            boolean selfMarked, String method, Source source, boolean trackingEnabled, boolean countApplePrefetch) {
+        if (selfMarked) {
             return Optional.of(Reason.SELF);
         }
         if (!trackingEnabled) {
             return Optional.of(Reason.TRACKING_OFF);
         }
-        if ("HEAD".equals(event.method())) {
+        if ("HEAD".equals(method)) {
             return Optional.of(Reason.BOT_HEAD);
         }
         if (source == Source.SCANNER) {
@@ -58,7 +66,7 @@ final class EventClassifier {
     }
 
     /** Proxies rotate IPs, so they are one source each; direct clients are keyed by IP prefix and user agent. */
-    static String sourceKey(Source source, String ipPrefix, String userAgent) {
+    public static String sourceKey(Source source, String ipPrefix, String userAgent) {
         if (source.isMailProxy()) {
             return source.name();
         }

@@ -3,6 +3,7 @@ package com.mailpulse.emails;
 import com.mailpulse.common.crypto.FieldCipher;
 import com.mailpulse.common.web.ApiException;
 import com.mailpulse.common.web.Paging;
+import com.mailpulse.documents.DocumentQueries;
 import com.mailpulse.tracking.RepeatOpens;
 import com.mailpulse.tracking.TrackingEventRepository;
 import java.time.Instant;
@@ -32,6 +33,7 @@ public class EmailQueries {
     private final AddressBook addressBook;
     private final LinkRepository links;
     private final TrackingEventRepository events;
+    private final DocumentQueries documents;
     private final FieldCipher cipher;
 
     EmailQueries(
@@ -39,11 +41,13 @@ public class EmailQueries {
             AddressBook addressBook,
             LinkRepository links,
             TrackingEventRepository events,
+            DocumentQueries documents,
             FieldCipher cipher) {
         this.emails = emails;
         this.addressBook = addressBook;
         this.links = links;
         this.events = events;
+        this.documents = documents;
         this.cipher = cipher;
     }
 
@@ -162,7 +166,9 @@ public class EmailQueries {
                 email.cancelledAt(),
                 links.findForEmail(id),
                 events.findForEmail(id, MAX_EVENTS, 0),
-                events.countedOpens(id));
+                events.countedOpens(id),
+                documents.linksForEmail(id),
+                documents.eventsForEmail(id, MAX_EVENTS));
     }
 
     /** ✓/✓✓ for Gmail rows: the latest tracked email per thread (or per message) of one account. */
@@ -184,8 +190,10 @@ public class EmailQueries {
                 byThread ? EmailRepository.EmailRow::gmailThreadId : EmailRepository.EmailRow::gmailMessageId;
         List<EmailRepository.EmailRow> rows = emails.latestByGmailIds(accountId.get(), column, ids);
         Map<UUID, List<Instant>> opens = latestOpens(rows);
+        Map<UUID, Integer> documentViews = documents.viewsByEmail(rows.stream().map(EmailRepository.EmailRow::id).toList());
         Map<String, EmailApi.Mark> marks = rows.stream()
-                .collect(Collectors.toMap(key, row -> mark(row, opens.getOrDefault(row.id(), List.of()))));
+                .collect(Collectors.toMap(key, row -> mark(row, opens.getOrDefault(row.id(), List.of()),
+                        documentViews.getOrDefault(row.id(), 0))));
         return new EmailApi.MarksResponse(marks);
     }
 
@@ -240,7 +248,7 @@ public class EmailQueries {
                 || (r.name() != null && r.name().toLowerCase(Locale.ROOT).contains(needle)));
     }
 
-    private static EmailApi.Mark mark(EmailRepository.EmailRow row, List<Instant> opens) {
+    private static EmailApi.Mark mark(EmailRepository.EmailRow row, List<Instant> opens, int documentViews) {
         boolean engaged = row.openCount() > 0 || row.clickCount() > 0;
         return new EmailApi.Mark(
                 row.id(),
@@ -252,6 +260,7 @@ public class EmailQueries {
                 row.openStatusUnreliable(),
                 row.firstOpenedAt(),
                 recent(opens),
-                RepeatOpens.openedAgain(opens));
+                RepeatOpens.openedAgain(opens),
+                documentViews);
     }
 }

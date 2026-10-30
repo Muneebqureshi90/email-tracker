@@ -2,6 +2,8 @@ package com.mailpulse.card;
 
 import com.mailpulse.alerts.AlertService;
 import com.mailpulse.common.web.ApiException;
+import com.mailpulse.documents.DocumentApi;
+import com.mailpulse.documents.DocumentQueries;
 import com.mailpulse.emails.EmailApi;
 import com.mailpulse.emails.EmailQueries;
 import com.mailpulse.emails.EmailRepository;
@@ -29,16 +31,18 @@ class CardController {
             int clickCount,
             Instant lastClickedAt,
             List<AlertService.AlertBrief> alerts,
-            List<Object> documents) {}
+            List<DocumentApi.CardDocument> documents) {}
 
     private final EmailRepository emails;
     private final EmailQueries queries;
     private final AlertService alerts;
+    private final DocumentQueries documents;
 
-    CardController(EmailRepository emails, EmailQueries queries, AlertService alerts) {
+    CardController(EmailRepository emails, EmailQueries queries, AlertService alerts, DocumentQueries documents) {
         this.emails = emails;
         this.queries = queries;
         this.alerts = alerts;
+        this.documents = documents;
     }
 
     @GetMapping("/api/emails/{id}/card")
@@ -58,6 +62,6 @@ class CardController {
                 summary.clickCount(),
                 summary.lastClickedAt(),
                 alerts.activeForEmail(id),
-                List.of());
+                documents.forCard(id));
     }
 }

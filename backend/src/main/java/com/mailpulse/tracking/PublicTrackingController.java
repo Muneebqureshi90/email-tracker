@@ -1,14 +1,11 @@
 package com.mailpulse.tracking;
 
-import com.mailpulse.common.MailPulseProperties;
 import com.mailpulse.common.RandomTokens;
 import com.mailpulse.common.RateLimiter;
 import com.mailpulse.common.net.ClientAddress;
 import com.mailpulse.emails.LinkRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
@@ -23,9 +20,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The only internet-facing routes (public port). The pixel always answers with the same GIF, known
- * token or not, and never waits for the database. The click route redirects only to the URL stored at
- * registration; nothing in the request can change the target.
+ * Pixel and click routes on the public port (the document routes are in the documents package). The pixel
+ * always answers with the same GIF, known token or not, and never waits for the database. The click route
+ * redirects only to the URL stored at registration; nothing in the request can change the target.
  */
 @RestController
 class PublicTrackingController {
@@ -33,24 +30,21 @@ class PublicTrackingController {
     /** Smallest transparent GIF89a: 43 bytes. */
     static final byte[] PIXEL = Base64.getDecoder().decode("R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==");
     static final String NO_STORE = "no-store, no-cache, must-revalidate, private, max-age=0";
-    static final String SELF_HEADER = "X-MailPulse-Self";
 
     private final IngestQueue queue;
     private final LinkRepository links;
     private final ClientAddress clients;
     private final Clock clock;
-    private final byte[] selfSecret;
+    private final SelfHeader selfHeader;
     private final RateLimiter perClient;
     private final RateLimiter overall;
 
-    PublicTrackingController(
-            IngestQueue queue, LinkRepository links, ClientAddress clients, MailPulseProperties properties, Clock clock) {
+    PublicTrackingController(IngestQueue queue, LinkRepository links, ClientAddress clients, SelfHeader selfHeader, Clock clock) {
         this.queue = queue;
         this.links = links;
         this.clients = clients;
         this.clock = clock;
-        String secret = properties.selfHeaderSecret();
-        this.selfSecret = secret == null || secret.isBlank() ? null : secret.getBytes(StandardCharsets.UTF_8);
+        this.selfHeader = selfHeader;
         this.perClient = new RateLimiter(120, Duration.ofMinutes(1), clock, 10_000);
         this.overall = new RateLimiter(1_200, Duration.ofMinutes(1), clock, 1);
     }
@@ -107,12 +101,7 @@ class PublicTrackingController {
                 request.getMethod(),
                 request.getHeader(HttpHeaders.USER_AGENT),
                 client.orElse(null),
-                isSelf(request.getHeader(SELF_HEADER)));
-    }
-
-    private boolean isSelf(String header) {
-        return selfSecret != null && header != null
-                && MessageDigest.isEqual(selfSecret, header.getBytes(StandardCharsets.UTF_8));
+                selfHeader.isSelf(request));
     }
 
     private static ResponseEntity<String> notFound() {

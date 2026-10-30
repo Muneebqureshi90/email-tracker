@@ -36,6 +36,13 @@ class AlertRulesTest {
     }
 
     @Test
+    void documentViewsAlertFiresOnceAtThreeViews() {
+        assertThat(AlertRules.documentViews(2, false)).isFalse();
+        assertThat(AlertRules.documentViews(3, false)).isTrue();
+        assertThat(AlertRules.documentViews(4, true)).isFalse();
+    }
+
+    @Test
     void revivalNeedsTheFullSilence() {
         assertThat(AlertRules.revival(null, SENT, 7)).isEmpty();
         assertThat(AlertRules.revival(SENT, SENT.plus(Duration.ofDays(7)).minusSeconds(1), 7)).isEmpty();

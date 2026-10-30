@@ -1,11 +1,12 @@
 <#
 .SYNOPSIS
-  Publishes only /t/ and /c/ of MailPulse on your fixed Tailscale address, shows the state, or
-  removes the two mounts. Other Tailscale Serve/Funnel settings on this PC are left alone.
+  Publishes only /t/, /c/ and /d/ of MailPulse on your fixed Tailscale address, shows the state, or
+  removes the three mounts. Other Tailscale Serve/Funnel settings on this PC are left alone.
+  /t/ is the open pixel, /c/ the tracked links, /d/ the tracked documents (viewer, download, read time).
 .PARAMETER Action
-  on (default): mount /t/ and /c/, then run check-public.ps1.
+  on (default): mount /t/, /c/ and /d/, then run check-public.ps1.
   status: show the Funnel configuration and run check-public.ps1.
-  off: remove the /t/ and /c/ mounts (recipients' opens and clicks stop reaching MailPulse).
+  off: remove the mounts (recipients' opens, clicks and document views stop reaching MailPulse).
 .PARAMETER Tailscale
   Path to tailscale.exe (default: C:\Program Files\Tailscale\tailscale.exe).
 #>
@@ -62,7 +63,8 @@ switch ($Action) {
     'off' {
         Remove-Mount '/t'
         Remove-Mount '/c'
-        Write-Host "Removed the /t/ and /c/ mounts from $publicUrl."
+        Remove-Mount '/d'
+        Write-Host "Removed the /t/, /c/ and /d/ mounts from $publicUrl."
         & $Tailscale funnel status
         return
     }
@@ -73,12 +75,15 @@ switch ($Action) {
         # the pixel does not answer, mount the bare port instead (mapping B). Spike 2 records which one.
         Set-Mount '/t' "http://127.0.0.1:$localPort/t"
         Set-Mount '/c' "http://127.0.0.1:$localPort/c"
+        Set-Mount '/d' "http://127.0.0.1:$localPort/d"
         if (-not (Test-Pixel)) {
             Write-Host 'Mapping A did not reach the pixel; switching to mapping B.'
             Remove-Mount '/t'
             Remove-Mount '/c'
+            Remove-Mount '/d'
             Set-Mount '/t' "http://127.0.0.1:$localPort"
             Set-Mount '/c' "http://127.0.0.1:$localPort"
+            Set-Mount '/d' "http://127.0.0.1:$localPort"
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.mailpulse.emails;
 
+import com.mailpulse.documents.DocumentApi;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -88,6 +89,10 @@ public final class EmailApi {
             String userAgent,
             String ipPrefix) {}
 
+    /**
+     * @param documentLinks the email's document links ("Insert tracked file"), oldest first
+     * @param documentEvents the latest 100 views, reads and downloads of those links, newest first
+     */
     public record EmailDetail(
             EmailSummary summary,
             boolean trackOpens,
@@ -100,13 +105,16 @@ public final class EmailApi {
             Instant cancelledAt,
             List<LinkView> links,
             List<EventView> events,
-            List<OpenView> opens) {}
+            List<OpenView> opens,
+            List<DocumentApi.DocLinkView> documentLinks,
+            List<DocumentApi.DocEventView> documentEvents) {}
 
     /** Totals for the email filter labels. */
     public record EmailCounts(long all, long opened, long notOpened, long clicked) {}
 
     public record Page<T>(List<T> items, int page, int size, long total) {}
 
+    /** @param documentViews counted views of the email's document links */
     public record Mark(
             UUID emailId,
             String state,
@@ -117,7 +125,8 @@ public final class EmailApi {
             boolean openStatusUnreliable,
             Instant firstOpenedAt,
             List<Instant> recentOpens,
-            boolean openedAgain) {}
+            boolean openedAgain,
+            int documentViews) {}
 
     public record MarksResponse(Map<String, Mark> marks) {}
 }

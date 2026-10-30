@@ -11,6 +11,13 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  servlet:
+    multipart:
+      # Document uploads: DocumentService allows PDFs up to 10 MB; these limits only stop larger bodies early.
+      # The threshold keeps uploads in memory, so a plain file never touches the disk before it is encrypted.
+      max-file-size: 11MB
+      max-request-size: 12MB
+      file-size-threshold: 12MB
 
 server:
   # Private connector: API, dashboard, health. Only ever published on 127.0.0.1.
@@ -32,7 +39,7 @@ management:
       show-details: never
 
 mailpulse:
-  # Public connector: only GET/HEAD /t/{token}.gif and /c/{token}.
+  # Public connector: only GET/HEAD /t/{token}.gif and /c/{token}, and the document routes under /d/ (PortRoutingFilter).
   public-port: ${MAILPULSE_PUBLIC_PORT:8081}
   public-base-url: ${MAILPULSE_PUBLIC_BASE_URL:http://127.0.0.1:8081}
   allowed-host-names: 127.0.0.1,localhost,[::1],::1
