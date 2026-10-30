@@ -19,6 +19,9 @@ Updated 2026-10-30 by the dashboard engineer. Contract: docs/v2-contract.md. Dec
   collapsed, natural card heights, sticky unsaved bar, warning on leave).
 - Settings → Notifications (`notifyOn`, quiet hours) and Documents (`notifyDocuments`,
   `docReadSeconds`) fields with validation.
+- Pagination component: "1–25 of 140", first / previous / next / last, optional page-size select
+  (25 / 50 / 100), `paginate()` for client-side lists; used on Emails, Contacts and Alerts with the
+  page in the URL. Tests cover the component, client-side paging and the URL.
 - Types for the v2 settings, activity kinds (`DOC_*`) and the `DOC_VIEWS` alert.
 - Bug 9: not ours. `extension/static/manifest.json` injects `content.js` only on
   `https://mail.google.com/*`, the extension never calls `chrome.scripting`, and its source has no
@@ -27,15 +30,16 @@ Updated 2026-10-30 by the dashboard engineer. Contract: docs/v2-contract.md. Dec
   drawer, theme switch, sidebar collapse, time-zone migration and picker, settings layout and the
   leave warning, chart ticks, activity truncation, report date.
 
-Checks: `scripts/verify.ps1` green on 2026-10-30 13:02 (dashboard 39 tests in 3 files, extension 45,
+Checks: `scripts/verify.ps1` green on 2026-10-30 13:06 (dashboard 43 tests in 4 files, extension 45,
 backend 55 unit plus integration tests, npm audit clean). Initial bundle 461 kB (143 kB gzip); pages
 are not lazy-loaded yet.
 
 ## Not done (next, in priority order)
 1. Bug 7: custom Select, Number stepper and Date picker (react-day-picker) to replace native
    controls; the theme dropdown is already replaced.
-2. Pagination component (URL and client-side, first/prev/next/last, page size) and the paged
-   endpoints from the coordinator's note; DataTable with sticky first column, sortable headers,
+2. Page-size select and top placement on the long lists, the paged endpoints from the
+   coordinator's note (email events, contact emails, document links and events), client-side
+   paging on Tokens and Documents; DataTable with sticky first column, sortable headers,
    skeleton rows; Activity cursor paging ("Load older").
 3. Parts B/C/D on the dashboard: status marks per the display rule with counts, opens timeline,
    "Opened again" chip, "That was me" buttons and the repeat-open note, notification bell and
