@@ -1,5 +1,4 @@
-import type { ComposeButtonDescriptor, ComposeView } from '@inboxsdk/core';
-import type { Observable } from 'kefir';
+import type { ComposeView } from '@inboxsdk/core';
 import { describe, expect, it } from 'vitest';
 import type { ClientConfig } from '../core/api-types';
 import type { Request, Status } from '../core/messages';
@@ -30,25 +29,39 @@ type Handler = (data?: unknown) => void;
 class FakeCompose {
   readonly body = document.createElement('div');
   readonly handlers = new Map<string, Handler>();
-  button: ComposeButtonDescriptor | null = null;
   statusBar = document.createElement('div');
+  inserted: { text: string; url: string }[] = [];
   to = [{ emailAddress: 'jane@example.com', name: 'Jane' }];
   sends = 0;
 
   constructor(html = '<div>Hello Jane</div>') {
     this.body.append(...Array.from(new DOMParser().parseFromString(html, 'text/html').body.childNodes));
-    document.body.append(this.body);
+    document.body.append(this.body, this.statusBar);
   }
   getBodyElement = () => this.body;
   getSubject = () => 'Quarterly plan';
   getToRecipients = () => this.to;
   getCcRecipients = () => [];
   getBccRecipients = () => [];
-  addButton = (descriptor: Observable<ComposeButtonDescriptor, never>) => {
-    descriptor.onValue((value) => (this.button = value));
-  };
   addStatusBar = () => ({ el: this.statusBar });
-  status = () => this.statusBar.querySelector('span')?.textContent ?? '';
+  insertLinkIntoBodyAtCursor = (text: string, url: string) => {
+    this.inserted.push({ text, url });
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.textContent = text;
+    this.body.append(anchor);
+    return anchor;
+  };
+  chip = () => this.statusBar.querySelector<HTMLButtonElement>('.mp-chip')!;
+  status = () => this.statusBar.querySelector('.mp-chip-label')?.textContent ?? '';
+  /** Opens the chip menu (if closed) and clicks the item with this label. */
+  choose(label: string) {
+    if (this.chip().getAttribute('aria-expanded') !== 'true') this.chip().click();
+    const items = Array.from(document.querySelectorAll<HTMLButtonElement>('.mp-menu button.mp-item'));
+    const item = items.find((candidate) => candidate.querySelector('.mp-item-label')?.textContent === label);
+    if (!item) throw new Error(`No menu item ${label}: ${items.map((i) => i.textContent).join(' | ')}`);
+    item.click();
+  }
   on = (event: string, handler: Handler) => {
     this.handlers.set(event, handler);
   };
@@ -81,11 +94,14 @@ function status(config: ClientConfig = CONFIG): Status {
     queued: 0,
     extensionOrigin: 'chrome-extension://test',
     appIdSet: true,
+    notificationsEnabled: true,
+    publicCheck: 'up',
+    publicCheckedAt: null,
   };
 }
 
 /** A fake service worker: answers requests and records them. `register` decides when registration finishes. */
-function fakeWorker(options: { config?: ClientConfig; register?: () => Promise<unknown>; lookup?: unknown } = {}) {
+function fakeWorker(options: { config?: ClientConfig; register?: () => Promise<unknown>; lookup?: unknown; documents?: unknown; link?: unknown } = {}) {
   // Test-only stand-in for the service worker.
   const requests: Request[] = [];
   const answer = (request: Request): Promise<unknown> => {
@@ -97,6 +113,10 @@ function fakeWorker(options: { config?: ClientConfig; register?: () => Promise<u
         return options.register?.() ?? Promise.resolve({ id: EMAIL_ID, pixelUrl: `${BASE}/t/${TOKEN}.gif` });
       case 'mp:lookupToken':
         return Promise.resolve(options.lookup ?? null);
+      case 'mp:documents':
+        return Promise.resolve(options.documents ?? []);
+      case 'mp:documentLink':
+        return Promise.resolve(options.link ?? null);
       case 'mp:update':
         return Promise.resolve({ delivered: true, queued: false });
       case 'mp:registerLinks':
@@ -112,6 +132,7 @@ function fakeWorker(options: { config?: ClientConfig; register?: () => Promise<u
 }
 
 async function session(compose: FakeCompose, worker: ReturnType<typeof fakeWorker>) {
+  for (const menu of Array.from(document.querySelectorAll('.mp-menu'))) menu.remove();
   const env = new GmailEnv('Me@Gmail.com', worker.ask);
   await env.refresh();
   new ComposeSession(compose as unknown as ComposeView, env, worker.ask, {
@@ -130,7 +151,7 @@ describe('ComposeSession', () => {
     const worker = fakeWorker();
     await session(compose, worker);
     expect(worker.requests.find((r) => r.type === 'mp:register')).toMatchObject({ account: 'me@gmail.com' });
-    expect(compose.status()).toBe('MailPulse: tracking on');
+    expect(compose.status()).toBe('Tracking on');
 
     expect(compose.presend().cancelled).toBe(false);
     expect(pixels(compose).map((p) => p.token)).toEqual([TOKEN]);
@@ -151,7 +172,7 @@ describe('ComposeSession', () => {
   it('sends untracked when registration has not finished (fail open, no waiting)', async () => {
     const compose = new FakeCompose();
     await session(compose, fakeWorker({ register: () => new Promise(() => undefined) }));
-    expect(compose.status()).toBe('MailPulse: connecting…');
+    expect(compose.status()).toBe('Connecting…');
     expect(compose.presend().cancelled).toBe(false);
     expect(pixels(compose)).toHaveLength(0);
   });
@@ -159,7 +180,8 @@ describe('ComposeSession', () => {
   it('says so when the backend cannot be reached', async () => {
     const compose = new FakeCompose();
     await session(compose, fakeWorker({ register: () => Promise.resolve(null) }));
-    expect(compose.status()).toContain('not reachable');
+    expect(compose.status()).toBe('MailPulse offline');
+    expect(compose.chip().getAttribute('aria-label')).toContain('not reachable');
     compose.presend();
     expect(pixels(compose)).toHaveLength(0);
   });
@@ -175,8 +197,8 @@ describe('ComposeSession', () => {
     const worker = fakeWorker();
     await session(quoted, worker);
     expect(worker.requests.find((r) => r.type === 'mp:selfView')).toMatchObject({ context: 'COMPOSE' });
-    quoted.button!.onClick({} as never);
-    expect(quoted.status()).toBe('MailPulse: this email will not be tracked');
+    quoted.choose('Track opens');
+    expect(quoted.status()).toBe('Tracking off');
     quoted.presend();
     expect(pixels(quoted)).toHaveLength(0);
   });
@@ -272,11 +294,81 @@ describe('ComposeSession extras (Phase 5)', () => {
     const compose = new FakeCompose();
     const worker = fakeWorker();
     await session(compose, worker);
-    const select = compose.statusBar.querySelector('select')!;
-    expect(select.options[0]!.textContent).toBe('default (48 h)');
-    select.value = '72';
-    select.dispatchEvent(new Event('change'));
+    compose.chip().click();
+    expect(document.querySelector('.mp-menu')?.textContent).toContain('Default (48 h)');
+    compose.choose('After 72 hours');
     await flush();
+    expect(document.querySelector('.mp-menu [aria-checked="true"][role=menuitemradio]')?.textContent).toBe('After 72 hours');
     expect(worker.requests.find((r) => r.type === 'mp:preferences')).toMatchObject({ emailId: EMAIL_ID, preferences: { followUpHours: 72 } });
+  });
+});
+
+describe('compose chip (v2)', () => {
+  const RESUME = { id: 'doc-1', name: 'Resume.pdf', sizeBytes: 184_320, pageCount: 2 };
+
+  it('sits right after Gmail\'s Send button group when there is one', async () => {
+    const compose = new FakeCompose();
+    const root = document.createElement('div');
+    root.className = 'IZ';
+    const markup = '<table><tr><td class="Up"><div><div role="button" class="send">Send</div><div role="button" aria-haspopup="true">More</div></div></td></tr></table>';
+    root.append(...Array.from(new DOMParser().parseFromString(markup, 'text/html').body.childNodes));
+    document.body.append(root);
+    Object.assign(compose, { getElement: () => root });
+    await session(compose, fakeWorker());
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const group = root.querySelector('.send')!.parentElement!;
+    expect(group.nextElementSibling?.classList.contains('mp-chip')).toBe(true);
+    expect(compose.statusBar.childElementCount).toBe(0);
+  });
+
+  it('opens with the keyboard, moves with the arrows and closes with Escape', async () => {
+    const compose = new FakeCompose();
+    await session(compose, fakeWorker());
+    const chip = compose.chip();
+    chip.focus();
+    chip.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(chip.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement?.textContent).toBe('Track opens');
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement?.textContent).toContain('Track links');
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(chip.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(chip);
+  });
+
+  it('inserts a tracked file link for this email, once per document', async () => {
+    const compose = new FakeCompose();
+    const url = `${BASE}/d/DocToken0123456789abcdef`;
+    const worker = fakeWorker({ documents: [RESUME], link: { id: 'link-1', url } });
+    await session(compose, worker);
+    compose.choose('Insert tracked file…');
+    await flush();
+    compose.choose('Resume.pdf · PDF · 180 KB');
+    await flush();
+    await flush();
+    expect(compose.inserted).toEqual([{ text: 'Resume.pdf · PDF · 180 KB', url }]);
+    expect(worker.requests.find((r) => r.type === 'mp:documentLink')).toMatchObject({ documentId: 'doc-1', emailId: EMAIL_ID });
+    expect(compose.chip().getAttribute('aria-expanded')).toBe('false');
+
+    compose.choose('Insert tracked file…');
+    await flush();
+    compose.choose('Resume.pdf · PDF · 180 KB');
+    await flush();
+    await flush();
+    expect(worker.requests.filter((r) => r.type === 'mp:documentLink')).toHaveLength(1);
+    expect(compose.inserted).toHaveLength(2);
+  });
+
+  it('never inserts a link that is not our own document link', async () => {
+    const compose = new FakeCompose();
+    const worker = fakeWorker({ documents: [RESUME], link: { id: 'link-1', url: 'https://evil.example/d/x' } });
+    await session(compose, worker);
+    compose.choose('Insert tracked file…');
+    await flush();
+    compose.choose('Resume.pdf · PDF · 180 KB');
+    await flush();
+    await flush();
+    expect(compose.inserted).toEqual([]);
+    expect(document.querySelector('.mp-menu')?.textContent).toContain('Could not create the link');
   });
 });

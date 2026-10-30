@@ -28,6 +28,11 @@ export class GmailEnv {
     return this.status?.paused ?? false;
   }
 
+  /** The dashboard on this PC, for "Open in MailPulse". */
+  get backendUrl(): string | null {
+    return this.status?.backendUrl ?? null;
+  }
+
   /** Tracking is possible: the extension is set up, not paused, and has the backend's config. */
   get active(): boolean {
     return this.status !== null && this.status.hasToken && !this.status.paused && this.status.config !== null;

@@ -1,21 +1,23 @@
-import type { ComposeButtonDescriptor, ComposeView } from '@inboxsdk/core';
-import type { ClientConfig, Preferences, Recipient, RecipientKind } from '../core/api-types';
+import type { ComposeView } from '@inboxsdk/core';
+import type { ClientConfig, DocumentSummary, Preferences, Recipient, RecipientKind } from '../core/api-types';
+import { documentLinkText } from '../core/format';
 import { extractLinks, rewriteLinks, type TrackedLink } from '../core/links';
-import { ICON_TRACK_OFF, ICON_TRACK_ON } from '../core/marks';
 import { findPixels, isInQuote, preparePixel, uniqueTokens } from '../core/pixel';
 import { isSelfOnly } from '../core/recipients';
 import type { Ask } from './bridge';
+import { ComposeChip, sendGroupOf, type ChipState, type FollowUp } from './chip';
 import { looksConfidential } from './dom';
 import type { GmailEnv } from './env';
-import { Live } from './live';
 
 const GMAIL_ID = /^[A-Za-z0-9:_-]{1,64}$/;
 const SIMPLE_ADDRESS = /^[^\s@]+@[^\s@]+$/;
 const REGISTER_WAIT_MS = 2000;
 const MAX_SUBJECT = 998;
-const FOLLOW_UP_CHOICES = [24, 48, 72] as const;
-
-type FollowUp = 0 | (typeof FOLLOW_UP_CHOICES)[number];
+/** Narrower compose windows show only "✓✓ ▾" (the label stays in aria-label). */
+const COMPACT_BELOW_PX = 520;
+/** Gmail sometimes rebuilds the compose toolbar; the chip is put back this often if it went missing. */
+const REATTACH_MS = 2000;
+const PLACE_RETRIES_MS = [0, 300, 1000];
 
 interface TrackedDraft {
   id: string;
@@ -62,14 +64,15 @@ export class ComposeSession {
   private scheduleMenuOpen = false;
   private pending: PendingSend | null = null;
   private reportedSent = false;
-  private statusText: HTMLElement | null = null;
-  private controls: HTMLInputElement[] = [];
-  private followUpSelect: HTMLSelectElement | null = null;
   private linkTimer: ReturnType<typeof setTimeout> | undefined;
+  private reattachTimer: ReturnType<typeof setInterval> | undefined;
+  private chip: ComposeChip | null = null;
+  private fallbackBar: HTMLElement | null = null;
   private readonly links = new Map<string, TrackedLink>();
+  /** Document id to this email's link URL ("one link per email"). */
+  private readonly documentLinks = new Map<string, string>();
   private readonly clientRef: string;
   private readonly linkScanDelayMs: number;
-  private readonly button: Live<ComposeButtonDescriptor>;
 
   constructor(
     private readonly view: ComposeView,
@@ -79,7 +82,6 @@ export class ComposeSession {
   ) {
     this.clientRef = (options.newClientRef ?? (() => crypto.randomUUID()))();
     this.linkScanDelayMs = options.linkScanDelayMs ?? 1000;
-    this.button = new Live(this.buttonDescriptor());
   }
 
   start(): void {
@@ -87,8 +89,7 @@ export class ComposeSession {
     if (!config || !this.env.active) return;
     this.tracking = config.trackingDefault;
     this.trackLinks = config.linkTrackingDefault;
-    this.view.addButton(this.button.stream);
-    this.buildStatusBar(this.view.addStatusBar({ height: 28, orderHint: 200 }).el, config);
+    this.mountChip(config);
 
     this.view.on('presending', (event) => this.onPresending(event, config));
     this.view.on('sent', (event) => void this.onSent(event));
@@ -100,46 +101,76 @@ export class ComposeSession {
     this.view.on('bodyChanged', () => this.scheduleLinkScan(config.publicBaseUrl));
     this.view.on('destroy', () => {
       clearTimeout(this.linkTimer);
+      clearInterval(this.reattachTimer);
+      this.chip?.destroy();
       void this.onDestroy();
     });
     this.render();
     void this.inspectBody(config.publicBaseUrl);
   }
 
-  /** Status line plus the per-email extras: link tracking and the follow-up time (Q8). DOM only, no HTML strings. */
-  private buildStatusBar(bar: HTMLElement, config: ClientConfig): void {
-    const doc = bar.ownerDocument;
-    const row = doc.createElement('div');
-    row.style.cssText =
-      'display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 12px;font:12px/28px Roboto,Arial,sans-serif;color:#5f6368;';
-    this.statusText = doc.createElement('span');
-
-    const linksLabel = doc.createElement('label');
-    linksLabel.style.cssText = 'display:inline-flex;align-items:center;gap:4px;cursor:pointer;';
-    const linksBox = doc.createElement('input');
-    linksBox.type = 'checkbox';
-    linksBox.checked = this.trackLinks;
-    linksBox.title = 'Tracked links only work while your PC and MailPulse are running';
-    linksBox.addEventListener('change', () => this.setTrackLinks(linksBox.checked, config.publicBaseUrl));
-    linksLabel.append(linksBox, doc.createTextNode('Track links'));
-
-    const followLabel = doc.createElement('label');
-    followLabel.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
-    const select = doc.createElement('select');
-    select.style.cssText = 'font:inherit;color:inherit;border:1px solid #dadce0;border-radius:4px;background:transparent;';
-    for (const value of [0, ...FOLLOW_UP_CHOICES]) {
-      const option = doc.createElement('option');
-      option.value = String(value);
-      option.textContent = value === 0 ? `default (${config.followUpHours} h)` : `${value} h`;
-      select.append(option);
+  /**
+   * The "✓✓ Tracking on ▾" chip next to Send (brief Part C). It goes right after Gmail's Send button
+   * group, found the way InboxSDK finds it; when that markup is missing it sits in an InboxSDK status
+   * bar instead, so tracking controls are always there (fail open).
+   */
+  private mountChip(config: ClientConfig): void {
+    const chip = new ComposeChip(document, this.chipState(config), {
+      setTracking: (on) => this.setTracking(on),
+      setTrackLinks: (on) => this.setTrackLinks(on, config.publicBaseUrl),
+      setFollowUp: (hours) => this.setFollowUp(hours),
+      listDocuments: () => this.ask({ type: 'mp:documents' }),
+      insertDocument: (document) => this.insertDocument(document, config.publicBaseUrl),
+    });
+    this.chip = chip;
+    const root = typeof this.view.getElement === 'function' ? this.view.getElement() : null;
+    const place = (fallback: boolean): void => {
+      if (chip.element.isConnected) return;
+      const group = root ? sendGroupOf(root) : null;
+      if (group) {
+        group.after(chip.element);
+      } else if (fallback) {
+        this.fallbackBar ??= this.view.addStatusBar({ height: 44, orderHint: 200 }).el;
+        this.fallbackBar.classList.add('mp-chip-bar');
+        this.fallbackBar.append(chip.element);
+      }
+    };
+    if (!root) {
+      place(true);
+      return;
     }
-    select.addEventListener('change', () => this.setFollowUp(Number(select.value) as FollowUp));
-    followLabel.append(doc.createTextNode('Remind me if unopened after'), select);
-    this.followUpSelect = select;
-    this.controls = [linksBox];
+    PLACE_RETRIES_MS.forEach((delay, index) => {
+      setTimeout(() => {
+        if (!chip.element.isConnected) place(index === PLACE_RETRIES_MS.length - 1);
+      }, delay);
+    });
+    this.reattachTimer = setInterval(() => {
+      if (!chip.element.isConnected && !this.fallbackBar) place(false);
+    }, REATTACH_MS);
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(() => chip.setCompact(root.clientWidth > 0 && root.clientWidth < COMPACT_BELOW_PX)).observe(root);
+    }
+  }
 
-    row.append(this.statusText, linksLabel, followLabel);
-    bar.append(row);
+  /** Creates this email's link for the document (once) and inserts "Resume.pdf · PDF · 180 KB" at the cursor. */
+  private async insertDocument(document: DocumentSummary, publicBaseUrl: string): Promise<boolean> {
+    if (!this.tracking) this.setTracking(true);
+    const draft = await this.ensureRegistered();
+    if (!draft) return false;
+    let url = this.documentLinks.get(document.id);
+    if (!url) {
+      const link = await this.ask({ type: 'mp:documentLink', documentId: document.id, emailId: draft.id });
+      // Only our own public document links go into the email.
+      if (!link || !link.url.startsWith(`${publicBaseUrl}/d/`)) return false;
+      url = link.url;
+      this.documentLinks.set(document.id, url);
+    }
+    try {
+      this.view.insertLinkIntoBodyAtCursor(documentLinkText(document.name, document.sizeBytes), url);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Pixels already in the body: quoted ones are self-views; our own one means Undo Send or a reopened draft. */
@@ -188,8 +219,8 @@ export class ComposeSession {
     return this.registration;
   }
 
-  private toggle(): void {
-    this.tracking = !this.tracking;
+  private setTracking(on: boolean): void {
+    this.tracking = on;
     if (this.tracking) void this.ensureRegistered();
     this.render();
   }
@@ -198,11 +229,13 @@ export class ComposeSession {
     this.trackLinks = on;
     if (this.draft) this.savePreferences({ trackLinks: on });
     if (on) void this.scanLinks(publicBaseUrl);
+    this.render();
   }
 
   private setFollowUp(hours: FollowUp): void {
     this.followUp = hours;
     if (this.draft) this.savePreferences({ followUpHours: hours });
+    this.render();
   }
 
   private savePreferences(preferences: Preferences): void {
@@ -347,26 +380,18 @@ export class ComposeSession {
   }
 
   private render(): void {
-    this.button.set(this.buttonDescriptor());
-    if (this.statusText) this.statusText.textContent = this.statusLine();
-    for (const control of this.controls) control.disabled = !this.tracking;
-    if (this.followUpSelect) this.followUpSelect.disabled = !this.tracking;
+    const config = this.env.config;
+    if (this.chip && config) this.chip.update(this.chipState(config));
   }
 
-  private statusLine(): string {
-    if (!this.tracking) return 'MailPulse: this email will not be tracked';
-    if (this.draft) return 'MailPulse: tracking on';
-    if (this.registration) return 'MailPulse: connecting…';
-    return 'MailPulse is not reachable: this email will be sent without tracking';
-  }
-
-  private buttonDescriptor(): ComposeButtonDescriptor {
+  private chipState(config: ClientConfig): ChipState {
+    const phase = !this.tracking ? 'off' : this.draft ? 'on' : this.registration ? 'connecting' : 'offline';
     return {
-      title: this.tracking ? 'MailPulse tracking is on (click to turn off)' : 'MailPulse tracking is off (click to turn on)',
-      iconUrl: this.tracking ? ICON_TRACK_ON : ICON_TRACK_OFF,
-      type: 'MODIFIER',
-      orderHint: 900,
-      onClick: () => this.toggle(),
+      phase,
+      tracking: this.tracking,
+      trackLinks: this.trackLinks,
+      followUp: this.followUp,
+      defaultFollowUpHours: config.followUpHours,
     };
   }
 }

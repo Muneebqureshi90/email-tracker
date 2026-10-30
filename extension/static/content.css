@@ -1,0 +1,361 @@
+/*
+ * MailPulse inside Gmail: status marks, the hover card, the compose chip and its menu. Gmail's own
+ * colours (brief Part C): light grey #5f6368 and green #188038, dark grey #9aa0a6 and green #81c995.
+ * src/gmail/theme.ts sets .mp-gmail-dark on <html> for dark and image themes.
+ */
+:root {
+  --mp-grey: #5f6368;
+  --mp-green: #188038;
+  --mp-surface: #ffffff;
+  --mp-text: #202124;
+  --mp-muted: #5f6368;
+  --mp-line: #dadce0;
+  --mp-hover: #f1f3f4;
+  --mp-chip-bg: #f1f3f4;
+  --mp-chip-hover: #e8eaed;
+  --mp-accent: #0b57d0;
+  --mp-warn: #b06000;
+  --mp-error: #c5221f;
+  --mp-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 12px rgba(60, 64, 67, 0.15);
+}
+
+:root.mp-gmail-dark {
+  --mp-grey: #9aa0a6;
+  --mp-green: #81c995;
+  --mp-surface: #2d2e30;
+  --mp-text: #e8eaed;
+  --mp-muted: #9aa0a6;
+  --mp-line: #5f6368;
+  --mp-hover: #3c4043;
+  --mp-chip-bg: #3c4043;
+  --mp-chip-hover: #4a4d51;
+  --mp-accent: #a8c7fa;
+  --mp-warn: #fdd663;
+  --mp-error: #f28b82;
+  --mp-shadow: 0 1px 3px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Marks: 16 px, centred on the row's date text, in every Gmail density. */
+.inboxsdk__thread_row_attachment_iconWrapper.mp-slot,
+.mp-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 100%;
+  min-height: 16px;
+  vertical-align: middle;
+}
+
+.mp-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+  color: var(--mp-grey);
+  line-height: 16px;
+  vertical-align: middle;
+  border-radius: 3px;
+  cursor: default;
+}
+
+.mp-mark.mp-green {
+  color: var(--mp-green);
+}
+
+.mp-mark:focus-visible {
+  outline: 2px solid var(--mp-accent);
+  outline-offset: 1px;
+}
+
+.mp-mark .mp-tick {
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.mp-mark .mp-count,
+.mp-count-slot {
+  font: 600 11px/16px 'Google Sans', Roboto, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+
+.mp-count-slot {
+  justify-content: center;
+  width: 16px;
+}
+
+/* Hover card. */
+.mp-card {
+  position: fixed;
+  z-index: 2147483000;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 12px 14px;
+  border: 1px solid var(--mp-line);
+  border-radius: 8px;
+  background: var(--mp-surface);
+  box-shadow: var(--mp-shadow);
+  color: var(--mp-text);
+  font: 13px/18px Roboto, Arial, sans-serif;
+  pointer-events: auto;
+}
+
+.mp-card p {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mp-card-title {
+  font: 500 14px/20px 'Google Sans', Roboto, Arial, sans-serif;
+}
+
+.mp-card-subject {
+  font-weight: 500;
+}
+
+.mp-card-muted,
+.mp-card-label {
+  color: var(--mp-muted);
+}
+
+.mp-card-label {
+  margin-top: 8px !important;
+  font-size: 12px;
+}
+
+.mp-card-list {
+  margin: 2px 0 0;
+  padding: 0 0 0 16px;
+  color: var(--mp-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-card-alert {
+  color: var(--mp-warn);
+}
+
+.mp-card-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--mp-accent);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.mp-card-link:hover,
+.mp-card-link:focus-visible {
+  text-decoration: underline;
+}
+
+/* Compose chip, next to Send. */
+.mp-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 36px;
+  margin: 0 0 0 8px;
+  padding: 0 10px 0 8px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: var(--mp-chip-bg);
+  color: var(--mp-text);
+  font: 500 14px/20px 'Google Sans', Roboto, Arial, sans-serif;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.mp-chip:hover {
+  background: var(--mp-chip-hover);
+}
+
+.mp-chip:focus-visible {
+  outline: 2px solid var(--mp-accent);
+  outline-offset: 2px;
+}
+
+.mp-chip[aria-expanded='true'] {
+  border-color: var(--mp-line);
+}
+
+.mp-chip-offline .mp-chip-label {
+  color: var(--mp-warn);
+}
+
+.mp-chip.mp-compact {
+  gap: 2px;
+  padding: 0 6px;
+}
+
+.mp-chip.mp-compact .mp-chip-label {
+  display: none;
+}
+
+.mp-chip-bar {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+/* Chip menu. */
+.mp-menu {
+  position: fixed;
+  z-index: 2147483000;
+  box-sizing: border-box;
+  width: 280px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 6px 0;
+  border: 1px solid var(--mp-line);
+  border-radius: 8px;
+  background: var(--mp-surface);
+  box-shadow: var(--mp-shadow);
+  color: var(--mp-text);
+  font: 14px/20px Roboto, Arial, sans-serif;
+}
+
+.mp-menu-title {
+  padding: 6px 16px 4px;
+  font: 500 14px/20px 'Google Sans', Roboto, Arial, sans-serif;
+}
+
+.mp-menu-section {
+  padding: 6px 16px 2px;
+  color: var(--mp-muted);
+  font-size: 12px;
+}
+
+.mp-menu-rule {
+  margin: 6px 0;
+  border-top: 1px solid var(--mp-line);
+}
+
+.mp-menu-note {
+  padding: 4px 16px 6px;
+  color: var(--mp-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.mp-menu-error {
+  color: var(--mp-error);
+}
+
+.mp-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mp-item:hover:not(:disabled),
+.mp-item:focus-visible {
+  outline: none;
+  background: var(--mp-hover);
+}
+
+.mp-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mp-item[aria-busy='true'] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.mp-item-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mp-item-hint {
+  color: var(--mp-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.mp-item-doc .mp-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Switch for Track opens / Track links. */
+.mp-switch {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--mp-line);
+}
+
+.mp-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mp-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.mp-item[aria-checked='true'] .mp-switch {
+  background: var(--mp-green);
+}
+
+.mp-item[aria-checked='true'] .mp-switch::after {
+  left: 16px;
+}
+
+/* Radio for the follow-up time. */
+.mp-radio {
+  flex: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--mp-muted);
+  border-radius: 50%;
+}
+
+.mp-item[aria-checked='true'] .mp-radio {
+  border-color: var(--mp-green);
+  background: radial-gradient(circle, var(--mp-green) 0 4px, transparent 4.5px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mp-chip,
+  .mp-item,
+  .mp-switch,
+  .mp-switch::after {
+    transition: background-color 120ms ease, left 120ms ease;
+  }
+}

@@ -2,7 +2,7 @@
 import '@inboxsdk/core/background.js';
 import type { Broadcast } from '../core/messages';
 import { isRequest } from '../core/messages';
-import { emailIdOfNotification, MUTE_BUTTON, type NotificationSpec } from '../core/notify';
+import { BUTTON_TITLES, dashboardPath, gmailThreadUrl, type NotificationSpec, type NotificationTarget } from '../core/notify';
 import { ApiClient } from './api';
 import { applyDnrRules } from './dnr';
 import { createHandlers, dispatch, testConnection, type HandlerDeps } from './handlers';
@@ -11,6 +11,9 @@ import { chromeStateStore, createExclusive } from './storage';
 
 const POLL_ALARM = 'mailpulse-poll';
 const CONFIG_MAX_AGE_MS = 5 * 60 * 1000;
+/** Visible Gmail tabs ask every 5 s; checks closer together than this are skipped. */
+const MIN_POLL_GAP_MS = 4000;
+const MAX_NOTIFICATION_TARGETS = 50;
 const PLACEHOLDER_APP_ID = 'sdk_mailpulse_unregistered';
 
 const store = chromeStateStore;
@@ -27,17 +30,75 @@ async function broadcast(message: Broadcast): Promise<void> {
 }
 
 async function notify(specs: NotificationSpec[]): Promise<void> {
+  if (specs.length === 0) return;
+  const { notificationTargets } = await store.read();
+  const targets = { ...notificationTargets };
   for (const spec of specs) {
     await chrome.notifications.create(spec.id, {
       type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      iconUrl: chrome.runtime.getURL(`icons/n-${spec.icon}.png`),
       title: spec.title,
       message: spec.message,
       contextMessage: spec.contextMessage,
       priority: 0,
-      ...(spec.canMute ? { buttons: [{ title: MUTE_BUTTON }] } : {}),
+      ...(spec.buttons.length > 0 ? { buttons: spec.buttons.map((button) => ({ title: BUTTON_TITLES[button] })) } : {}),
     });
+    targets[spec.id] = { target: spec.target, buttons: spec.buttons };
   }
+  const ids = Object.keys(targets);
+  for (const id of ids.slice(0, Math.max(0, ids.length - MAX_NOTIFICATION_TARGETS))) delete targets[id];
+  await store.write({ notificationTargets: targets });
+}
+
+async function probePublic(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(5000),
+    });
+    return response.type === 'opaqueredirect' || (response.status >= 200 && response.status < 500);
+  } catch {
+    return false;
+  }
+}
+
+let polling: Promise<void> | null = null;
+let lastAttemptAt = 0;
+let lastConfigAttemptAt = 0;
+
+/** One check: config when stale or changed, queued send updates, then the activity feed. */
+function tick(): Promise<void> {
+  polling ??= (async () => {
+    try {
+      const state = await store.read();
+      const now = Date.now();
+      if (state.apiToken === null || now - Math.max(state.lastPollAt, lastAttemptAt) < MIN_POLL_GAP_MS) return;
+      lastAttemptAt = now;
+      const stale = state.config === null || now - state.configAt > CONFIG_MAX_AGE_MS || state.connection !== 'ok';
+      // While the backend is down, ask for the config at most every 30 s (the alarm's pace).
+      if (stale && now - lastConfigAttemptAt >= 30_000) {
+        lastConfigAttemptAt = now;
+        await testConnection(deps);
+      }
+      await deps.exclusive(() => processQueue({ api, store, now: () => Date.now() }));
+      await pollActivity({
+        api,
+        store,
+        now: () => Date.now(),
+        notify,
+        broadcast,
+        refreshConfig: async () => {
+          await testConnection(deps);
+        },
+      });
+    } finally {
+      polling = null;
+    }
+  })();
+  return polling;
 }
 
 const deps: HandlerDeps = {
@@ -48,6 +109,8 @@ const deps: HandlerDeps = {
   exclusive: createExclusive(),
   applyDnr: applyDnrRules,
   broadcast,
+  probePublic,
+  poll: () => tick().catch(() => undefined),
   extensionOrigin: `chrome-extension://${chrome.runtime.id}`,
   appIdSet: __APP_ID__ !== PLACEHOLDER_APP_ID,
 };
@@ -60,16 +123,6 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   return true;
 });
 
-async function tick(): Promise<void> {
-  const state = await store.read();
-  if (state.apiToken === null) return;
-  if (state.config === null || Date.now() - state.configAt > CONFIG_MAX_AGE_MS || state.connection !== 'ok') {
-    await testConnection(deps);
-  }
-  await deps.exclusive(() => processQueue({ api, store, now: () => Date.now() }));
-  await pollActivity({ api, store, notify, broadcast });
-}
-
 async function start(): Promise<void> {
   // Content scripts get everything through messages; only extension pages may read the token.
   await chrome.storage.local.setAccessLevel({ accessLevel: chrome.storage.AccessLevel.TRUSTED_CONTEXTS });
@@ -79,6 +132,42 @@ async function start(): Promise<void> {
   const state = await store.read();
   await applyDnrRules(state.config);
   if (state.apiToken !== null) await testConnection(deps);
+}
+
+async function targetOf(notificationId: string): Promise<{ target: NotificationTarget; buttons: string[] } | null> {
+  const { notificationTargets } = await store.read();
+  return notificationTargets[notificationId] ?? null;
+}
+
+async function forget(notificationId: string): Promise<void> {
+  const { notificationTargets } = await store.read();
+  if (!(notificationId in notificationTargets)) return;
+  const targets = { ...notificationTargets };
+  delete targets[notificationId];
+  await store.write({ notificationTargets: targets });
+}
+
+/** The Gmail thread in the right account, or the MailPulse page when there is no thread. */
+async function openTarget(target: NotificationTarget | null, preferGmail: boolean): Promise<void> {
+  if (preferGmail && target?.threadId && target.account) {
+    await chrome.tabs.create({ url: gmailThreadUrl(target.account, target.threadId) });
+    return;
+  }
+  const { backendUrl } = await store.read();
+  await chrome.tabs.create({
+    url: `${backendUrl}${dashboardPath(target ?? { emailId: null, account: null, threadId: null, documentId: null })}`,
+  });
+}
+
+async function mute(emailId: string): Promise<void> {
+  const muted = await handlers['mp:preferences']({ type: 'mp:preferences', emailId, preferences: { notifications: false } });
+  await chrome.notifications.create(`mp:muted:${emailId}`, {
+    type: 'basic',
+    iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+    title: muted ? 'Muted' : 'Could not mute',
+    message: muted ? 'No more notifications for this email. Unmute it in the dashboard.' : 'MailPulse is not reachable. Try again later.',
+    priority: 0,
+  });
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -92,30 +181,25 @@ chrome.runtime.onStartup.addListener(() => {
 });
 chrome.notifications.onClicked.addListener((notificationId) => {
   void (async () => {
-    const { backendUrl } = await store.read();
-    const emailId = emailIdOfNotification(notificationId);
-    await chrome.tabs.create({ url: emailId ? `${backendUrl}/emails/${emailId}` : `${backendUrl}/activity` });
+    const entry = await targetOf(notificationId);
+    await openTarget(entry?.target ?? null, true);
     await chrome.notifications.clear(notificationId);
+    await forget(notificationId);
   })();
 });
-
-/** "Mute this email": no more notifications for it; opens and alerts are still recorded. */
-chrome.notifications.onButtonClicked.addListener((notificationId) => {
-  const emailId = emailIdOfNotification(notificationId);
-  if (!emailId) return;
+/** "Open in Gmail" and "Mute this email" (mute: no more notifications; opens and alerts are still recorded). */
+chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
   void (async () => {
-    const muted = await handlers['mp:preferences']({ type: 'mp:preferences', emailId, preferences: { notifications: false } });
+    const entry = await targetOf(notificationId);
+    const button = entry?.buttons[buttonIndex];
     await chrome.notifications.clear(notificationId);
-    await chrome.notifications.create(`mp:muted:${emailId}`, {
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-      title: muted ? 'Muted' : 'Could not mute',
-      message: muted
-        ? 'No more notifications for this email. Unmute it in the dashboard.'
-        : 'MailPulse is not reachable. Try again later.',
-      priority: 0,
-    });
+    await forget(notificationId);
+    if (button === 'gmail') await openTarget(entry?.target ?? null, true);
+    if (button === 'mute' && entry?.target.emailId) await mute(entry.target.emailId);
   })();
+});
+chrome.notifications.onClosed.addListener((notificationId) => {
+  void forget(notificationId);
 });
 
 start().catch(() => undefined);

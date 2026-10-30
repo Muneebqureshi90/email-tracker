@@ -1,4 +1,18 @@
 import type { ActivityItem } from './api-types';
+import { formatDuration, formatWhen, ordinal, shortDuration } from './time';
+
+/** Each notification type has its own icon (icons.mjs draws them at build time). */
+export type NotificationIcon = 'open' | 'click' | 'doc-view' | 'doc-read' | 'doc-download' | 'follow-up' | 'alert' | 'group';
+
+export type NotificationButton = 'gmail' | 'mute';
+
+/** Where a click on the notification leads: the Gmail thread in the right account, else the MailPulse page. */
+export interface NotificationTarget {
+  emailId: string | null;
+  account: string | null;
+  threadId: string | null;
+  documentId: string | null;
+}
 
 /** One desktop notification. All fields are plain text (chrome.notifications never renders HTML). */
 export interface NotificationSpec {
@@ -6,12 +20,12 @@ export interface NotificationSpec {
   title: string;
   message: string;
   contextMessage: string;
-  emailId: string | null;
-  /** Offer the "Mute this email" button (single-email notifications only). */
-  canMute: boolean;
+  icon: NotificationIcon;
+  target: NotificationTarget;
+  buttons: NotificationButton[];
 }
 
-export const MUTE_BUTTON = 'Mute this email';
+export const BUTTON_TITLES: Record<NotificationButton, string> = { gmail: 'Open in Gmail', mute: 'Mute this email' };
 
 const SOURCES: Record<string, string> = {
   GMAIL_PROXY: 'via Gmail',
@@ -22,67 +36,177 @@ const SOURCES: Record<string, string> = {
 };
 
 const MAX_SUBJECT = 80;
+const MAX_DOCUMENT = 60;
+const GMAIL_ID = /^[A-Za-z0-9:_-]{1,64}$/;
+
+function clip(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
 
 function subjectOf(item: ActivityItem): string {
-  const subject = item.subject?.trim() || '(no subject)';
-  return subject.length > MAX_SUBJECT ? `${subject.slice(0, MAX_SUBJECT - 1)}…` : subject;
+  return clip(item.subject?.trim() || '(no subject)', MAX_SUBJECT);
 }
 
-function verbOf(item: ActivityItem): string {
-  switch (item.kind) {
-    case 'OPEN':
-      return 'Opened';
-    case 'CLICK':
-      return 'Clicked';
-    case 'ALERT':
-      return item.alertType === 'FOLLOW_UP' ? 'Follow up' : item.alertType === 'OPEN_SPIKE' ? 'Hot' : 'Opened again';
+/** "Resume" for "Resume.pdf": the brief's "Resume opened" wording. */
+function documentOf(item: ActivityItem): string {
+  const name = item.documentName?.trim().replace(/\.pdf$/i, '') ?? '';
+  return clip(name || 'Document', MAX_DOCUMENT);
+}
+
+function whoOf(item: ActivityItem): string {
+  if (item.recipients) return item.recipients;
+  if (item.kind.startsWith('DOC_')) return item.linkLabel ? `Link "${item.linkLabel}"` : 'Someone with the link';
+  return 'Recipient unknown';
+}
+
+function joined(parts: (string | null | undefined | false)[]): string {
+  return parts.filter((part): part is string => typeof part === 'string' && part.length > 0).join(' · ');
+}
+
+function hostOf(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).host;
+  } catch {
+    return null;
   }
 }
 
-function contextOf(item: ActivityItem): string {
-  if (item.kind === 'ALERT') return item.alertText ?? '';
-  if (item.kind === 'CLICK' && item.linkUrl) {
-    try {
-      return `Link to ${new URL(item.linkUrl).host}`;
-    } catch {
-      return 'Link clicked';
+function targetOf(item: ActivityItem): NotificationTarget {
+  const threadId = item.gmailThreadId && GMAIL_ID.test(item.gmailThreadId) ? item.gmailThreadId : null;
+  return { emailId: item.emailId, account: item.account ?? null, threadId, documentId: item.documentId ?? null };
+}
+
+function buttonsOf(target: NotificationTarget): NotificationButton[] {
+  const buttons: NotificationButton[] = [];
+  if (target.threadId && target.account) buttons.push('gmail');
+  if (target.emailId) buttons.push('mute');
+  return buttons;
+}
+
+function alertTitle(item: ActivityItem): { title: string; icon: NotificationIcon } {
+  switch (item.alertType) {
+    case 'FOLLOW_UP':
+      return { title: `Follow-up: ${subjectOf(item)}`, icon: 'follow-up' };
+    case 'OPEN_SPIKE':
+      return { title: `Hot: ${subjectOf(item)}`, icon: 'alert' };
+    case 'DOC_VIEWS':
+      return { title: `Hot document: ${documentOf(item)}`, icon: 'alert' };
+    default:
+      return { title: `Revived: ${subjectOf(item)}`, icon: 'alert' };
+  }
+}
+
+function single(item: ActivityItem, now: number, timeZone: string | undefined): NotificationSpec {
+  const target = targetOf(item);
+  const base = { id: `mp:item:${item.id}`, contextMessage: formatWhen(item.occurredAt, now, timeZone), target, buttons: buttonsOf(target) };
+  const via = item.source ? SOURCES[item.source] : undefined;
+  switch (item.kind) {
+    case 'OPEN': {
+      const n = item.openNumber ?? 1;
+      return {
+        ...base,
+        title: n >= 2 ? `Opened again (${n}×): ${subjectOf(item)}` : `Opened: ${subjectOf(item)}`,
+        message: joined([whoOf(item), `${ordinal(n)} open`, via]),
+        icon: 'open',
+      };
+    }
+    case 'CLICK':
+      return { ...base, title: `Link clicked: ${subjectOf(item)}`, message: joined([whoOf(item), hostOf(item.linkUrl)]), icon: 'click' };
+    case 'DOC_VIEW':
+      return { ...base, title: `${documentOf(item)} opened`, message: joined([whoOf(item), item.subject && subjectOf(item)]), icon: 'doc-view' };
+    case 'DOC_READ': {
+      const seconds = item.readSeconds ?? 0;
+      const pages = item.pagesViewed != null && item.pageCount ? `${item.pagesViewed}/${item.pageCount} pages` : null;
+      return {
+        ...base,
+        title: `${documentOf(item)} read (${shortDuration(seconds)})`,
+        message: joined([whoOf(item), formatDuration(seconds), pages]),
+        icon: 'doc-read',
+      };
+    }
+    case 'DOC_DOWNLOAD':
+      return {
+        ...base,
+        title: `${documentOf(item)} downloaded`,
+        message: joined([whoOf(item), item.subject && subjectOf(item)]),
+        icon: 'doc-download',
+      };
+    case 'ALERT': {
+      const { title, icon } = alertTitle(item);
+      return { ...base, title, message: item.alertText ?? '', icon };
     }
   }
-  return (item.source && SOURCES[item.source]) ?? '';
 }
 
-/** Up to `groupAbove` items get one notification each; more are grouped into one (PLAN §4.6). */
-export function notificationsFor(items: readonly ActivityItem[], groupAbove = 3): NotificationSpec[] {
+/** Several opens of one email in one batch become "Opened 3 times in 5 min" (PLAN §4.6, brief Part B3). */
+function burst(opens: ActivityItem[], now: number, timeZone: string | undefined): NotificationSpec {
+  const last = opens.at(-1)!;
+  const first = opens[0]!;
+  const minutes = Math.max(1, Math.round((Date.parse(last.occurredAt) - Date.parse(first.occurredAt)) / 60_000));
+  const target = targetOf(last);
+  return {
+    id: `mp:item:${last.id}`,
+    title: `Opened ${opens.length} times in ${minutes} min: ${subjectOf(last)}`,
+    message: joined([whoOf(last), last.source ? SOURCES[last.source] : null]),
+    contextMessage: formatWhen(last.occurredAt, now, timeZone),
+    icon: 'open',
+    target,
+    buttons: buttonsOf(target),
+  };
+}
+
+export interface NotifyOptions {
+  now: number;
+  timeZone?: string;
+  /** More notifications than this become one summary. */
+  groupAbove?: number;
+}
+
+/** The desktop notifications for one batch of new activity (oldest first). */
+export function notificationsFor(items: readonly ActivityItem[], options: NotifyOptions): NotificationSpec[] {
+  const { now, timeZone, groupAbove = 3 } = options;
   const wanted = items.filter((item) => item.shouldNotify);
-  const last = wanted.at(-1);
-  if (!last) return [];
-  if (wanted.length > groupAbove) {
-    return [
-      {
-        id: `mp:group:${last.id}`,
-        title: `${wanted.length} new MailPulse updates`,
-        message: wanted
-          .slice(-3)
-          .map((item) => `${verbOf(item)}: ${subjectOf(item)}`)
-          .join('\n'),
-        contextMessage: 'MailPulse',
-        emailId: null,
-        canMute: false,
-      },
-    ];
+  const opensByEmail = new Map<string, ActivityItem[]>();
+  for (const item of wanted) {
+    if (item.kind === 'OPEN' && item.emailId) opensByEmail.set(item.emailId, [...(opensByEmail.get(item.emailId) ?? []), item]);
   }
-  return wanted.map((item) => ({
-    id: `mp:item:${item.id}:${item.emailId}`,
-    title: `${verbOf(item)}: ${subjectOf(item)}`,
-    message: item.recipients || 'Recipient unknown',
-    contextMessage: contextOf(item),
-    emailId: item.emailId,
-    canMute: true,
-  }));
+  const specs: NotificationSpec[] = [];
+  for (const item of wanted) {
+    const opens = item.kind === 'OPEN' && item.emailId ? opensByEmail.get(item.emailId) : undefined;
+    if (opens && opens.length > 1) {
+      // One notification per burst, at the position of its last open.
+      if (opens.at(-1) === item) specs.push(burst(opens, now, timeZone));
+      continue;
+    }
+    specs.push(single(item, now, timeZone));
+  }
+  const last = specs.at(-1);
+  if (!last || specs.length <= groupAbove) return specs;
+  return [
+    {
+      id: `mp:group:${last.id.slice('mp:item:'.length)}`,
+      title: `${specs.length} new MailPulse updates`,
+      message: specs
+        .slice(-3)
+        .map((spec) => spec.title)
+        .join('\n'),
+      contextMessage: 'MailPulse',
+      icon: 'group',
+      target: { emailId: null, account: null, threadId: null, documentId: null },
+      buttons: [],
+    },
+  ];
 }
 
-/** The email a notification belongs to, or null for grouped notifications. */
-export function emailIdOfNotification(notificationId: string): string | null {
-  const match = /^mp:item:\d+:([0-9a-f-]{36})$/.exec(notificationId);
-  return match?.[1] ?? null;
+/** Gmail's address for a thread in a given account (authuser picks the signed-in account). */
+export function gmailThreadUrl(account: string, threadId: string): string {
+  return `https://mail.google.com/mail/?authuser=${encodeURIComponent(account)}#all/${encodeURIComponent(threadId)}`;
+}
+
+/** The MailPulse page for a notification without a Gmail thread. */
+export function dashboardPath(target: NotificationTarget): string {
+  if (target.emailId) return `/emails/${target.emailId}`;
+  if (target.documentId) return `/documents/${target.documentId}`;
+  return '/activity';
 }

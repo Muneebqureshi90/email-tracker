@@ -1,6 +1,9 @@
 import type {
   ActivityPage,
   ClientConfig,
+  DocLinkView,
+  DocumentSummary,
+  EmailCard,
   MarksResponse,
   RegisterLinksResponse,
   RegisterResponse,
@@ -16,6 +19,13 @@ const LOCAL_BACKEND = /^http:\/\/(127\.0\.0\.1|localhost)(:\d{1,5})?$/;
 const API_TOKEN = /^mp_[A-Za-z0-9_-]{16,128}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const GMAIL_ID = /^[A-Za-z0-9:_-]{1,64}$/;
+const DOCUMENT_ID = /^[A-Za-z0-9-]{1,64}$/;
+
+/**
+ * A made-up pixel token (24 characters, like real ones) for the public-address check: no email has
+ * it, so the request counts nothing; any answer from the backend proves the address works.
+ */
+export const PROBE_TOKEN = 'mailpulse-health-check-0';
 
 export interface HandlerDeps {
   api: ApiClient;
@@ -25,6 +35,10 @@ export interface HandlerDeps {
   exclusive<T>(task: () => Promise<T>): Promise<T>;
   applyDnr(config: ClientConfig | null): Promise<void>;
   broadcast(message: Broadcast): Promise<void>;
+  /** True when the public URL answers (any status below 500) within a few seconds. */
+  probePublic(url: string): Promise<boolean>;
+  /** One activity check, as the alarm runs it (the service worker throttles it). */
+  poll(): Promise<void>;
   extensionOrigin: string;
   appIdSet: boolean;
 }
@@ -40,6 +54,9 @@ export async function readStatus(deps: HandlerDeps): Promise<Status> {
     message: state.connectionMessage,
     checkedAt: state.checkedAt,
     paused: state.paused,
+    notificationsEnabled: state.notificationsEnabled,
+    publicCheck: state.publicCheck,
+    publicCheckedAt: state.publicCheckedAt,
     config: state.config,
     queued: state.queue.length,
     extensionOrigin: deps.extensionOrigin,
@@ -58,13 +75,20 @@ async function noteResult(deps: HandlerDeps, result: ApiResult<unknown>): Promis
   });
 }
 
-/** Fetches /api/config, stores it and applies the matching DNR rules. */
+/** Checks the public tracking address the way recipients reach it (Tailscale Funnel). */
+async function checkPublicAddress(deps: HandlerDeps, publicBaseUrl: string): Promise<void> {
+  const up = await deps.probePublic(`${publicBaseUrl}/t/${PROBE_TOKEN}.gif`).catch(() => false);
+  await deps.store.write({ publicCheck: up ? 'up' : 'down', publicCheckedAt: new Date(deps.now()).toISOString() });
+}
+
+/** Fetches /api/config, stores it, applies the matching DNR rules and checks the public address. */
 export async function testConnection(deps: HandlerDeps): Promise<Status> {
   const result = await deps.api.call<ClientConfig>('GET', '/api/config', undefined, 4000);
   const checkedAt = new Date(deps.now()).toISOString();
   if (result.ok) {
     await deps.store.write({ config: result.data, configAt: deps.now(), connection: 'ok', connectionMessage: null, checkedAt });
     await deps.applyDnr(result.data);
+    await checkPublicAddress(deps, result.data.publicBaseUrl);
   } else {
     await deps.store.write({ connection: result.connection === 'ok' ? 'error' : result.connection, connectionMessage: result.message, checkedAt });
   }
@@ -93,6 +117,10 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     'mp:setPaused': async ({ paused }) => {
       await deps.store.write({ paused });
       await deps.broadcast({ type: 'mp:statusChanged' });
+      return readStatus(deps);
+    },
+    'mp:setNotifications': async ({ enabled }) => {
+      await deps.store.write({ notificationsEnabled: enabled });
       return readStatus(deps);
     },
     'mp:register': async ({ account, clientRef, trackLinks }) => {
@@ -149,6 +177,25 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       const size = Math.min(Math.max(Math.trunc(limit), 1), 50);
       const result = await deps.api.call<ActivityPage>('GET', `/api/activity?limit=${size}`);
       return result.ok ? result.data.items : null;
+    },
+    'mp:card': async ({ emailId }) => {
+      if (!UUID.test(emailId)) return null;
+      const result = await deps.api.call<EmailCard>('GET', `/api/emails/${emailId}/card`);
+      return result.ok ? result.data : null;
+    },
+    'mp:documents': async () => {
+      const result = await deps.api.call<DocumentSummary[]>('GET', '/api/documents');
+      return result.ok ? result.data : null;
+    },
+    'mp:documentLink': async ({ documentId, emailId }) => {
+      if (!DOCUMENT_ID.test(documentId) || !UUID.test(emailId)) return null;
+      const result = await deps.api.call<DocLinkView>('POST', `/api/documents/${documentId}/links`, { emailId });
+      await noteResult(deps, result);
+      return result.ok ? result.data : null;
+    },
+    'mp:tick': async () => {
+      await deps.poll();
+      return true;
     },
   };
 }

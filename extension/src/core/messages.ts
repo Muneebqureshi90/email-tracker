@@ -1,6 +1,9 @@
 import type {
   ActivityItem,
   ClientConfig,
+  DocLinkView,
+  DocumentSummary,
+  EmailCard,
   EmailUpdate,
   Mark,
   Preferences,
@@ -16,6 +19,7 @@ export type Request =
   | { type: 'mp:testConnection' }
   | { type: 'mp:saveConnection'; backendUrl: string; apiToken: string }
   | { type: 'mp:setPaused'; paused: boolean }
+  | { type: 'mp:setNotifications'; enabled: boolean }
   | { type: 'mp:register'; account: string; clientRef: string; trackLinks: boolean }
   | { type: 'mp:lookupToken'; token: string }
   | { type: 'mp:update'; emailId: string; update: EmailUpdate }
@@ -23,12 +27,20 @@ export type Request =
   | { type: 'mp:marks'; account: string; by: 'thread' | 'message'; ids: string[] }
   | { type: 'mp:activity'; limit: number }
   | { type: 'mp:registerLinks'; emailId: string; urls: string[] }
-  | { type: 'mp:preferences'; emailId: string; preferences: Preferences };
+  | { type: 'mp:preferences'; emailId: string; preferences: Preferences }
+  | { type: 'mp:card'; emailId: string }
+  | { type: 'mp:documents' }
+  | { type: 'mp:documentLink'; documentId: string; emailId: string }
+  /** A visible Gmail tab asks for a quick activity check (live ticks, brief Part B1). */
+  | { type: 'mp:tick' };
 
 export type RequestType = Request['type'];
 export type RequestOf<K extends RequestType> = Extract<Request, { type: K }>;
 
 export type Connection = 'ok' | 'unconfigured' | 'offline' | 'unauthorized' | 'origin-rejected' | 'error';
+
+/** Whether the public tracking address (Tailscale Funnel) answers from the internet side. */
+export type PublicCheck = 'up' | 'down' | 'unknown';
 
 /** What the extension knows about its backend connection. */
 export interface Status {
@@ -38,6 +50,9 @@ export interface Status {
   message: string | null;
   checkedAt: string | null;
   paused: boolean;
+  notificationsEnabled: boolean;
+  publicCheck: PublicCheck;
+  publicCheckedAt: string | null;
   config: ClientConfig | null;
   queued: number;
   extensionOrigin: string;
@@ -54,6 +69,7 @@ export interface ResponseMap {
   'mp:testConnection': Status;
   'mp:saveConnection': Status;
   'mp:setPaused': Status;
+  'mp:setNotifications': Status;
   'mp:register': RegisterResponse | null;
   'mp:lookupToken': TokenLookup | null;
   'mp:update': UpdateResult;
@@ -62,6 +78,10 @@ export interface ResponseMap {
   'mp:activity': ActivityItem[] | null;
   'mp:registerLinks': RegisterLinksResponse | null;
   'mp:preferences': boolean;
+  'mp:card': EmailCard | null;
+  'mp:documents': DocumentSummary[] | null;
+  'mp:documentLink': DocLinkView | null;
+  'mp:tick': boolean;
 }
 
 /** Messages from the service worker to Gmail tabs. */
@@ -72,6 +92,7 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<RequestType>([
   'mp:testConnection',
   'mp:saveConnection',
   'mp:setPaused',
+  'mp:setNotifications',
   'mp:register',
   'mp:lookupToken',
   'mp:update',
@@ -80,6 +101,10 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<RequestType>([
   'mp:activity',
   'mp:registerLinks',
   'mp:preferences',
+  'mp:card',
+  'mp:documents',
+  'mp:documentLink',
+  'mp:tick',
 ]);
 
 export function isRequest(message: unknown): message is Request {

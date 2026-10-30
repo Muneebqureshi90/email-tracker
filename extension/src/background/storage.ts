@@ -1,5 +1,6 @@
 import type { ClientConfig } from '../core/api-types';
-import type { Connection } from '../core/messages';
+import type { Connection, PublicCheck } from '../core/messages';
+import type { NotificationButton, NotificationTarget } from '../core/notify';
 import type { QueuedCall } from '../core/queue';
 
 export const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8080';
@@ -9,26 +10,38 @@ export interface StoredState {
   backendUrl: string;
   apiToken: string | null;
   paused: boolean;
+  /** The popup's switch: no desktop notifications at all from this browser. */
+  notificationsEnabled: boolean;
   config: ClientConfig | null;
   configAt: number;
   connection: Connection;
   connectionMessage: string | null;
   checkedAt: string | null;
+  publicCheck: PublicCheck;
+  publicCheckedAt: string | null;
   lastActivityId: number | null;
+  lastPollAt: number;
   queue: QueuedCall[];
+  /** Click targets and buttons of the notifications on screen, by notification id (the worker may restart). */
+  notificationTargets: Record<string, { target: NotificationTarget; buttons: NotificationButton[] }>;
 }
 
 export const DEFAULT_STATE: StoredState = {
   backendUrl: DEFAULT_BACKEND_URL,
   apiToken: null,
   paused: false,
+  notificationsEnabled: true,
   config: null,
   configAt: 0,
   connection: 'unconfigured',
   connectionMessage: null,
   checkedAt: null,
+  publicCheck: 'unknown',
+  publicCheckedAt: null,
   lastActivityId: null,
+  lastPollAt: 0,
   queue: [],
+  notificationTargets: {},
 };
 
 export interface StateStore {
