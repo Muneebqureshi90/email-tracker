@@ -99,7 +99,8 @@ export type ActivityKind = 'OPEN' | 'CLICK' | 'ALERT' | 'DOC_VIEW' | 'DOC_READ' 
 export interface ActivityItem {
   id: number;
   kind: ActivityKind;
-  emailId: string;
+  /** Null for a document event from a share link that belongs to no email. */
+  emailId: string | null;
   subject: string | null;
   recipients: string;
   occurredAt: string;

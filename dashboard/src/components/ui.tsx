@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import { ApiError } from '../api/client';
 import { PAGE_SIZES } from '../lib/paging';
-import { Select } from './controls';
+import { Select, Skeleton } from './controls';
 import { useTopBar } from './shell';
 
 /**
@@ -67,11 +67,18 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
   );
 }
 
-export function Empty({ title, children }: { title: string; children?: ReactNode }) {
+/** An empty state that says what to do next, optionally with an icon and an action. */
+export function Empty({ title, children, icon: Icon, action }: { title: string; children?: ReactNode; icon?: LucideIcon; action?: ReactNode }) {
   return (
-    <div className="p-8 text-center">
+    <div className="flex flex-col items-center p-8 text-center">
+      {Icon && (
+        <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-chip text-muted" aria-hidden="true">
+          <Icon size={20} />
+        </span>
+      )}
       <p className="font-medium">{title}</p>
       {children && <div className="mx-auto mt-1 max-w-md text-sm text-muted">{children}</div>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
@@ -90,15 +97,30 @@ export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => v
   );
 }
 
+/** Placeholder lines while a card's data loads (skeletons instead of spinners, E2). */
+export function LoadingBlock({ lines = 3, className = 'p-4' }: { lines?: number; className?: string }) {
+  return (
+    <div role="status" className={`space-y-3 ${className}`}>
+      <span className="sr-only">Loading…</span>
+      {Array.from({ length: lines }, (_, index) => (
+        <Skeleton key={index} className={`h-4 ${['w-3/4', 'w-1/2', 'w-2/3', 'w-5/12'][index % 4]}`} />
+      ))}
+    </div>
+  );
+}
+
 /** Loading, error and data states for one query, in one place. */
 export function QueryState<T>({
   query,
   children,
+  loading,
 }: {
   query: { isPending: boolean; isError: boolean; error: unknown; data: T | undefined; refetch: () => unknown };
   children: (data: T) => ReactNode;
+  /** What shows while loading (default: skeleton lines). */
+  loading?: ReactNode;
 }) {
-  if (query.isPending) return <Spinner />;
+  if (query.isPending) return <>{loading ?? <LoadingBlock />}</>;
   if (query.isError || query.data === undefined) {
     return (
       <div className="p-4">

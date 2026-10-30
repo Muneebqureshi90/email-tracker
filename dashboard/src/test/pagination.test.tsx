@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Pagination, paginate } from '../components/ui';
@@ -41,10 +41,13 @@ describe('pagination', () => {
       'GET /api/accounts': { body: ['me@gmail.com'] },
     });
     const router = renderAt('/emails');
-    await userEvent.click(await screen.findByRole('button', { name: 'Next page' }));
+    // A compact pager sits in the fixed top bar, the full one below the list.
+    const bottom = await screen.findByRole('navigation', { name: 'Pages' });
+    expect(screen.getByRole('navigation', { name: 'Pages (top)' })).toBeTruthy();
+    await userEvent.click(within(bottom).getByRole('button', { name: 'Next page' }));
     await waitFor(() => expect(router.state.location.search).toBe('?page=1'));
-    await waitFor(() => expect(calls.at(-1)?.search.get('page')).toBe('1'));
-    expect(await screen.findByText('26–50 of 60')).toBeTruthy();
+    await waitFor(() => expect(calls.filter((call) => call.path === '/api/emails').at(-1)?.search.get('page')).toBe('1'));
+    expect((await screen.findAllByText('26–50 of 60')).length).toBe(2);
   });
 });
 

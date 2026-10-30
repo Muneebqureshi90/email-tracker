@@ -58,9 +58,11 @@ describe('emails', () => {
   it('lists emails with their marks and filters by state', async () => {
     const calls = mockApi({ 'GET /api/emails': { body: page([email(), email({ id: 'e2', subject: 'Unopened offer', openCount: 0, lastOpenedAt: null })]) } });
     renderAt('/emails');
+    // The table shows skeleton rows first, then the emails.
     const table = await screen.findByRole('table');
-    expect(within(table).getByText('Quarterly plan')).toBeTruthy();
-    expect(within(table).getByRole('img', { name: 'Opened' })).toBeTruthy();
+    expect(await within(table).findByText('Quarterly plan')).toBeTruthy();
+    // The contract display rule: two or more opens show the count ("Opened N×").
+    expect(within(table).getByRole('img', { name: 'Opened 2 times' })).toBeTruthy();
     expect(within(table).getByRole('img', { name: 'Sent, not opened yet' })).toBeTruthy();
 
     await userEvent.click(screen.getByRole('button', { name: 'Opened' }));

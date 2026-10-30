@@ -45,10 +45,15 @@ Updated 2026-10-30 by the dashboard engineer. Contract: docs/v2-contract.md (the
   and every building block (keyboard use of Select, stepper limits, calendar pick and clear, radio
   arrows, tabs, table states and sorting, the mark rule, toasts, confirm dialog).
 
+- Lists (D-099 to D-101): Emails (counts in the filter, sortable columns, debounced search, account
+  select, avatars, marks with counts, "Opened again" chip), Contacts (avatars, open-rate bar,
+  sortable), contact detail (paged emails), Alerts and Tokens (client-side) page with 25/50/100 in
+  the URL; compact pager in the top bar on Emails and Contacts, full pager below. Activity: day
+  groups, filter chips, "Load older", icons, document events, "Open in Gmail". Tokens: new token in
+  a dialog, revoke behind a confirm dialog, toasts. Overview asks for 25 and shows five.
+
 ## Not done (next, in priority order)
-2. Page-size select and top placement on the long lists, the paged endpoints (email events, contact
-   emails, document links and events), client-side paging on Tokens and Documents, DataTable on the
-   lists, sorting and counts on Emails, Activity cursor paging ("Load older") grouped by day.
+2. Paged email events on the email page, document links and events (with item 3).
 3. Parts B/C/D on the dashboard: status marks per the display rule with counts, opens timeline,
    "Opened again" chip, "That was me" buttons and the repeat-open note, notification bell and
    panel, live toasts, Documents list/detail/share links, document events in Activity and email

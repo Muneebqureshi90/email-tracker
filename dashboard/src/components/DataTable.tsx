@@ -5,6 +5,12 @@ import type { SortDir } from '../lib/paging';
 import { Skeleton } from './controls';
 import { ErrorBox } from './ui';
 
+/**
+ * The identifying first column: on wide screens it takes the space the other columns leave (its
+ * text truncates); on phones it stays at most 12rem wide and sticky while the table scrolls sideways.
+ */
+export const MAIN_COLUMN = 'max-w-48 md:w-full md:max-w-0';
+
 export interface Column<T> {
   key: string;
   header: string;
