@@ -206,7 +206,8 @@ class RepeatOpensIT extends IntegrationTest {
     }
 
     private String reason(long eventId) {
-        return jdbc.sql("SELECT reason FROM tracking_event WHERE id = :id").param("id", eventId).query(String.class).list().getFirst();
+        return jdbc.sql("SELECT reason FROM tracking_event WHERE id = :id").param("id", eventId)
+                .query((rs, row) -> rs.getString("reason")).list().getFirst();
     }
 
     private long eventId(TrackedEmail email, String verdict) {

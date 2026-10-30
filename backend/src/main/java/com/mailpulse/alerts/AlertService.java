@@ -3,6 +3,7 @@ package com.mailpulse.alerts;
 import com.mailpulse.activity.ActivityService;
 import com.mailpulse.common.crypto.FieldCipher;
 import com.mailpulse.common.web.ApiException;
+import com.mailpulse.common.web.Paging;
 import com.mailpulse.emails.AddressBook;
 import com.mailpulse.emails.EmailApi;
 import com.mailpulse.emails.EmailService;
@@ -26,8 +27,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class AlertService {
 
-    static final int MAX_PAGE_SIZE = 100;
-
     public record AlertView(
             UUID id,
             AlertType type,
@@ -38,6 +37,8 @@ public class AlertService {
             UUID emailId,
             String subject,
             String recipients) {}
+
+    public record AlertBrief(AlertType type, String text) {}
 
     public record AlertPage(List<AlertView> items, int page, int size, long total, long newCount) {}
 
@@ -115,12 +116,15 @@ public class AlertService {
         if (!"active".equals(status) && !"all".equals(status)) {
             throw ApiException.badRequest("status must be active or all");
         }
-        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
-            throw ApiException.badRequest("page must be >= 0 and size between 1 and " + MAX_PAGE_SIZE);
-        }
+        Paging.check(page, size);
         boolean active = "active".equals(status);
         List<AlertRepository.AlertRow> rows = repository.list(active, size, (long) page * size);
         return new AlertPage(views(rows), page, size, repository.count(active), repository.countNew());
+    }
+
+    /** Type and text of the email's new and seen alerts, newest first (the Gmail hover card). */
+    public List<AlertBrief> activeForEmail(UUID emailId) {
+        return repository.activeForEmail(emailId);
     }
 
     public AlertView update(UUID id, String status, Integer snoozeHours) {

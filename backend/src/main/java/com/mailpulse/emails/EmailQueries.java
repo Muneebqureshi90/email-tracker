@@ -2,6 +2,7 @@ package com.mailpulse.emails;
 
 import com.mailpulse.common.crypto.FieldCipher;
 import com.mailpulse.common.web.ApiException;
+import com.mailpulse.common.web.Paging;
 import com.mailpulse.tracking.RepeatOpens;
 import com.mailpulse.tracking.TrackingEventRepository;
 import java.time.Instant;
@@ -9,6 +10,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -21,9 +23,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailQueries {
 
-    static final int MAX_PAGE_SIZE = 100;
     private static final int MAX_SEARCH_ROWS = 5000;
-    private static final int MAX_EVENTS = 500;
+    /** EmailDetail.events keeps the latest events; the full history is paged (GET /api/emails/{id}/events). */
+    static final int MAX_EVENTS = 100;
     private static final int MAX_GMAIL_IDS = 100;
 
     private final EmailRepository emails;
@@ -47,32 +49,98 @@ public class EmailQueries {
 
     public EmailApi.Page<EmailApi.EmailSummary> list(
             String state, String account, Instant from, Instant to, String text, int page, int size) {
-        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
-            throw ApiException.badRequest("page must be >= 0 and size between 1 and " + MAX_PAGE_SIZE);
+        return list(state, account, from, to, text, page, size, null, null);
+    }
+
+    public EmailApi.Page<EmailApi.EmailSummary> list(
+            String state, String account, Instant from, Instant to, String text, int page, int size, String sort, String dir) {
+        Paging.check(page, size);
+        checkState(state);
+        Optional<UUID> accountId = accountFilter(account);
+        if (accountId == null) {
+            return new EmailApi.Page<>(List.of(), page, size, 0);
         }
+        return page(new EmailRepository.ListFilter(state, accountId.orElse(null), from, to), text, page, size, sort, dir);
+    }
+
+    /** The emails sent to one contact, with the same sort keys as the email list. */
+    public EmailApi.Page<EmailApi.EmailSummary> listForContact(UUID contactId, int page, int size, String sort, String dir) {
+        Paging.check(page, size);
+        return page(new EmailRepository.ListFilter(null, null, null, null, contactId), null, page, size, sort, dir);
+    }
+
+    /** Totals for the filter labels ("Opened 12"), for the same account and text as the list. */
+    public EmailApi.EmailCounts counts(String account, String text) {
+        Optional<UUID> accountId = accountFilter(account);
+        if (accountId == null) {
+            return new EmailApi.EmailCounts(0, 0, 0, 0);
+        }
+        var filter = new EmailRepository.ListFilter(null, accountId.orElse(null), null, null);
+        if (text == null || text.isBlank()) {
+            return new EmailApi.EmailCounts(
+                    emails.count(filter),
+                    emails.count(filter.withState("opened")),
+                    emails.count(filter.withState("not_opened")),
+                    emails.count(filter.withState("clicked")));
+        }
+        List<EmailApi.EmailSummary> matches = search(filter, text, "sent", false);
+        return new EmailApi.EmailCounts(
+                matches.size(),
+                matches.stream().filter(e -> e.openCount() > 0).count(),
+                matches.stream().filter(e -> e.openCount() == 0 && e.clickCount() == 0).count(),
+                matches.stream().filter(e -> e.clickCount() > 0).count());
+    }
+
+    /** Quick search: up to {@code limit} newest emails whose subject or recipients contain the text. */
+    public List<EmailApi.EmailSummary> quickSearch(String text, int limit) {
+        List<EmailApi.EmailSummary> matches =
+                search(new EmailRepository.ListFilter(null, null, null, null), text, "sent", false);
+        return List.copyOf(matches.subList(0, Math.min(limit, matches.size())));
+    }
+
+    /** Every event of an email, newest first. */
+    public EmailApi.Page<EmailApi.EventView> events(UUID id, int page, int size) {
+        Paging.check(page, size);
+        emails.find(id).orElseThrow(() -> ApiException.notFound("Email not found"));
+        return new EmailApi.Page<>(events.findForEmail(id, size, (long) page * size), page, size, events.countForEmail(id));
+    }
+
+    private EmailApi.Page<EmailApi.EmailSummary> page(
+            EmailRepository.ListFilter filter, String text, int page, int size, String sort, String dir) {
+        String key = sort == null || sort.isBlank() ? "sent" : sort;
+        if (!EmailRepository.SORTS.containsKey(key)) {
+            throw ApiException.badRequest("sort must be sent, opens, clicks or lastOpened");
+        }
+        boolean ascending = Paging.ascending(dir);
+        if (text == null || text.isBlank()) {
+            List<EmailRepository.EmailRow> rows = emails.list(filter, key, ascending, size, (long) page * size);
+            return new EmailApi.Page<>(summaries(rows), page, size, emails.count(filter));
+        }
+        List<EmailApi.EmailSummary> matches = search(filter, text, key, ascending);
+        return new EmailApi.Page<>(Paging.slice(matches, page, size), page, size, matches.size());
+    }
+
+    private List<EmailApi.EmailSummary> search(EmailRepository.ListFilter filter, String text, String sort, boolean ascending) {
+        String needle = text.trim().toLowerCase(Locale.ROOT);
+        return summaries(emails.list(filter, sort, ascending, MAX_SEARCH_ROWS, 0)).stream()
+                .filter(summary -> matches(summary, needle))
+                .toList();
+    }
+
+    private static void checkState(String state) {
         if (state != null && !List.of("opened", "not_opened", "clicked").contains(state)) {
             throw ApiException.badRequest("state must be opened, not_opened or clicked");
         }
-        UUID accountId = null;
-        if (account != null && !account.isBlank()) {
-            var found = addressBook.findAccountId(Addresses.normalize(account));
-            if (found.isEmpty()) {
-                return new EmailApi.Page<>(List.of(), page, size, 0);
-            }
-            accountId = found.get();
+    }
+
+    /** Empty: no account filter; null: an account that has never sent anything (so nothing matches). */
+    @SuppressWarnings("OptionalAssignedToNull")
+    private Optional<UUID> accountFilter(String account) {
+        if (account == null || account.isBlank()) {
+            return Optional.empty();
         }
-        var filter = new EmailRepository.ListFilter(state, accountId, from, to);
-        if (text == null || text.isBlank()) {
-            List<EmailRepository.EmailRow> rows = emails.list(filter, size, (long) page * size);
-            return new EmailApi.Page<>(summaries(rows), page, size, emails.count(filter));
-        }
-        String needle = text.trim().toLowerCase(Locale.ROOT);
-        List<EmailApi.EmailSummary> matches = summaries(emails.list(filter, MAX_SEARCH_ROWS, 0)).stream()
-                .filter(summary -> matches(summary, needle))
-                .toList();
-        int start = Math.min(matches.size(), page * size);
-        int end = Math.min(matches.size(), start + size);
-        return new EmailApi.Page<>(matches.subList(start, end), page, size, matches.size());
+        Optional<UUID> found = addressBook.findAccountId(Addresses.normalize(account));
+        return found.isPresent() ? found : null;
     }
 
     public List<String> accounts() {
@@ -93,7 +161,7 @@ public class EmailQueries {
                 email.gmailThreadId(),
                 email.cancelledAt(),
                 links.findForEmail(id),
-                events.findForEmail(id, MAX_EVENTS),
+                events.findForEmail(id, MAX_EVENTS, 0),
                 events.countedOpens(id));
     }
 

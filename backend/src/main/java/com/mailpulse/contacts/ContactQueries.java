@@ -2,6 +2,7 @@ package com.mailpulse.contacts;
 
 import com.mailpulse.common.Sql;
 import com.mailpulse.common.web.ApiException;
+import com.mailpulse.common.web.Paging;
 import com.mailpulse.emails.AddressBook;
 import com.mailpulse.emails.Addresses;
 import com.mailpulse.emails.EmailApi;
@@ -9,6 +10,7 @@ import com.mailpulse.emails.EmailQueries;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -22,7 +24,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class ContactQueries {
 
-    static final int MAX_PAGE_SIZE = 100;
     private static final int MAX_EMAILS = 200;
 
     public record ContactSummary(
@@ -66,16 +67,53 @@ public class ContactQueries {
     }
 
     public EmailApi.Page<ContactSummary> list(String text, int page, int size) {
-        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
-            throw ApiException.badRequest("page must be >= 0 and size between 1 and " + MAX_PAGE_SIZE);
-        }
+        return list(text, page, size, null, null);
+    }
+
+    /** Sort keys: lastEmailed (default), opens, emails, openRate; dir asc or desc (default desc). */
+    public EmailApi.Page<ContactSummary> list(String text, int page, int size, String sort, String dir) {
+        Paging.check(page, size);
+        Comparator<ContactSummary> order = Paging.direction(comparator(sort), Paging.ascending(dir));
+        List<ContactSummary> all = search(text).stream().sorted(order).toList();
+        return new EmailApi.Page<>(Paging.slice(all, page, size), page, size, all.size());
+    }
+
+    /** Quick search: up to {@code limit} most recently emailed contacts whose address or name contains the text. */
+    public List<ContactSummary> quickSearch(String text, int limit) {
+        List<ContactSummary> found = search(text);
+        return List.copyOf(found.subList(0, Math.min(limit, found.size())));
+    }
+
+    /** The emails sent to one contact, paged and sorted like the email list. */
+    public EmailApi.Page<EmailApi.EmailSummary> emails(String address, int page, int size, String sort, String dir) {
+        UUID id = addressBook.findContactId(Addresses.normalize(address))
+                .orElseThrow(() -> ApiException.notFound("Contact not found"));
+        return emailQueries.listForContact(id, page, size, sort, dir);
+    }
+
+    private List<ContactSummary> search(String text) {
         String needle = text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
-        List<ContactSummary> all = all().stream()
+        return all().stream()
                 .filter(contact -> needle.isEmpty() || contact.email().contains(needle)
                         || (contact.name() != null && contact.name().toLowerCase(Locale.ROOT).contains(needle)))
                 .toList();
-        int start = Math.min(all.size(), page * size);
-        return new EmailApi.Page<>(all.subList(start, Math.min(all.size(), start + size)), page, size, all.size());
+    }
+
+    private static Comparator<ContactSummary> comparator(String sort) {
+        Comparator<ContactSummary> byLastEmailed =
+                Comparator.comparing(ContactSummary::lastEmailedAt, Comparator.nullsFirst(Comparator.naturalOrder()));
+        Comparator<ContactSummary> primary = switch (sort == null || sort.isBlank() ? "lastEmailed" : sort) {
+            case "lastEmailed" -> byLastEmailed;
+            case "opens" -> Comparator.comparingInt(ContactSummary::opens);
+            case "emails" -> Comparator.comparingInt(ContactSummary::emails);
+            case "openRate" -> Comparator.comparingDouble(ContactQueries::openRate);
+            default -> throw ApiException.badRequest("sort must be lastEmailed, opens, emails or openRate");
+        };
+        return primary.thenComparing(byLastEmailed).thenComparing(ContactSummary::email);
+    }
+
+    static double openRate(ContactSummary contact) {
+        return contact.emails() == 0 ? 0 : contact.openedEmails() / (double) contact.emails();
     }
 
     /** Every contact, most recently emailed first. */

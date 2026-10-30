@@ -102,6 +102,9 @@ public final class EmailApi {
             List<EventView> events,
             List<OpenView> opens) {}
 
+    /** Totals for the email filter labels. */
+    public record EmailCounts(long all, long opened, long notOpened, long clicked) {}
+
     public record Page<T>(List<T> items, int page, int size, long total) {}
 
     public record Mark(

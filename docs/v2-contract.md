@@ -52,11 +52,12 @@ default `desc`); `size` allows 25, 50 or 100. `GET /api/emails/counts?account=&q
 `{ all, opened, notOpened, clicked }` for the filter labels.
 
 `GET /api/contacts` adds `sort` (`lastEmailed` default, `opens`, `emails`, `openRate`) and `dir`.
+Unknown `sort` or `dir` values give 400 on every list.
 
 `GET /api/reports/daily|weekly` adds `previous: { sent, openedEmails, openRate, opens, clicks }` for the
 period of the same length just before (trend arrows on Overview).
 
-`GET /api/search?q=` (owner, q at least 2 characters) returns
+`GET /api/search?q=` (owner, q 2 to 200 characters after trimming, otherwise 400) returns
 `{ emails: EmailSummary[], contacts: ContactSummary[], documents: DocumentSummary[] }`, 5 of each at most.
 
 ## Marks and hover card (extension token or owner)
@@ -74,7 +75,7 @@ Display rule (dashboard and extension use the same):
 
 `GET /api/emails/{id}/card` → `{ emailId, subject, recipients, account, gmailThreadId, openCount,
 firstOpenedAt, lastOpenedAt, recentOpens, clickCount, lastClickedAt, alerts: { type, text }[],
-documents: { name, views, reads, downloads }[] }`.
+documents: { name, views, reads, downloads }[] }`. `alerts` are the email's new and seen alerts, newest first.
 
 ## Activity and notifications
 `ActivityItem.kind` adds `'DOC_VIEW' | 'DOC_READ' | 'DOC_DOWNLOAD'`. New fields (null when not relevant):
@@ -90,8 +91,9 @@ list; unknown kinds give 400) and `before=<id>` for the page of older items. The
 oldest first; `lastId` stays the newest id overall, whatever the filter. Dashboard grouping and filter chips use `kinds`.
 An open restored with "That was me" undo comes back as a new item with `shouldNotify: false`.
 
-Notification center (owner): `GET /api/notifications?limit=30` → `{ items: ActivityItem[], unread: number,
-lastReadId: number }`; `POST /api/notifications/read` with `{ upToId }` → 204 (stored server-side).
+Notification center (owner): `GET /api/notifications?limit=30` (1..100) → `{ items: ActivityItem[], unread: number,
+lastReadId: number }`, items newest first, `unread` = items with an id above `lastReadId`; `POST /api/notifications/read`
+with `{ upToId }` (≥ 0) → 204 (stored server-side, never moves backwards, capped at the newest item).
 
 `AlertType` adds `DOC_VIEWS` (a document link viewed 3 or more times).
 

@@ -183,15 +183,25 @@ public class TrackingEventRepository {
                 .list();
     }
 
-    public List<EmailApi.EventView> findForEmail(UUID emailId, int limit) {
+    /** Events of an email, newest first. */
+    public List<EmailApi.EventView> findForEmail(UUID emailId, int limit, long offset) {
         return jdbc.sql("""
                 SELECT id, type, received_at, verdict, reason, source, tracked_link_id, user_agent, ip_prefix
-                FROM tracking_event WHERE tracked_email_id = :email ORDER BY received_at DESC, id DESC LIMIT :limit
+                FROM tracking_event WHERE tracked_email_id = :email ORDER BY received_at DESC, id DESC
+                LIMIT :limit OFFSET :offset
                 """)
                 .param("email", emailId)
                 .param("limit", limit)
+                .param("offset", offset)
                 .query((rs, row) -> eventView(rs))
                 .list();
+    }
+
+    public long countForEmail(UUID emailId) {
+        return jdbc.sql("SELECT count(*) FROM tracking_event WHERE tracked_email_id = :email")
+                .param("email", emailId)
+                .query(Long.class)
+                .single();
     }
 
     private static EmailApi.EventView eventView(ResultSet rs) throws SQLException {

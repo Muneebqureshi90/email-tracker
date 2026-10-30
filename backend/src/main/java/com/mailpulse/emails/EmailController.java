@@ -68,8 +68,25 @@ class EmailController {
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String dir) {
+        return queries.list(state, account, from, to, q, page, size, sort, dir);
+    }
+
+    /** Totals for the filter labels, for the same account and search text as the list. */
+    @GetMapping("/emails/counts")
+    EmailApi.EmailCounts counts(@RequestParam(required = false) String account, @RequestParam(required = false) String q) {
+        return queries.counts(account, q);
+    }
+
+    /** Every event of the email, newest first, one page at a time. */
+    @GetMapping("/emails/{id}/events")
+    EmailApi.Page<EmailApi.EventView> events(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return queries.list(state, account, from, to, q, page, size);
+        return queries.events(id, page, size);
     }
 
     /** Gmail accounts seen so far, for the dashboard's account filter. */

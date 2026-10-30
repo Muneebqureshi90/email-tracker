@@ -137,9 +137,11 @@ class EmailFlowIT extends IntegrationTest {
         assertThat(search.get("items").get(0).get("id").asString()).isEqualTo(match.id().toString());
         JsonNode byRecipient = http.get(api("/api/emails?account=" + account + "&q=y@gmail"), asOwner()).json();
         assertThat(byRecipient.get("total").asLong()).isEqualTo(1);
-        JsonNode notOpened = http.get(api("/api/emails?account=" + account + "&state=not_opened&size=1"), asOwner()).json();
+        JsonNode notOpened = http.get(api("/api/emails?account=" + account + "&state=not_opened&size=25"), asOwner()).json();
         assertThat(notOpened.get("total").asLong()).isEqualTo(2);
-        assertThat(notOpened.get("items")).hasSize(1);
+        assertThat(notOpened.get("items")).hasSize(2);
+        assertThat(http.get(api("/api/emails?account=" + account + "&page=1"), asOwner()).json().get("items")).isEmpty();
+        assertThat(http.get(api("/api/emails?size=1"), asOwner()).status()).as("sizes are 25, 50 or 100").isEqualTo(400);
         assertThat(http.get(api("/api/emails?state=bogus"), asOwner()).status()).isEqualTo(400);
         assertThat(http.get(api("/api/emails?size=500"), asOwner()).status()).isEqualTo(400);
     }

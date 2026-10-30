@@ -1,6 +1,6 @@
 # v2 core (backend) progress
 
-Branch `v2-core`. Contract: docs/v2-contract.md. Decisions D-069 to D-073.
+Branch `v2-core`. Contract: docs/v2-contract.md. Decisions D-069 onwards.
 
 ## Done
 - V4 migration: `time_zone_source` (UTC row becomes `DEFAULT`, any other zone `USER`), `notify_on`,
@@ -17,20 +17,22 @@ Branch `v2-core`. Contract: docs/v2-contract.md. Decisions D-069 to D-073.
 - Tests: `RepeatOpensTest` (rules), `RepeatOpensIT` (history, numbering, notify-on modes, "That was me" for opens
   and clicks, the owner's own views never change counts, activity paging), `SettingsIT` and `ContactsAndReportsIT`
   extended.
+- Lists (item 1): one page rule for every paged endpoint (25/50/100, D-074); email `sort`/`dir` and
+  `/api/emails/counts`; contact `sort`/`dir`; `/api/emails/{id}/events` and `/api/contacts/{address}/emails` pages;
+  `EmailDetail.events` capped at the latest 100; the hover card (`/api/emails/{id}/card`); the notification center
+  (`/api/notifications`, `/read`, V5); quick search (`/api/search`). Card and search `documents` arrive with item 2.
+  Tests: `ListsAndCardIT`.
 - Docs: contract (activity paging, settings validation, `/d/{token}/info`, Pagination section), LIMITATIONS (live
   opens, no email read time, the double-open explanation and the phone tip).
 
 ## Not done (next, in this order)
-1. Card (`/api/emails/{id}/card`), notifications (`/api/notifications`, `/read`), `/api/search`, email `sort`/`dir`,
-   `/api/emails/counts`, contact `sort`, and the paged endpoints with the 25/50/100 size rule (the Pagination
-   section of the contract is the target; `/api/emails`, `/api/contacts` and `/api/alerts` still accept 1..100).
-2. Documents: storage (AES-256-GCM), API, links, public `/d/` routes, viewer CSP, PortRoutingFilter and
+1. Documents: storage (AES-256-GCM), API, links, public `/d/` routes, viewer CSP, PortRoutingFilter and
    SecurityConfig for `/d/`, DOC_VIEW/DOC_READ/DOC_DOWNLOAD counting, DOC_VIEWS alert, document notifications,
    `Mark.documentViews` and the card's `documents`.
-3. `scripts/funnel.ps1` and `scripts/check-public.ps1` for `/d/`, the CLAUDE.md hard rule, the documents notes in
+2. `scripts/funnel.ps1` and `scripts/check-public.ps1` for `/d/`, the CLAUDE.md hard rule, the documents notes in
    LIMITATIONS.
-4. `scripts/seed-demo.ps1`.
-5. Delay measurement on a throwaway stack.
+3. `scripts/seed-demo.ps1`.
+4. Delay measurement on a throwaway stack.
 
 ## Gaps
 - The V4 time-zone migration is tested only for the default (UTC) row; the `USER` branch is a one-line SQL `CASE`.

@@ -110,6 +110,16 @@ class AlertRepository {
         return jdbc.sql("SELECT count(*) FROM alert WHERE status = 'NEW'").query(Long.class).single();
     }
 
+    List<AlertService.AlertBrief> activeForEmail(UUID emailId) {
+        return jdbc.sql("""
+                SELECT type, details ->> 'text' AS text FROM alert
+                WHERE tracked_email_id = :email AND status IN ('NEW', 'SEEN') ORDER BY created_at DESC, id
+                """)
+                .param("email", emailId)
+                .query((rs, row) -> new AlertService.AlertBrief(AlertType.valueOf(rs.getString("type")), rs.getString("text")))
+                .list();
+    }
+
     Optional<AlertRow> find(UUID id) {
         return jdbc.sql(SELECT + " WHERE a.id = :id").param("id", id).query(AlertRepository::map).optional();
     }
