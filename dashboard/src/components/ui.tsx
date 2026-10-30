@@ -1,16 +1,33 @@
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import { ApiError } from '../api/client';
+import { useTopBar } from './shell';
 
+/**
+ * The page title and actions go into the fixed top bar (portals into its slots); the description
+ * stays at the top of the scrolling content. Outside the shell everything renders in place.
+ */
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
+  const slots = useTopBar();
+  const heading = <h1 className="truncate text-lg font-semibold tracking-tight">{title}</h1>;
+  if (!slots) {
+    return (
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          {heading}
+          {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      </header>
+    );
+  }
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted">{description}</p>}
-      </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </header>
+    <>
+      {slots.title && createPortal(heading, slots.title)}
+      {slots.toolbar && actions && createPortal(<div className="flex flex-wrap items-center gap-2">{actions}</div>, slots.toolbar)}
+      {description && <p className="mb-6 text-sm text-muted">{description}</p>}
+    </>
   );
 }
 

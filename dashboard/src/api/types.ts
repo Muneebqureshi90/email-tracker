@@ -72,7 +72,7 @@ export interface Page<T> {
   total: number;
 }
 
-export type ActivityKind = 'OPEN' | 'CLICK' | 'ALERT';
+export type ActivityKind = 'OPEN' | 'CLICK' | 'ALERT' | 'DOC_VIEW' | 'DOC_READ' | 'DOC_DOWNLOAD';
 
 export interface ActivityItem {
   id: number;
@@ -88,7 +88,7 @@ export interface ActivityItem {
   alertText: string | null;
 }
 
-export type AlertType = 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL';
+export type AlertType = 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL' | 'DOC_VIEWS';
 export type AlertStatus = 'NEW' | 'SEEN' | 'DISMISSED' | 'SNOOZED';
 
 export interface AlertView {
@@ -172,6 +172,14 @@ export interface Settings {
   sendMode: SendMode;
   dnrBlocking: boolean;
   trackConfidential: boolean;
+  /** v2 contract: DEFAULT until the dashboard saves the browser zone (AUTO) or the owner picks one (USER). */
+  timeZoneSource: 'DEFAULT' | 'AUTO' | 'USER';
+  notifyOn: 'FIRST' | 'EVERY' | 'EVERY_AFTER_GAP';
+  notifyDocuments: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  docReadSeconds: number;
 }
 
 export interface ApiToken {

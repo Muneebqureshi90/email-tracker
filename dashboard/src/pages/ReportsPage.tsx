@@ -2,7 +2,7 @@ import { useSearchParams } from 'react-router';
 import { useReport } from '../api/queries';
 import { LazyBucketChart } from '../components/LazyBucketChart';
 import { Card, Empty, PageHeader, QueryState, Stat, TextLink } from '../components/ui';
-import { count, formatPercent } from '../lib/format';
+import { count, formatPercent, todayInZone } from '../lib/format';
 
 /** Monday of the week that contains a YYYY-MM-DD date. */
 export function mondayOf(date: string): string {
@@ -44,7 +44,8 @@ export function ReportsPage() {
             </div>
             <label>
               <span className="sr-only">Date</span>
-              <input className="input" type="date" value={date ?? ''} onChange={(event) => set({ date: event.target.value })} />
+              {/* Shows the chosen day, or today in the owner's zone, never an empty "mm/dd/yyyy" (bug A3). */}
+              <input className="input" type="date" value={date ?? todayInZone()} onChange={(event) => set({ date: event.target.value })} />
             </label>
           </div>
         }

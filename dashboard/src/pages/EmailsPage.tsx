@@ -39,9 +39,11 @@ export function EmailsPage() {
 
   return (
     <>
-      <PageHeader title="Emails" description="Every tracked email you sent. Search covers subjects, names and addresses." />
-      <Card>
-        <div className="flex flex-wrap items-end gap-3 border-b border-line p-4">
+      <PageHeader
+        title="Emails"
+        description="Every tracked email you sent. Search covers subjects, names and addresses."
+        actions={
+          <>
           <div role="group" aria-label="Show" className="flex overflow-hidden rounded-md border border-line">
             {STATES.map((option) => (
               <button
@@ -57,7 +59,7 @@ export function EmailsPage() {
           </div>
           {(accounts.data?.length ?? 0) > 1 && (
             <label>
-              <span className="label">Account</span>
+              <span className="sr-only">Account</span>
               <select className="input" value={account} onChange={(event) => update({ account: event.target.value })}>
                 <option value="">All accounts</option>
                 {accounts.data?.map((address) => (
@@ -68,7 +70,7 @@ export function EmailsPage() {
               </select>
             </label>
           )}
-          <form onSubmit={search} className="flex min-w-60 flex-1 gap-2" role="search">
+          <form onSubmit={search} className="flex min-w-0 flex-1 gap-2 sm:min-w-60" role="search">
             <label className="flex-1">
               <span className="sr-only">Search emails</span>
               <input className="input" type="search" value={text} onChange={(event) => setText(event.target.value)} placeholder="Search subject, name or address" />
@@ -77,7 +79,10 @@ export function EmailsPage() {
               Search
             </button>
           </form>
-        </div>
+          </>
+        }
+      />
+      <Card>
         <QueryState query={emails}>
           {(result) =>
             result.total === 0 ? (

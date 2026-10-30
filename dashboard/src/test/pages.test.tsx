@@ -1,11 +1,11 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { EmailDetail, Settings } from '../api/types';
+import type { EmailDetail } from '../api/types';
 import { DELETE_CONFIRMATION } from '../pages/AccountPage';
 import { mondayOf } from '../pages/ReportsPage';
 import { validateSettings } from '../pages/SettingsPage';
-import { email, mockApi, page, renderAt } from './helpers';
+import { SETTINGS, email, mockApi, page, renderAt } from './helpers';
 
 const REPORT = {
   period: 'DAY',
@@ -22,27 +22,6 @@ const REPORT = {
   topContacts: [{ email: 'jane@example.com', name: 'Jane Doe', opens: 5 }],
 };
 
-const SETTINGS: Settings = {
-  trackingDefault: true,
-  linkTrackingDefault: false,
-  sendGraceSeconds: 10,
-  selfViewWindowSeconds: 30,
-  dedupeWindowSeconds: 60,
-  followUpHours: 48,
-  spikeOpens: 3,
-  spikeWindowMinutes: 60,
-  revivalDays: 7,
-  retentionDays: 365,
-  ipMode: 'TRUNCATED',
-  countApplePrefetch: false,
-  notifyOpens: true,
-  notifyClicks: true,
-  notifyAlerts: true,
-  timeZone: 'Asia/Karachi',
-  sendMode: 'PRESYNC',
-  dnrBlocking: true,
-  trackConfidential: true,
-};
 
 describe('sign-in', () => {
   it('asks for the setup code on first run and checks the two passwords', async () => {
@@ -138,21 +117,27 @@ describe('settings', () => {
       followUpHours: 'Choose 24, 48 or 72 hours.',
       timeZone: 'Enter a time zone such as Asia/Karachi.',
     });
+    expect(validateSettings({ ...SETTINGS, timeZone: 'Mars/Olympus', quietHoursStart: '25:00', docReadSeconds: 5 })).toEqual({
+      timeZone: 'Choose a time zone from the list.',
+      quietHoursStart: 'Use a time such as 22:00.',
+      docReadSeconds: 'Enter a whole number from 10 to 600.',
+    });
   });
 
   it('blocks invalid values and saves valid ones', async () => {
     const calls = mockApi({ 'GET /api/settings': { body: SETTINGS }, 'PUT /api/settings': (call) => ({ body: call.body }) });
     renderAt('/settings');
+    await userEvent.click(await screen.findByText('Advanced'));
     const hold = await screen.findByLabelText(/^Self-view hold/);
     await userEvent.clear(hold);
     await userEvent.type(hold, '2');
-    await userEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(screen.getByText('Enter a whole number from 5 to 120.')).toBeTruthy();
     expect(calls.some((call) => call.method === 'PUT')).toBe(false);
 
     await userEvent.clear(hold);
     await userEvent.type(hold, '15');
-    await userEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Saved.')).toBeTruthy();
     expect(calls.find((call) => call.method === 'PUT')?.body).toMatchObject({ selfViewWindowSeconds: 15, sendMode: 'PRESYNC' });
   });

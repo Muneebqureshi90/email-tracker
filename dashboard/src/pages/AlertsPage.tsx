@@ -9,6 +9,7 @@ export const ALERT_LABELS: Record<AlertType, { label: string; tone: string }> = 
   FOLLOW_UP: { label: 'Follow up', tone: 'text-warn' },
   OPEN_SPIKE: { label: 'Hot', tone: 'text-good' },
   REVIVAL: { label: 'Opened again', tone: 'text-accent' },
+  DOC_VIEWS: { label: 'Document viewed often', tone: 'text-good' },
 };
 
 export function AlertsPage() {
