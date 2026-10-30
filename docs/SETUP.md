@@ -109,6 +109,9 @@ Needs Java 25 and Docker Desktop running.
    ```
    Private API: `http://127.0.0.1:8080` (this PC only). Public tracking routes: `http://127.0.0.1:8081`.
    PostgreSQL has no port outside Docker.
+   If another app already uses port 8080 or 8081, add `MAILPULSE_PRIVATE_HOST_PORT=8090` (or
+   `MAILPULSE_PUBLIC_HOST_PORT=<port>`) to `infra\.env` and run `dev.ps1` again; all scripts read
+   these values. Then use `http://127.0.0.1:8090` for the dashboard and as the extension's Backend URL.
    `dev.ps1` first builds the dashboard (`dashboard\dist`, needs Node.js) and puts it into the
    backend image, so Docker itself never needs Node.
 4. First run only: read the one-time setup code from the backend log, then open the dashboard at
