@@ -1,0 +1,189 @@
+/* Document viewer. No external fonts or images: system fonts only, everything same-origin. */
+:root {
+  --bg: #eef1f4;
+  --bar: #ffffff;
+  --fg: #17212b;
+  --muted: #5a6772;
+  --line: #dce2e8;
+  --accent: #0f766e;
+  --accent-fg: #ffffff;
+  --sheet-shadow: 0 1px 3px rgb(15 23 42 / 0.12), 0 4px 12px rgb(15 23 42 / 0.06);
+  color-scheme: light;
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1217;
+    --bar: #141b22;
+    --fg: #e5ecf2;
+    --muted: #98a6b3;
+    --line: #28323c;
+    --accent: #2dd4bf;
+    --accent-fg: #062320;
+    --sheet-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--fg);
+  overflow: hidden;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 16px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+  min-height: 56px;
+}
+
+.name {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pages {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool,
+.download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bar);
+  color: var(--fg);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tool:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tool:hover:not(:disabled),
+.download:hover {
+  background: var(--bg);
+}
+
+.download {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.download:hover {
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.download[hidden] {
+  display: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.doc {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  outline: none;
+}
+
+.sheets {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+/* Auto margins centre a page that fits and never push a zoomed page past the left edge, so it can scroll. */
+.sheet {
+  position: relative;
+  flex: none;
+  margin-inline: auto;
+  background: #ffffff;
+  box-shadow: var(--sheet-shadow);
+}
+
+.sheet canvas {
+  display: block;
+}
+
+.status {
+  max-width: 32rem;
+  margin: 24px auto;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.status[hidden] {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .bar {
+    padding: 8px 12px;
+  }
+  .doc {
+    padding: 8px;
+  }
+  .fit {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tool,
+  .download {
+    transition: background-color 120ms ease, opacity 120ms ease;
+  }
+}

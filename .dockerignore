@@ -3,3 +3,4 @@
 !backend/pom.xml
 !backend/src/main
 !dashboard/dist
+!viewer/dist

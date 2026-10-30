@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-  Builds the dashboard, then builds and starts MailPulse (PostgreSQL + backend with the dashboard)
+  Builds the dashboard and the document viewer, then builds and starts MailPulse (PostgreSQL + backend
+  with both inside)
   in Docker, and waits until it is healthy.
 .PARAMETER EnvFile
   Environment file (default infra\.env).
@@ -16,18 +17,21 @@ $root = Split-Path $PSScriptRoot -Parent
 if (-not $EnvFile) { $EnvFile = Join-Path $root 'infra\.env' }
 if (-not (Test-Path $EnvFile)) { throw "$EnvFile is missing. Run .\scripts\new-env.ps1 first." }
 
-# The backend image serves the dashboard, so build it first (needs Node.js; Docker does not).
-Push-Location (Join-Path $root 'dashboard')
-try {
-    $marker = 'node_modules\.package-lock.json'
-    if (-not (Test-Path $marker) -or (Get-Item 'package-lock.json').LastWriteTime -gt (Get-Item $marker).LastWriteTime) {
-        & npm ci --no-audit --no-fund --loglevel=error
-        if ($LASTEXITCODE -ne 0) { throw 'npm ci failed in dashboard' }
+# The backend image serves the dashboard and the document viewer (/d/), so build both first
+# (needs Node.js; Docker does not).
+foreach ($app in 'dashboard', 'viewer') {
+    Push-Location (Join-Path $root $app)
+    try {
+        $marker = 'node_modules\.package-lock.json'
+        if (-not (Test-Path $marker) -or (Get-Item 'package-lock.json').LastWriteTime -gt (Get-Item $marker).LastWriteTime) {
+            & npm ci --no-audit --no-fund --loglevel=error
+            if ($LASTEXITCODE -ne 0) { throw "npm ci failed in $app" }
+        }
+        & npm run --silent build
+        if ($LASTEXITCODE -ne 0) { throw "Build failed in $app" }
+    } finally {
+        Pop-Location
     }
-    & npm run --silent build
-    if ($LASTEXITCODE -ne 0) { throw 'Dashboard build failed' }
-} finally {
-    Pop-Location
 }
 
 $compose = @('compose', '-p', $ProjectName, '--env-file', $EnvFile, '-f', (Join-Path $root 'infra\docker-compose.yml'))

@@ -405,3 +405,15 @@ for that email through the extension token). The follow-up time can be chosen pe
 compose status bar and on the email page (default, 24, 48 or 72 hours). When every recipient uses a
 provider that blocks images by default, Gmail tooltips and the email page say "open status may be
 unreliable".
+
+## D-130 Document viewer: PDF.js without WebAssembly or eval — Accepted
+The public page behind a document link (`/d/{token}`) is a small Vite + TypeScript page with PDF.js 6.4
+bundled locally (no CDN, system fonts only). PDF.js runs with `useWasm: false` and without XFA or PDF
+scripting, so the strict viewer CSP (`script-src 'self'`, no `'unsafe-eval'` or `'wasm-unsafe-eval'`)
+holds: image decoders use the PDF.js JavaScript fallbacks, and the `.wasm` and quickjs files are not
+shipped. Pages are drawn on canvas only (no text or annotation layer): links inside a PDF are not
+clickable and text cannot be selected, which keeps untrusted PDF content out of the page's HTML.
+Read time counts only while the page is visible: the first beat goes out at once, then one every 5 s,
+with at most 10 s per beat; more than that between two beats (stalled timers, a sleeping computer) is
+dropped, not counted. A page counts as viewed when at least half of it is on screen or it fills at least
+half of the screen.

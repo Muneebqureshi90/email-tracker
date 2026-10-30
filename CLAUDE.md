@@ -42,6 +42,8 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
   `MAILPULSE_PRIVATE_HOST_PORT=18080` / `MAILPULSE_PUBLIC_HOST_PORT=18081`, then `dev.ps1 -EnvFile ... -ProjectName mailpulse-check`.
 - Backend only: `cd backend; .\mvnw.cmd verify` (unit tests `*Test`, integration tests `*IT`).
 - Dashboard: `cd dashboard; npm run typecheck|lint|test|build`.
+- Viewer (public PDF page behind document links): `cd viewer; npm run typecheck|lint|test|build` (build ->
+  `viewer/dist`, packaged into the backend jar as `static/viewer/` by `dev.ps1`).
 - Extension: `cd extension; npm run typecheck|lint|test|build` (build -> `extension/dist`, load unpacked;
   App ID from `MAILPULSE_INBOXSDK_APP_ID` in infra/.env). Fixed ID `pdinoocioohoejhjbeepjdadkkjldgeo` (D-054).
 - New dependencies: only versions at least 14 days old, pinned exactly (D-036);
@@ -58,6 +60,8 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - `dashboard/` React 19 + Vite 8 + Tailwind 4 + TanStack Query + React Router 8 + Recharts (lazy chunk).
   `src/api` client/queries, `src/pages` one file per screen, `src/test` page tests with fetch stubs.
   Built into the backend jar by `dev.ps1` (D-060); `npm run dev` proxies /api to 127.0.0.1:8080.
+- `viewer/` Vite + TS 6 + PDF.js 6, no framework, no WebAssembly, no eval (D-130): `src/main.ts` the page,
+  `src/beat.ts` read-time heartbeats, `src/link.ts` link info. Served on the public port: `/d/{token}` and `/d/_/**`.
 - `infra/` docker-compose.yml (build context = repo root), `.env.example`. `scripts/` PowerShell helpers. `docs/` plan and decisions.
 
 ## Status
