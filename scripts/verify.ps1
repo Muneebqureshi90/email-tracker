@@ -79,6 +79,7 @@ function Invoke-NodeChecks([string]$Name) {
 
 Invoke-NodeChecks 'extension'
 Invoke-NodeChecks 'dashboard'
+Invoke-NodeChecks 'viewer'
 
 Push-Location (Join-Path $root 'backend')
 try {

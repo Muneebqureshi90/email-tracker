@@ -1,0 +1,29 @@
+{
+  "name": "mailpulse-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MailPulse document viewer: the public page behind tracked document links (/d/{token}). Served by the backend.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/copy-pdfjs-assets.mjs && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.12.0",
+    "jsdom": "30.1.2",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.4"
+  },
+  "overrides": {
+    "undici": "8.12.2"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.4.299"
+  }
+}
