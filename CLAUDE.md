@@ -67,7 +67,15 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - Phase 1 approved 2026-10-29. Phases 2-5 built in one run on the owner's request (2026-10-29), each on
   its own stacked branch (phase-2-public, phase-3-extension, phase-4-dashboard, phase-5-links-alerts),
   verified, pushed and fast-forwarded into `main`. Work happened in worktree `.worktrees/phase-1-backend`.
-- Next: owner checklist (final report): Java 25, Tailscale + Funnel, InboxSDK App ID, load the
-  extension, token, spikes, end-to-end Gmail test. Phase 6 only after explicit confirmation.
-- Throwaway test stack `mailpulse-check` (ports 18080/18081, env in the session scratchpad) may still
-  be running: `docker compose -p mailpulse-check down -v` removes it.
+- 2026-10-30: owner set up the live install (office laptop, folder D:\muneeb\personal\email-tracker on
+  `main`, dashboard 127.0.0.1:8090 because 8080 is taken, Funnel on, autostart on) and tested Gmail end
+  to end. The test stack `mailpulse-check` was removed.
+- v2 in progress (owner brief, one run, no questions; contract in docs/v2-contract.md):
+  - Wave 1 in parallel: branch `v2-ui` (worktree `.worktrees/v2-ui`, dashboard: E1, Part A, dashboard side
+    of B/C/D, E2, screenshot+axe script) and branch `v2-core` (worktree `.worktrees/v2-core`, backend:
+    Part B, Part D documents, public /d/ routes, scripts, seed-demo.ps1, delay measurement).
+    Each keeps `docs/v2-progress-ui.md` / `docs/v2-progress-core.md` (done / next / gaps).
+  - Wave 2: extension (A6, live delivery, Part C, Insert tracked file, preview page) and the `viewer/`
+    PDF.js page; then merge everything on `v2-foundation`, run verify.ps1, the screenshot matrix and axe,
+    measure open-to-notification delay, merge into main and push.
+  - To resume: read both progress files, finish the open stages, then continue with wave 2.
