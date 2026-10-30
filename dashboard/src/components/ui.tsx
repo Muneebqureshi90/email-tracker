@@ -1,7 +1,10 @@
-import type { ReactNode } from 'react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, type LucideIcon } from 'lucide-react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import { ApiError } from '../api/client';
+import { PAGE_SIZES } from '../lib/paging';
+import { Select } from './controls';
 import { useTopBar } from './shell';
 
 /**
@@ -159,61 +162,116 @@ export function OpenMark({ opened, unreliable = false }: { opened: boolean; unre
   );
 }
 
-export const PAGE_SIZES = [25, 50, 100] as const;
+export { PAGE_SIZES, paginate } from '../lib/paging';
 
-/** Client-side paging for lists the API returns whole (documents, tokens). */
-export function paginate<T>(items: T[], page: number, size: number): T[] {
-  return items.slice(page * size, page * size + size);
-}
-
-/** "1–25 of 140" with first, previous, next and last, plus an optional page-size choice. */
+/**
+ * "1–25 of 140" with first, previous, next and last, plus an optional page-size choice (25 / 50 / 100).
+ * Hidden for a single short page. `compact` is the small pager for the fixed top bar (range, previous, next).
+ */
 export function Pagination({
   page,
   size,
   total,
   onPage,
   onSize,
+  position = 'bottom',
+  compact = false,
+  label = 'Pages',
 }: {
   page: number;
   size: number;
   total: number;
   onPage: (page: number) => void;
   onSize?: (size: number) => void;
+  position?: 'top' | 'bottom';
+  compact?: boolean;
+  label?: string;
 }) {
   const pages = Math.max(1, Math.ceil(total / size));
-  if (total <= PAGE_SIZES[0] && !(onSize && size !== PAGE_SIZES[0])) return null;
-  const first = total === 0 ? 0 : page * size + 1;
+  const multiplePages = total > size;
+  if (total <= PAGE_SIZES[0] && size === PAGE_SIZES[0]) return null;
+  const first = total === 0 ? 0 : Math.min(total, page * size + 1);
   const last = Math.min(total, (page + 1) * size);
-  const button = (label: string, target: number, disabled: boolean, text: string) => (
-    <button type="button" className="btn btn-quiet px-2.5" aria-label={label} title={label} disabled={disabled} onClick={() => onPage(target)}>
-      <span aria-hidden="true">{text}</span>
+  const range = (
+    <span className="whitespace-nowrap text-muted tabular-nums">
+      {first}–{last} of {total}
+    </span>
+  );
+  const button = (name: string, target: number, disabled: boolean, Icon: LucideIcon) => (
+    <button
+      type="button"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-fg transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface"
+      aria-label={name}
+      title={name}
+      disabled={disabled}
+      onClick={() => onPage(target)}
+    >
+      <Icon size={16} aria-hidden="true" />
     </button>
   );
+  if (compact) {
+    if (!multiplePages) return null;
+    return (
+      <nav className="flex items-center gap-1.5 text-sm" aria-label={label}>
+        {range}
+        {button('Previous page', page - 1, page === 0, ChevronLeft)}
+        {button('Next page', page + 1, page + 1 >= pages, ChevronRight)}
+      </nav>
+    );
+  }
   return (
-    <nav className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-sm" aria-label="Pages">
-      <span className="text-muted tabular-nums" aria-live="polite">
-        {first}–{last} of {total}
-      </span>
-      <span className="flex flex-wrap items-center gap-2">
+    <nav
+      className={`flex flex-wrap items-center justify-between gap-2 border-line px-4 py-3 text-sm ${position === 'top' ? 'border-b' : 'border-t'}`}
+      aria-label={label}
+    >
+      <span aria-live="polite">{range}</span>
+      <span className="flex flex-wrap items-center gap-1.5">
         {onSize && (
-          <label className="flex items-center gap-2 text-muted">
-            <span>Per page</span>
-            <select className="input w-auto py-1.5" value={size} onChange={(event) => onSize(Number(event.target.value))}>
-              {PAGE_SIZES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+          <span className="mr-1 flex items-center gap-2 text-muted">
+            <span aria-hidden="true">Per page</span>
+            <Select label="Per page" value={size} options={PAGE_SIZES.map((option) => ({ value: option, label: String(option) }))} onChange={onSize} className="w-20" />
+          </span>
         )}
-        {button('First page', 0, page === 0, '«')}
-        {button('Previous page', page - 1, page === 0, '‹')}
-        {button('Next page', page + 1, page + 1 >= pages, '›')}
-        {button('Last page', pages - 1, page + 1 >= pages, '»')}
+        {button('First page', 0, page === 0, ChevronsLeft)}
+        {button('Previous page', page - 1, page === 0, ChevronLeft)}
+        {button('Next page', page + 1, page + 1 >= pages, ChevronRight)}
+        {button('Last page', pages - 1, page + 1 >= pages, ChevronsRight)}
       </span>
     </nav>
   );
+}
+
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+const BUTTON_VARIANTS: Record<ButtonVariant, string> = { primary: 'btn-primary', secondary: 'btn-quiet', ghost: 'btn-ghost', danger: 'btn-danger' };
+
+/** Primary, secondary, ghost or danger; `loading` shows a spinner and blocks repeat clicks. */
+export function Button({
+  variant = 'secondary',
+  loading = false,
+  className = '',
+  disabled,
+  children,
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; loading?: boolean }) {
+  return (
+    <button type="button" {...rest} disabled={disabled || loading} aria-busy={loading || undefined} className={`btn ${BUTTON_VARIANTS[variant]} ${className}`}>
+      {loading && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />}
+      {children}
+    </button>
+  );
+}
+
+export type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'accent';
+const BADGE_TONES: Record<Tone, string> = {
+  neutral: 'bg-chip text-fg',
+  good: 'bg-good/10 text-good',
+  warn: 'bg-warn/10 text-warn',
+  bad: 'bg-bad/10 text-bad',
+  accent: 'bg-accent-soft text-accent',
+};
+
+export function Badge({ tone = 'neutral', children, className = '' }: { tone?: Tone; children: ReactNode; className?: string }) {
+  return <span className={`badge ${BADGE_TONES[tone]} ${className}`}>{children}</span>;
 }
 
 export function TextLink({ to, children }: { to: string; children: ReactNode }) {

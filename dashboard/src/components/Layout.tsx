@@ -27,6 +27,7 @@ import { browserTimeZone, displayTimeZone, isValidTimeZone, setDisplayTimeZone }
 import { useLiveUpdates, type LiveState } from '../lib/live';
 import { useTheme, type ThemeChoice } from '../lib/theme';
 import { TopBarContext, type TopBarSlots } from './shell';
+import { Toaster } from './toast';
 import { ErrorBox, Spinner } from './ui';
 
 interface NavItem {
@@ -292,6 +293,7 @@ export function Layout() {
           </div>
         </main>
       </div>
+      <Toaster />
 
       <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
         <Dialog.Portal>

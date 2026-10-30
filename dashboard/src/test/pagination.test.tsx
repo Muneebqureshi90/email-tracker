@@ -15,7 +15,9 @@ describe('pagination', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await userEvent.click(screen.getByRole('button', { name: 'Last page' }));
     expect(onPage.mock.calls.map(([target]) => target)).toEqual([0, 0, 2, 5]);
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Per page' }), '50');
+    // The page size is a themed listbox, not a native select (bug A7).
+    await userEvent.click(screen.getByRole('combobox', { name: 'Per page' }));
+    await userEvent.click(screen.getByRole('option', { name: '50' }));
     expect(onSize).toHaveBeenCalledWith(50);
   });
 

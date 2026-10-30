@@ -3,6 +3,8 @@
 export interface AuthStatus {
   setupRequired: boolean;
   authenticated: boolean;
+  /** Set by the dashboard (not the API) when a request answered 401 during a session. */
+  expired?: boolean;
 }
 
 export type EmailStatus = 'DRAFT' | 'SENT' | 'SCHEDULED' | 'CANCELLED';
@@ -28,6 +30,23 @@ export interface EmailSummary {
   lastOpenedAt: string | null;
   lastClickedAt: string | null;
   openStatusUnreliable: boolean;
+  /** v2: the latest counted open came at least 60 minutes after the one before. */
+  openedAgain?: boolean;
+  /** v2: up to 5 latest counted open times, newest first. */
+  recentOpens?: string[];
+}
+
+export interface OpenView {
+  eventId: number;
+  at: string;
+  source: string;
+}
+
+export interface EmailCounts {
+  all: number;
+  opened: number;
+  notOpened: number;
+  clicked: number;
 }
 
 export interface LinkView {
@@ -62,7 +81,10 @@ export interface EmailDetail {
   gmailThreadId: string | null;
   cancelledAt: string | null;
   links: LinkView[];
+  /** The latest 100; the full list is paged at /api/emails/{id}/events. */
   events: EventView[];
+  /** v2: every counted open, oldest first. */
+  opens?: OpenView[];
 }
 
 export interface Page<T> {
@@ -86,6 +108,21 @@ export interface ActivityItem {
   shouldNotify: boolean;
   alertType: AlertType | null;
   alertText: string | null;
+  openNumber?: number | null;
+  account?: string | null;
+  gmailThreadId?: string | null;
+  documentId?: string | null;
+  documentName?: string | null;
+  linkLabel?: string | null;
+  readSeconds?: number | null;
+  pagesViewed?: number | null;
+  pageCount?: number | null;
+}
+
+export interface NotificationPage {
+  items: ActivityItem[];
+  unread: number;
+  lastReadId: number;
 }
 
 export type AlertType = 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL' | 'DOC_VIEWS';
@@ -108,8 +145,11 @@ export interface AlertPage extends Page<AlertView> {
 }
 
 export interface ActivityPage {
+  /** Oldest first. */
   items: ActivityItem[];
   lastId: number;
+  hasMore?: boolean;
+  configVersion?: string;
 }
 
 export interface ContactSummary {
@@ -148,6 +188,16 @@ export interface Report {
   buckets: Bucket[];
   topEmails: { id: string; subject: string | null; recipients: string; opens: number; clicks: number }[];
   topContacts: { email: string; name: string | null; opens: number }[];
+  /** v2: the period of the same length just before. */
+  previous?: ReportTotals;
+}
+
+export interface ReportTotals {
+  sent: number;
+  openedEmails: number;
+  openRate: number;
+  opens: number;
+  clicks: number;
 }
 
 export type SendMode = 'PRESYNC' | 'CANCEL_RESEND';
@@ -205,4 +255,63 @@ export interface Preferences {
   followUpHours?: 0 | 24 | 48 | 72;
   trackingEnabled?: boolean;
   trackLinks?: boolean;
+}
+
+export interface DocumentSummary {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  pageCount: number | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  views: number;
+  reads: number;
+  downloads: number;
+  lastActivityAt: string | null;
+}
+
+export interface DocLinkView {
+  id: string;
+  url: string;
+  label: string | null;
+  emailId: string | null;
+  emailSubject: string | null;
+  recipients: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  allowDownload: boolean;
+  views: number;
+  reads: number;
+  downloads: number;
+  lastActivityAt: string | null;
+}
+
+export type DocEventType = 'DOC_VIEW' | 'DOC_READ' | 'DOC_DOWNLOAD';
+
+export interface DocEventView {
+  id: number;
+  linkId: string;
+  type: DocEventType;
+  at: string;
+  verdict: 'PENDING' | 'COUNTED' | 'IGNORED';
+  reason: string | null;
+  source: string;
+  userAgent: string | null;
+  ipPrefix: string | null;
+  readSeconds: number | null;
+  pagesViewed: number | null;
+}
+
+export interface DocumentDetail {
+  summary: DocumentSummary;
+  links: DocLinkView[];
+  events: DocEventView[];
+}
+
+export interface SearchResults {
+  emails: EmailSummary[];
+  contacts: ContactSummary[];
+  documents: DocumentSummary[];
 }

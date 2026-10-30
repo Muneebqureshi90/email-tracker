@@ -449,3 +449,22 @@ The y-axis ticks are whole numbers that end at the data (a peak of 1 shows 0 and
 a themed card that may leave the chart vertically, so it is never clipped. The week chart labels
 all seven days. The report date input always shows a date (the chosen day or today in the owner's
 zone).
+
+## D-096 Custom controls instead of native ones (bug A7) — Accepted
+Select is a select-only combobox (button + listbox, WAI-ARIA APG keys and type-to-find), the number
+fields are steppers (− / + buttons, arrow keys, whole numbers only), the date fields open a
+react-day-picker 10.0.2 calendar themed with the design tokens, and radio choices are a drawn radio
+group. Popups use `@radix-ui/react-popover` 1.3.1 (positioning, Esc, focus return). The calendar is
+its own module, so it loads only with the pages that use it. All dependencies pass the 14-day rule.
+
+## D-097 Own toast store, no toast library — Accepted
+Most toast libraries inject `<style>` tags, which `style-src 'self'` blocks. A 100-line store with
+`useSyncExternalStore` keeps at most four toasts (5 s, errors 8 s), each with an optional action
+(for example Undo) or a link, rendered as plain React text in one polite live region.
+
+## D-098 One table component for every list — Accepted
+`DataTable` gives every list the same behaviour: its own horizontal scroll container, a header that
+sticks below the fixed top bar on Emails and Contacts (their columns fit the content width on wide
+screens, so the wrapper need not clip there), a sticky first column, right-aligned tabular numbers,
+row hover, whole-row click with a real link in the first cell for keyboard users, sortable headers
+with `aria-sort`, skeleton rows while loading, and empty and error states. Phones get a list layout.

@@ -62,3 +62,74 @@ export function query(params: Record<string, string | number | undefined | null>
   const text = search.toString();
   return text ? `?${text}` : '';
 }
+
+function parseBody(text: string): unknown {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+/**
+ * Multipart upload with progress (fetch cannot report upload progress, XMLHttpRequest can).
+ * `onProgress` gets a fraction from 0 to 1.
+ */
+export function upload<T>(
+  path: string,
+  form: FormData,
+  options: { method?: string; onProgress?: (fraction: number) => void; signal?: AbortSignal } = {},
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open(options.method ?? 'POST', path);
+    request.withCredentials = true;
+    request.setRequestHeader('Accept', 'application/json');
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) options.onProgress?.(event.loaded / event.total);
+    };
+    request.onload = () => {
+      const body = parseBody(request.responseText);
+      if (request.status >= 200 && request.status < 300) {
+        options.onProgress?.(1);
+        resolve(body as T);
+      } else {
+        reject(problemOf(request.status, body));
+      }
+    };
+    request.onerror = () => reject(new ApiError(0, 'MailPulse is not reachable. Is the backend running?'));
+    request.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
+    options.signal?.addEventListener('abort', () => request.abort());
+    request.send(form);
+  });
+}
+
+/** Reads a download as a Blob, reporting the bytes received so far (and the total when known). */
+export async function downloadBlob(path: string, onProgress: (received: number, total: number | null) => void): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(path, { credentials: 'same-origin' });
+  } catch {
+    throw new ApiError(0, 'MailPulse is not reachable. Is the backend running?');
+  }
+  if (!response.ok) throw problemOf(response.status, parseBody(await response.text()));
+  const header = Number(response.headers.get('Content-Length'));
+  const total = Number.isFinite(header) && header > 0 ? header : null;
+  if (!response.body) {
+    const blob = await response.blob();
+    onProgress(blob.size, total);
+    return blob;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.byteLength;
+    onProgress(received, total);
+  }
+  return new Blob(chunks, { type: response.headers.get('Content-Type') ?? 'application/octet-stream' });
+}
