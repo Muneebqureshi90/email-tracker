@@ -42,7 +42,23 @@ public class EmailRepository {
             Instant lastClickedAt) {}
 
     /** Filters for the email list. Null fields are not applied. */
-    public record ListFilter(String state, UUID accountId, Instant from, Instant to) {}
+    public record ListFilter(String state, UUID accountId, Instant from, Instant to, UUID contactId) {
+
+        public ListFilter(String state, UUID accountId, Instant from, Instant to) {
+            this(state, accountId, from, to, null);
+        }
+
+        ListFilter withState(String newState) {
+            return new ListFilter(newState, accountId, from, to, contactId);
+        }
+    }
+
+    /** Sort keys of the email list (docs/v2-contract.md); the SQL comes only from this fixed map. */
+    public static final Map<String, String> SORTS = Map.of(
+            "sent", "te.sent_at %s NULLS LAST, te.created_at %s",
+            "opens", "te.open_count %s, te.sent_at DESC NULLS LAST",
+            "clicks", "te.click_count %s, te.sent_at DESC NULLS LAST",
+            "lastOpened", "te.last_opened_at %s NULLS LAST, te.sent_at DESC NULLS LAST");
 
     private static final String SELECT = """
             SELECT te.*, ga.address_enc AS account_enc
@@ -180,8 +196,17 @@ public class EmailRepository {
     }
 
     List<EmailRow> list(ListFilter filter, int limit, long offset) {
+        return list(filter, "sent", false, limit, offset);
+    }
+
+    List<EmailRow> list(ListFilter filter, String sort, boolean ascending, int limit, long offset) {
+        String template = SORTS.get(sort);
+        if (template == null) {
+            throw new IllegalArgumentException("Unsupported sort");
+        }
+        String dir = ascending ? "ASC" : "DESC";
         Query query = where(filter);
-        return jdbc.sql(SELECT + query.sql + " ORDER BY te.sent_at DESC NULLS LAST, te.created_at DESC LIMIT :limit OFFSET :offset")
+        return jdbc.sql(SELECT + query.sql + " ORDER BY " + template.formatted(dir, dir) + ", te.id LIMIT :limit OFFSET :offset")
                 .params(query.params)
                 .param("limit", limit)
                 .param("offset", offset)
@@ -248,6 +273,10 @@ public class EmailRepository {
         if (filter.to() != null) {
             conditions.add("COALESCE(te.sent_at, te.created_at) < :to");
             params.put("to", Sql.ts(filter.to()));
+        }
+        if (filter.contactId() != null) {
+            conditions.add("EXISTS (SELECT 1 FROM recipient r WHERE r.tracked_email_id = te.id AND r.contact_id = :contactId)");
+            params.put("contactId", filter.contactId());
         }
         return new Query(" WHERE " + String.join(" AND ", conditions), params);
     }

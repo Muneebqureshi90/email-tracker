@@ -94,7 +94,8 @@ class SecurityConfig {
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)
                         .requestMatchers(HttpMethod.PATCH, "/api/emails/*", "/api/emails/*/preferences")
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)
-                        .requestMatchers(HttpMethod.GET, "/api/emails/by-token/*", "/api/marks", "/api/activity", "/api/config")
+                        .requestMatchers(HttpMethod.GET, "/api/emails/by-token/*", "/api/emails/*/card", "/api/marks", "/api/activity",
+                                "/api/config")
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)
                         .requestMatchers("/api/**").hasRole(Roles.OWNER)
                         .anyRequest().denyAll());

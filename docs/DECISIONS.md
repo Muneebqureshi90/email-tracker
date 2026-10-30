@@ -480,3 +480,19 @@ The y-axis ticks are whole numbers that end at the data (a peak of 1 shows 0 and
 a themed card that may leave the chart vertically, so it is never clipped. The week chart labels
 all seven days. The report date input always shows a date (the chosen day or today in the owner's
 zone).
+## D-074 Page sizes are 25, 50 or 100, strictly — Accepted
+Every paged endpoint (`/api/emails`, `/api/contacts`, `/api/alerts`, email events, contact emails, document links and
+events) shares one rule (`Paging`): `page` from 0, `size` 25, 50 or 100, anything else 400. The current Overview asked
+for 5 emails; it now asks for 25 and shows the first 5. Sorting with a search text runs in memory over the same 5,000
+newest rows as the search itself, so the order and the totals always agree.
+
+## D-075 The notification center reads the activity feed — Accepted
+`GET /api/notifications` returns the latest activity items newest first (a panel reads top-down), `unread` counts
+items after `lastReadId`, and `lastReadId` is one stored row (`notification_state`). `POST /read` never moves
+backwards and never past the newest item, so a stale tab cannot mark future items read. Options: a separate
+notification table (duplicates the feed and its notify rules).
+
+## D-076 The hover card is one request — Accepted
+`GET /api/emails/{id}/card` (extension token or owner) carries the summary fields, the email's active (new or seen)
+alerts and its document links, so the extension needs one call per hover. Quick search takes 2 to 200 characters
+after trimming and returns at most 5 of each kind, newest first.
