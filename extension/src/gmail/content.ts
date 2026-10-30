@@ -3,18 +3,26 @@ import * as InboxSDK from '@inboxsdk/core';
 import type { ThreadRowView } from '@inboxsdk/core';
 import { isBroadcast } from '../core/messages';
 import { ask } from './bridge';
+import { HoverCard } from './card';
 import { ComposeSession } from './compose';
 import { GmailEnv } from './env';
 import { MessageViews } from './message-views';
 import { ThreadRowMarks } from './rows';
+import { watchGmailTheme } from './theme';
+
+/** While this tab is visible, ask the service worker for new activity this often (live ticks, Part B1). */
+const LIVE_MS = 5000;
 
 async function main(): Promise<void> {
   // D-010: both switches off; DNR rules in the service worker block what they leave behind.
   const sdk = await InboxSDK.load(2, __APP_ID__, { appName: 'MailPulse', eventTracking: false, globalErrorLogging: false });
   const env = new GmailEnv(sdk.User.getEmailAddress(), ask);
   await env.refresh();
+  watchGmailTheme();
   const rows = new ThreadRowMarks(env, ask);
   const messages = new MessageViews(env, ask);
+  const card = new HoverCard(env, ask);
+  card.install();
 
   sdk.Compose.registerComposeViewHandler((view) => {
     try {
@@ -37,12 +45,17 @@ async function main(): Promise<void> {
   chrome.runtime.onMessage.addListener((message: unknown) => {
     if (!isBroadcast(message)) return;
     if (message.type === 'mp:marksChanged') {
+      card.invalidate();
       rows.refresh();
       messages.refresh();
     } else {
       void env.refresh().then(() => rows.refresh());
     }
   });
+
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && env.active) void ask({ type: 'mp:tick' }, 3000);
+  }, LIVE_MS);
 }
 
 main().catch(() => undefined);

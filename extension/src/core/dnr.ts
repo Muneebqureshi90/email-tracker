@@ -3,7 +3,7 @@
  * worker hands them to Chrome.
  */
 
-export type DnrResourceType = 'image' | 'main_frame' | 'sub_frame';
+export type DnrResourceType = 'image' | 'main_frame' | 'sub_frame' | 'xmlhttprequest' | 'ping' | 'other';
 
 export interface DnrRule {
   id: number;
@@ -25,6 +25,7 @@ export const RULE_IDS = {
   directPixel: 10,
   proxyPixel: 11,
   selfClick: 12,
+  selfDocument: 13,
 } as const;
 
 export interface DnrInput {
@@ -95,6 +96,16 @@ export function buildDnrRules(input: DnrInput): DnrRule[] {
         requestHeaders: [{ header: input.selfHeaderName, operation: 'set', value: input.selfHeaderValue }],
       },
       condition: { urlFilter: `||${host}/c/`, resourceTypes: ['main_frame', 'sub_frame'] },
+    });
+    // The owner's own document views (viewer page, its fetches and beacons, the download) never count.
+    rules.push({
+      id: RULE_IDS.selfDocument,
+      priority: 1,
+      action: {
+        type: 'modifyHeaders',
+        requestHeaders: [{ header: input.selfHeaderName, operation: 'set', value: input.selfHeaderValue }],
+      },
+      condition: { urlFilter: `||${host}/d/`, resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest', 'ping', 'other'] },
     });
   }
   return rules;

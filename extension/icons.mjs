@@ -99,8 +99,68 @@ function drawIcon(size) {
   return encodePng(size, rgba);
 }
 
+// Notification icons, one per type (brief Part C): a coloured disc with a white glyph. Polylines,
+// rings (circles) and capsule outlines in unit coordinates, all drawn with the same stroke width.
+const GLYPH_STROKE = 0.065;
+const DOC_OUTLINE = [[0.34, 0.24], [0.58, 0.24], [0.68, 0.34], [0.68, 0.76], [0.34, 0.76], [0.34, 0.24]];
+const NOTIFICATION_ICONS = {
+  open: { color: [24, 128, 56], lines: [[[0.24, 0.52], [0.35, 0.64], [0.6, 0.39]], [[0.46, 0.64], [0.71, 0.39]]] },
+  click: {
+    color: [26, 115, 232],
+    lines: [[[0.43, 0.57], [0.57, 0.43]]],
+    capsules: [{ a: [0.33, 0.67], b: [0.43, 0.57], r: 0.1 }, { a: [0.57, 0.43], b: [0.67, 0.33], r: 0.1 }],
+  },
+  'doc-view': { color: [15, 118, 110], lines: [DOC_OUTLINE, [[0.42, 0.44], [0.6, 0.44]], [[0.42, 0.54], [0.6, 0.54]], [[0.42, 0.64], [0.54, 0.64]]] },
+  'doc-read': { color: [15, 118, 110], lines: [DOC_OUTLINE, [[0.42, 0.52], [0.49, 0.6], [0.61, 0.45]]] },
+  'doc-download': {
+    color: [15, 118, 110],
+    lines: [[[0.5, 0.24], [0.5, 0.6]], [[0.37, 0.48], [0.5, 0.61], [0.63, 0.48]], [[0.3, 0.62], [0.3, 0.73], [0.7, 0.73], [0.7, 0.62]]],
+  },
+  'follow-up': { color: [178, 106, 0], rings: [{ c: [0.5, 0.5], r: 0.24 }], lines: [[[0.5, 0.36], [0.5, 0.5], [0.61, 0.57]]] },
+  alert: { color: [217, 92, 0], lines: [[[0.56, 0.22], [0.38, 0.54], [0.52, 0.54], [0.44, 0.78], [0.64, 0.44], [0.5, 0.44], [0.56, 0.22]]] },
+};
+
+function onGlyph(x, y, glyph) {
+  const half = GLYPH_STROKE / 2;
+  for (const line of glyph.lines ?? []) {
+    for (let i = 1; i < line.length; i++) if (distanceToSegment(x, y, line[i - 1], line[i]) <= half) return true;
+  }
+  for (const ring of glyph.rings ?? []) if (Math.abs(Math.hypot(x - ring.c[0], y - ring.c[1]) - ring.r) <= half) return true;
+  for (const capsule of glyph.capsules ?? []) if (Math.abs(distanceToSegment(x, y, capsule.a, capsule.b) - capsule.r) <= half) return true;
+  return false;
+}
+
+function drawNotificationIcon(size, glyph) {
+  const samples = 4;
+  const rgba = Buffer.alloc(size * size * 4);
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size; px++) {
+      let inside = 0;
+      let white = 0;
+      for (let sy = 0; sy < samples; sy++) {
+        for (let sx = 0; sx < samples; sx++) {
+          const x = (px + (sx + 0.5) / samples) / size;
+          const y = (py + (sy + 0.5) / samples) / size;
+          if (Math.hypot(x - 0.5, y - 0.5) > 0.5) continue;
+          inside++;
+          if (onGlyph(x, y, glyph)) white++;
+        }
+      }
+      const offset = (py * size + px) * 4;
+      const whiteShare = inside === 0 ? 0 : white / inside;
+      for (let c = 0; c < 3; c++) rgba[offset + c] = Math.round(glyph.color[c] * (1 - whiteShare) + WHITE[c] * whiteShare);
+      rgba[offset + 3] = Math.round((255 * inside) / (samples * samples));
+    }
+  }
+  return encodePng(size, rgba);
+}
+
 export function writeIcons(directory) {
   for (const size of [16, 32, 48, 128]) {
     fs.writeFileSync(path.join(directory, `icon${size}.png`), drawIcon(size));
   }
+  for (const [name, glyph] of Object.entries(NOTIFICATION_ICONS)) {
+    fs.writeFileSync(path.join(directory, `n-${name}.png`), drawNotificationIcon(128, glyph));
+  }
+  fs.writeFileSync(path.join(directory, 'n-group.png'), drawIcon(128));
 }

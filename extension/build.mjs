@@ -36,6 +36,9 @@ await esbuild.build({
     background: 'src/background/index.ts',
     popup: 'src/popup/main.tsx',
     options: 'src/options/main.tsx',
+    // Sample-data preview of the Gmail UI and the popup (not referenced by the manifest).
+    preview: 'src/preview/main.ts',
+    'popup-preview': 'src/preview/popup.tsx',
   },
   bundle: true,
   format: 'iife',
@@ -55,7 +58,7 @@ await esbuild.build({
 const manifest = JSON.parse(fs.readFileSync(path.join('static', 'manifest.json'), 'utf8'));
 manifest.version = pkg.version;
 fs.writeFileSync(path.join('dist', 'manifest.json'), JSON.stringify(manifest, null, 2));
-for (const file of ['popup.html', 'options.html', 'ui.css']) {
+for (const file of ['popup.html', 'options.html', 'ui.css', 'content.css', 'preview.html', 'popup-preview.html', 'preview.css']) {
   fs.copyFileSync(path.join('static', file), path.join('dist', file));
 }
 fs.copyFileSync(path.join('node_modules', '@inboxsdk', 'core', 'pageWorld.js'), path.join('dist', 'pageWorld.js'));

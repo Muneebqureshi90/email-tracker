@@ -9,7 +9,7 @@
   "permissions": ["storage", "alarms", "notifications", "scripting", "declarativeNetRequest"],
   "host_permissions": ["https://mail.google.com/*", "http://127.0.0.1/*", "http://localhost/*", "https://*.ts.net/*"],
   "background": { "service_worker": "background.js" },
-  "content_scripts": [{ "matches": ["https://mail.google.com/*"], "js": ["content.js"], "run_at": "document_end" }],
+  "content_scripts": [{ "matches": ["https://mail.google.com/*"], "js": ["content.js"], "css": ["content.css"], "run_at": "document_end" }],
   "action": {
     "default_title": "MailPulse",
     "default_popup": "popup.html",

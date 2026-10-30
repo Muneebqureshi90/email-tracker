@@ -1,110 +1,199 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
+import type { ClientConfig } from '../core/api-types';
 import type { Status } from '../core/messages';
 import { ask } from '../gmail/bridge';
-import { connectionLabel, connectionTone } from '../ui/status-text';
+import { useLiveStatus, useNow } from '../ui/live';
+import { checkedText, ProblemCard, StatusPill } from '../ui/parts';
+import { problemsOf } from '../ui/problems';
 
 const SEND_MODES = { PRESYNC: 'Insert the pixel at send (default)', CANCEL_RESEND: 'Cancel, add the pixel, send again (fallback)' };
+const NOTIFY_ON = { FIRST: 'First open only', EVERY: 'Every open', EVERY_AFTER_GAP: 'Every open after a 1-hour gap' };
+
+type Result = { tone: 'good' | 'bad'; text: string } | null;
+
+function resultOf(status: Status | null): Result {
+  if (!status) return { tone: 'bad', text: 'The extension did not answer. Reload it on chrome://extensions and try again.' };
+  if (status.connection !== 'ok') return { tone: 'bad', text: status.message ?? 'MailPulse could not be reached.' };
+  if (status.publicCheck === 'down') return { tone: 'bad', text: 'Connected to MailPulse, but the public address does not answer. See "How to fix" above.' };
+  return { tone: 'good', text: 'Connected. MailPulse and the public address both answer.' };
+}
+
+function settingsRows(config: ClientConfig): [string, string][] {
+  const rows: [string, string][] = [
+    ['Public tracking address', config.publicBaseUrl],
+    ['Track new emails', config.trackingDefault ? 'Yes, by default' : 'No, only when switched on'],
+    ['Track links', config.linkTrackingDefault ? 'Yes, by default' : 'No, only when switched on'],
+    ['Follow-up reminder', `After ${config.followUpHours} hours without an open`],
+  ];
+  if (config.notifyOn) rows.push(['Notify me on', NOTIFY_ON[config.notifyOn]]);
+  if (config.quietHoursEnabled !== undefined) {
+    rows.push(['Quiet hours', config.quietHoursEnabled ? `${config.quietHoursStart ?? ''} to ${config.quietHoursEnd ?? ''}` : 'Off']);
+  }
+  if (config.timeZone) rows.push(['Time zone', config.timeZone]);
+  rows.push(
+    ['Send mode', SEND_MODES[config.sendMode]],
+    ['Block my own views in Chrome', config.dnrBlocking ? 'On' : 'Off'],
+    ['Track confidential-mode emails', config.trackConfidential ? 'Yes' : 'No'],
+    ['Self-view hold', `${config.selfViewWindowSeconds} s`],
+  );
+  return rows;
+}
 
 export function Options() {
-  const [status, setStatus] = useState<Status | null>(null);
-  const [backendUrl, setBackendUrl] = useState('');
+  const { status, setStatus, failed } = useLiveStatus();
+  const now = useNow(5000);
+  /** Null until the owner edits it: the field then shows the saved URL. */
+  const [backendUrl, setBackendUrl] = useState<string | null>(null);
   const [apiToken, setApiToken] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    void ask({ type: 'mp:status' }).then((current) => {
-      setStatus(current);
-      if (current) setBackendUrl(current.backendUrl);
-    });
-  }, []);
+  const [showToken, setShowToken] = useState(false);
+  const [busy, setBusy] = useState<'save' | 'test' | null>(null);
+  const [result, setResult] = useState<Result>(null);
+  const [copied, setCopied] = useState(false);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    setBusy(true);
-    setStatus(await ask({ type: 'mp:saveConnection', backendUrl, apiToken }, 8000));
-    setApiToken('');
-    setBusy(false);
+    setBusy('save');
+    setResult(null);
+    const next = await ask({ type: 'mp:saveConnection', backendUrl: backendUrl ?? status?.backendUrl ?? '', apiToken }, 10_000);
+    if (next) setStatus(next);
+    setResult(resultOf(next));
+    if (next?.connection === 'ok') setApiToken('');
+    setBusy(null);
   };
   const test = async () => {
-    setBusy(true);
-    setStatus(await ask({ type: 'mp:testConnection' }, 8000));
-    setBusy(false);
+    setBusy('test');
+    setResult(null);
+    const next = await ask({ type: 'mp:testConnection' }, 10_000);
+    if (next) setStatus(next);
+    setResult(resultOf(next));
+    setBusy(null);
   };
 
-  if (!status) return <p className="muted">Loading…</p>;
+  if (!status) {
+    return (
+      <main className="options" aria-busy={!failed}>
+        {failed ? <p className="error">The extension's background worker did not answer. Reload MailPulse on chrome://extensions.</p> : <div className="skeleton tall" />}
+      </main>
+    );
+  }
+
+  const problems = problemsOf(status).filter((problem) => problem.id !== 'paused');
   const config = status.config;
 
   return (
     <main className="options">
-      <h1>MailPulse settings</h1>
-      <p className="muted">
-        The extension talks only to your own MailPulse backend on this PC. Create an API token in the
-        dashboard under <strong>Extension tokens</strong> and paste it here.
-      </p>
-
-      <form onSubmit={(event) => void save(event)}>
-        <label>
-          Backend URL
-          <input value={backendUrl} onChange={(event) => setBackendUrl(event.target.value)} required />
-        </label>
-        <label>
-          API token {status.hasToken && <span className="muted">(saved; paste a new one to replace it)</span>}
-          <input
-            type="password"
-            autoComplete="off"
-            value={apiToken}
-            placeholder="mp_…"
-            onChange={(event) => setApiToken(event.target.value)}
-            required
-          />
-        </label>
-        <div className="row">
-          <button type="submit" disabled={busy}>
-            Save and connect
-          </button>
-          <button type="button" className="secondary" disabled={busy || !status.hasToken} onClick={() => void test()}>
-            Test connection
-          </button>
+      <header className="top">
+        <img src="icons/icon48.png" alt="" width={32} height={32} />
+        <div>
+          <h1>MailPulse extension</h1>
+          <p className="muted">Talks only to your own MailPulse on this PC.</p>
         </div>
-      </form>
+        <StatusPill status={status} />
+      </header>
 
-      <section>
-        <h2>
-          Connection <span className={`badge ${connectionTone(status)}`}>{connectionLabel(status)}</span>
-        </h2>
-        {status.message && <p className={status.connection === 'ok' ? 'muted' : 'error'}>{status.message}</p>}
-        {status.checkedAt && <p className="muted">Last checked {new Date(status.checkedAt).toLocaleString()}</p>}
-        {status.queued > 0 && <p className="muted">{status.queued} send update(s) waiting to be delivered.</p>}
-        {!status.appIdSet && (
-          <p className="error">
-            No InboxSDK App ID was set when this extension was built, so Gmail shows a registration bar. See docs\SETUP.md.
-          </p>
-        )}
-        <p className="muted">
-          This extension's origin (for <code>MAILPULSE_EXTENSION_ORIGINS</code> in infra\.env): <code>{status.extensionOrigin}</code>
-        </p>
+      {problems.map((problem) => (
+        <ProblemCard key={problem.id} problem={problem} busy={busy === 'test'} onAction={(action) => (action === 'retry' ? void test() : document.getElementById('token')?.focus())} />
+      ))}
+
+      <section className="card">
+        <h2>Connection</h2>
+        <form onSubmit={(event) => void save(event)}>
+          <label htmlFor="backend">Backend URL</label>
+          <input id="backend" value={backendUrl ?? status.backendUrl} onChange={(event) => setBackendUrl(event.target.value)} placeholder="http://127.0.0.1:8080" required />
+          <p className="hint">The dashboard address on this PC, for example http://127.0.0.1:8090.</p>
+
+          <label htmlFor="token">API token</label>
+          <div className="with-button">
+            <input
+              id="token"
+              type={showToken ? 'text' : 'password'}
+              autoComplete="off"
+              spellCheck={false}
+              value={apiToken}
+              placeholder={status.hasToken ? 'Saved. Paste a new token to replace it.' : 'mp_…'}
+              onChange={(event) => setApiToken(event.target.value)}
+              required
+            />
+            <button type="button" className="secondary" aria-pressed={showToken} onClick={() => setShowToken((value) => !value)}>
+              {showToken ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          <p className="hint">Create one in the dashboard under Extension tokens. It is stored only in this browser.</p>
+
+          <div className="row">
+            <button type="submit" disabled={busy !== null}>
+              {busy === 'save' ? 'Connecting…' : 'Save and connect'}
+            </button>
+            <button type="button" className="secondary" disabled={busy !== null || !status.hasToken} onClick={() => void test()}>
+              {busy === 'test' ? 'Testing…' : 'Test connection'}
+            </button>
+          </div>
+          {result && (
+            <p className={`result ${result.tone}`} role="status">
+              {result.text}
+            </p>
+          )}
+        </form>
+        <dl className="facts">
+          <dt>Last checked</dt>
+          <dd data-testid="checked">{checkedText(status.checkedAt, now)}</dd>
+          <dt>Public address</dt>
+          <dd>
+            {status.publicCheck === 'up' ? 'Reachable' : status.publicCheck === 'down' ? 'Not reachable' : 'Not checked yet'}
+            {status.publicCheckedAt ? ` · ${checkedText(status.publicCheckedAt, now)}` : ''}
+          </dd>
+          {status.queued > 0 && (
+            <>
+              <dt>Waiting to send</dt>
+              <dd>{status.queued} send update(s), delivered when MailPulse is back</dd>
+            </>
+          )}
+        </dl>
       </section>
 
       {config && (
-        <section>
-          <h2>Tracking settings from your backend</h2>
-          <p className="muted">Change these in the dashboard under Settings.</p>
-          <dl>
-            <dt>Public tracking address</dt>
-            <dd>{config.publicBaseUrl}</dd>
-            <dt>Track new emails by default</dt>
-            <dd>{config.trackingDefault ? 'Yes' : 'No'}</dd>
-            <dt>Send mode</dt>
-            <dd>{SEND_MODES[config.sendMode]}</dd>
-            <dt>Block my own views in Chrome (DNR rules)</dt>
-            <dd>{config.dnrBlocking ? 'On' : 'Off'}</dd>
-            <dt>Track confidential-mode emails</dt>
-            <dd>{config.trackConfidential ? 'Yes' : 'No'}</dd>
-            <dt>Self-view hold</dt>
-            <dd>{config.selfViewWindowSeconds} s</dd>
+        <section className="card">
+          <div className="card-head">
+            <h2>Settings from your MailPulse</h2>
+            <button type="button" className="secondary small" onClick={() => void chrome.tabs.create({ url: `${status.backendUrl}/settings` })}>
+              Change in dashboard
+            </button>
+          </div>
+          <dl className="facts">
+            {settingsRows(config).map(([name, value]) => (
+              <div key={name} className="fact">
+                <dt>{name}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
           </dl>
         </section>
       )}
+
+      <section className="card">
+        <h2>This extension</h2>
+        <dl className="facts">
+          <dt>InboxSDK App ID</dt>
+          <dd>{status.appIdSet ? 'Set' : 'Not set (see How to fix above)'}</dd>
+          <dt>Extension origin</dt>
+          <dd>
+            <code>{status.extensionOrigin}</code>{' '}
+            <button
+              type="button"
+              className="secondary small"
+              onClick={() =>
+                void navigator.clipboard.writeText(status.extensionOrigin).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                })
+              }
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </dd>
+        </dl>
+        <p className="hint">The origin goes into MAILPULSE_EXTENSION_ORIGINS in infra\.env.</p>
+      </section>
     </main>
   );
 }

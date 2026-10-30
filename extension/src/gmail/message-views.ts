@@ -1,6 +1,6 @@
 import type { MessageAttachmentIconDescriptor, MessageView } from '@inboxsdk/core';
 import type { Mark } from '../core/api-types';
-import { markIcon, markTooltip } from '../core/marks';
+import { markHtml } from '../core/marks';
 import { findPixels, uniqueTokens } from '../core/pixel';
 import type { Ask } from './bridge';
 import type { GmailEnv } from './env';
@@ -8,8 +8,9 @@ import { Live } from './live';
 
 const REPORT_THROTTLE_MS = 5_000;
 
-function describe(mark: Mark, now: number): MessageAttachmentIconDescriptor {
-  return { iconUrl: markIcon(mark), tooltip: markTooltip(mark, now) };
+/** The same 16 px ticks as the thread rows, next to the message date (fixes the single tick, A6). */
+export function messageIcon(mark: Mark): MessageAttachmentIconDescriptor {
+  return { iconHtml: markHtml(mark, true), iconClass: 'mp-slot' };
 }
 
 /**
@@ -74,7 +75,7 @@ export class MessageViews {
     const marks = await this.ask({ type: 'mp:marks', account: this.env.account, by: 'message', ids: [entry.messageId] });
     const mark = marks?.[entry.messageId];
     if (!mark || view.destroyed) return;
-    const descriptor = describe(mark, this.now());
+    const descriptor = messageIcon(mark);
     if (entry.icon) {
       entry.icon.set(descriptor);
     } else {
