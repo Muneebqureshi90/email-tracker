@@ -73,6 +73,92 @@ export function relativeTime(iso: string | null, now: number): string {
   return new Date(iso).toLocaleDateString(undefined, { timeZone: displayZone });
 }
 
+/** A shorter date and time for tables: "Oct 30, 1:00 PM" this year, "Oct 30, 2025, 1:00 PM" before. */
+export function formatShortDateTime(iso: string | null, now: number = Date.now()): string {
+  if (!iso) return '—';
+  const sameYear = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: displayZone }).format(Date.parse(iso)) === new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: displayZone }).format(now);
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: displayZone,
+  });
+}
+
+/** The calendar day (YYYY-MM-DD) of an instant in the display zone. */
+export function dayInZone(iso: string): string {
+  return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: displayZone }).format(Date.parse(iso));
+}
+
+/** "Today", "Yesterday" or "Wed, 28 Oct" (with the year when it is not this year) for a day group. */
+export function dayHeading(day: string, now: number): string {
+  const today = todayInZone(now);
+  if (day === today) return 'Today';
+  if (day === todayInZone(now - DAY)) return 'Yesterday';
+  const label = formatDate(day);
+  return day.slice(0, 4) === today.slice(0, 4) ? label : `${label} ${day.slice(0, 4)}`;
+}
+
+/** Splits items (already newest first) into day groups in the display zone, keeping the order. */
+export function groupByDay<T>(items: T[], at: (item: T) => string): { day: string; items: T[] }[] {
+  const groups: { day: string; items: T[] }[] = [];
+  for (const item of items) {
+    const day = dayInZone(at(item));
+    const last = groups.at(-1);
+    if (last && last.day === day) last.items.push(item);
+    else groups.push({ day, items: [item] });
+  }
+  return groups;
+}
+
+/** The UTC instant at the last second of a calendar day in the display zone (for "expires on"). */
+export function endOfDayInZone(day: string, zone: string = displayZone): string {
+  const [year = 1970, month = 1, date = 1] = day.split('-').map(Number);
+  const wall = Date.UTC(year, month - 1, date, 23, 59, 59);
+  const offsetAt = (instant: number) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).formatToParts(instant);
+    const part = (type: string) => Number(parts.find((item) => item.type === type)?.value ?? 0);
+    return Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second')) - instant;
+  };
+  let instant = wall - offsetAt(wall);
+  const second = wall - offsetAt(instant);
+  if (second !== instant) instant = second;
+  return new Date(instant).toISOString();
+}
+
+/** "1st", "2nd", "3rd", "11th", "22nd". */
+export function ordinal(value: number): string {
+  const tens = value % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][value % 10] ?? 'th');
+  return `${value}${suffix}`;
+}
+
+/** "45 s", "2 min 14 s", "1 h 5 min". */
+export function duration(seconds: number): string {
+  const whole = Math.max(0, Math.round(seconds));
+  if (whole < 60) return `${whole} s`;
+  if (whole < 3600) return `${Math.floor(whole / 60)} min${whole % 60 ? ` ${whole % 60} s` : ''}`;
+  return `${Math.floor(whole / 3600)} h${Math.floor((whole % 3600) / 60) ? ` ${Math.floor((whole % 3600) / 60)} min` : ''}`;
+}
+
+/** "180 KB", "7.0 MB". */
+export function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /** "1 open", "3 opens". */
 export function count(value: number, word: string): string {
   return `${value} ${word}${value === 1 ? '' : 's'}`;

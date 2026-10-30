@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover';
-import { Check, ChevronDown, Minus, Plus } from 'lucide-react';
+import { Check, ChevronDown, Minus, Plus, Search, X } from 'lucide-react';
 import { Children, cloneElement, isValidElement, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react';
 
 /*
@@ -314,6 +314,100 @@ export function RadioGroup<T extends string>({
 
 export function Skeleton({ className = '' }: { className?: string }) {
   return <span aria-hidden="true" className={`skeleton block ${className}`} />;
+}
+
+/**
+ * A search box that applies 300 ms after the last key (or at once on Enter), with its own clear
+ * button. It follows `value` when the URL changes elsewhere (Back, a link).
+ */
+export function SearchField({
+  value,
+  onSearch,
+  label,
+  placeholder,
+  className = '',
+  searching = false,
+}: {
+  value: string;
+  onSearch: (text: string) => void;
+  label: string;
+  placeholder?: string;
+  className?: string;
+  /** The filtered request is running: shows a small spinner and "Searching…" for screen readers. */
+  searching?: boolean;
+}) {
+  const [text, setText] = useState(value);
+  const [synced, setSynced] = useState(value);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  if (value !== synced) {
+    setSynced(value);
+    if (value !== text.trim()) setText(value);
+  }
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const apply = (next: string, delay: number) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (next.trim() !== value) onSearch(next.trim());
+    }, delay);
+  };
+  return (
+    <form
+      role="search"
+      aria-label={label}
+      className={`flex min-w-0 items-center gap-2 ${className}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        apply(text, 0);
+      }}
+    >
+      <span className="relative flex min-w-0 flex-1 items-center">
+        <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 text-muted" />
+        <input
+          type="search"
+          aria-label={label}
+          className="input pr-16 pl-9"
+          value={text}
+          placeholder={placeholder}
+          onChange={(event) => {
+            setText(event.target.value);
+            // An empty box clears the filter at once; typing applies after a 300 ms pause.
+            apply(event.target.value, event.target.value.trim() ? 300 : 0);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && text) {
+              event.preventDefault();
+              setText('');
+              apply('', 0);
+            }
+          }}
+        />
+        <span className="absolute right-1 flex items-center gap-0.5">
+          {searching && (
+            <span role="status" className="inline-flex h-7 w-7 items-center justify-center">
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line border-t-accent" aria-hidden="true" />
+              <span className="sr-only">Searching…</span>
+            </span>
+          )}
+          {text && (
+            <button
+              type="button"
+              aria-label="Clear search text"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-fg"
+              onClick={() => {
+                setText('');
+                apply('', 0);
+              }}
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+        </span>
+      </span>
+      <button type="submit" className="btn btn-quiet">
+        Search
+      </button>
+    </form>
+  );
 }
 
 /**

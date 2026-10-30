@@ -11,7 +11,7 @@ export function OverviewPage() {
   const today = useReport('daily', undefined);
   const week = useReport('weekly', undefined);
   const activity = useActivity(10);
-  const recent = useEmails({ page: 0, size: 5 });
+  const recent = useEmails({ page: 0, size: 25 });
 
   return (
     <>
@@ -59,7 +59,8 @@ export function OverviewPage() {
                 Install the Chrome extension and connect it (docs\SETUP.md section 8), then send an email from Gmail.
               </Empty>
             ) : (
-              <EmailTable emails={page.items} now={now} />
+              // The API pages in 25, 50 or 100; Overview shows the newest five.
+              <EmailTable emails={page.items.slice(0, 5)} now={now} />
             )
           }
         </QueryState>

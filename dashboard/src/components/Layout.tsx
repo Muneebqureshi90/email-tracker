@@ -286,7 +286,7 @@ export function Layout() {
           onScroll={onScroll}
           tabIndex={-1}
           data-testid="scroll-container"
-          className="min-h-0 flex-1 overflow-y-auto scroll-pt-12 outline-none"
+          className="relative min-h-0 flex-1 overflow-y-auto scroll-pt-4 outline-none"
         >
           <div className="mx-auto w-full max-w-6xl p-4 pb-12 lg:p-8">
             <TopBarContext.Provider value={slots}>{zoneReady ? <Outlet key={zone} /> : <Spinner />}</TopBarContext.Provider>

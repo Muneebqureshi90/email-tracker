@@ -468,3 +468,24 @@ sticks below the fixed top bar on Emails and Contacts (their columns fit the con
 screens, so the wrapper need not clip there), a sticky first column, right-aligned tabular numbers,
 row hover, whole-row click with a real link in the first cell for keyboard users, sortable headers
 with `aria-sort`, skeleton rows while loading, and empty and error states. Phones get a list layout.
+
+## D-099 List state lives in the URL — Accepted
+Page, page size (25, 50 or 100, the sizes the API accepts), sort, direction and filters are URL
+parameters, so Back, reload and shared links keep them. Any change other than the page goes back to
+page 1, and every change scrolls the content area to the top. Search applies 300 ms after the last
+key (or on Enter) and replaces the history entry instead of adding one per key. Emails and Contacts
+show a compact pager in the fixed top bar and the full pager (with page size) below the list; other
+long lists show a pager above and below. Documents and tokens come as whole arrays and are paged in
+the browser.
+
+## D-100 Activity pages backwards and groups by day — Accepted
+The Activity page loads 50 items and "Load older" asks for the items before the oldest one shown
+(`before=<id>`), as long as the API says `hasMore`. Items are grouped under Today, Yesterday or the
+date, in the settings time zone, with sticky day headings. The filter chips (All, Opens, Clicks,
+Alerts, Documents) map to the `kinds` parameter and live in the URL.
+
+## D-101 "Open in Gmail" link format — Accepted
+`https://mail.google.com/mail/u/<account>/#all/<threadId>`: Gmail accepts the account address in place
+of the account number, so the thread opens in the right account, and the hex thread ID from InboxSDK
+opens with `#all/`. Without a thread ID there is no link. It is a plain link the owner clicks; nothing
+is sent anywhere.

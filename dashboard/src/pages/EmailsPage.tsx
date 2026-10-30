@@ -1,42 +1,43 @@
-import { useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router';
-import { useAccounts, useEmails } from '../api/queries';
-import { Segmented, Select } from '../components/controls';
+import { Inbox, SearchX } from 'lucide-react';
+import { useAccounts, useEmailCounts, useEmails } from '../api/queries';
+import type { EmailCounts } from '../api/types';
+import { SearchField, Segmented, Select } from '../components/controls';
 import { EmailTable } from '../components/EmailTable';
-import { Card, Empty, PageHeader, Pagination, QueryState } from '../components/ui';
+import { Card, Empty, PageHeader, Pagination } from '../components/ui';
 import { useNow } from '../lib/now';
+import { useListParams } from '../lib/paging';
 
-const STATES = [
-  { value: '', label: 'All' },
-  { value: 'opened', label: 'Opened' },
-  { value: 'not_opened', label: 'Not opened' },
-  { value: 'clicked', label: 'Clicked' },
+const STATES: { value: string; label: string; count: keyof EmailCounts }[] = [
+  { value: '', label: 'All', count: 'all' },
+  { value: 'opened', label: 'Opened', count: 'opened' },
+  { value: 'not_opened', label: 'Not opened', count: 'notOpened' },
+  { value: 'clicked', label: 'Clicked', count: 'clicked' },
 ];
 
 export function EmailsPage() {
   const now = useNow();
-  const [params, setParams] = useSearchParams();
-  const state = params.get('state') ?? '';
-  const account = params.get('account') ?? '';
-  const q = params.get('q') ?? '';
-  const page = Number(params.get('page') ?? '0') || 0;
-  const [text, setText] = useState(q);
-  const emails = useEmails({ state, account, q, page });
+  const list = useListParams('', 'sent');
+  const state = list.get('state');
+  const account = list.get('account');
+  const q = list.get('q');
+  const emails = useEmails({ state, account, q, page: list.page, size: list.size, sort: list.get('sort') || undefined, dir: list.get('dir') || undefined });
+  const counts = useEmailCounts(account, q);
   const accounts = useAccounts();
+  const result = emails.data;
+  const filtered = Boolean(q || state || account);
 
-  const update = (changes: Record<string, string>) => {
-    const next = new URLSearchParams(params);
-    for (const [key, value] of Object.entries(changes)) {
-      if (value) next.set(key, value);
-      else next.delete(key);
-    }
-    if (!('page' in changes)) next.delete('page');
-    setParams(next);
-  };
-  const search = (event: FormEvent) => {
-    event.preventDefault();
-    update({ q: text.trim() });
-  };
+  const pager = (position: 'top' | 'bottom') =>
+    result && (
+      <Pagination
+        page={result.page}
+        size={result.size}
+        total={result.total}
+        onPage={list.setPage}
+        onSize={position === 'bottom' ? list.setSize : undefined}
+        compact={position === 'top'}
+        label={position === 'top' ? 'Pages (top)' : 'Pages'}
+      />
+    );
 
   return (
     <>
@@ -45,43 +46,69 @@ export function EmailsPage() {
         description="Every tracked email you sent. Search covers subjects, names and addresses."
         actions={
           <>
-          <Segmented label="Show" value={state} options={STATES} onChange={(value) => update({ state: value })} />
-          {(accounts.data?.length ?? 0) > 1 && (
-            <Select
-              label="Account"
-              value={account}
-              onChange={(value) => update({ account: value })}
-              options={[{ value: '', label: 'All accounts' }, ...(accounts.data ?? []).map((address) => ({ value: address, label: address }))]}
-              className="w-auto max-w-64"
+            <Segmented
+              label="Show"
+              value={state}
+              options={STATES.map((option) => ({ value: option.value, label: option.label, count: counts.data?.[option.count] }))}
+              onChange={(value) => list.update({ state: value })}
             />
-          )}
-          <form onSubmit={search} className="flex min-w-0 flex-1 gap-2 sm:min-w-60" role="search">
-            <label className="flex-1">
-              <span className="sr-only">Search emails</span>
-              <input className="input" type="search" value={text} onChange={(event) => setText(event.target.value)} placeholder="Search subject, name or address" />
-            </label>
-            <button type="submit" className="btn btn-quiet">
-              Search
-            </button>
-          </form>
+            <SearchField
+              label="Search emails"
+              value={q}
+              placeholder="Subject, name or address"
+              onSearch={(text) => list.update({ q: text }, { replace: true })}
+              searching={Boolean(q) && emails.isFetching}
+              className="w-full sm:w-80"
+            />
+            {(accounts.data?.length ?? 0) > 1 && (
+              <Select
+                label="Account"
+                value={account}
+                onChange={(value) => list.update({ account: value })}
+                options={[{ value: '', label: 'All accounts' }, ...(accounts.data ?? []).map((address) => ({ value: address, label: address }))]}
+                className="w-auto max-w-56"
+              />
+            )}
+            <div className="ml-auto">{pager('top')}</div>
           </>
         }
       />
       <Card>
-        <QueryState query={emails}>
-          {(result) =>
-            result.total === 0 ? (
-              <Empty title={q || state || account ? 'No emails match these filters' : 'No tracked emails yet'}>
-                {q || state || account ? 'Try another filter.' : 'Send an email from Gmail with the MailPulse extension installed.'}
+        <EmailTable
+          emails={result?.items}
+          now={now}
+          sort={list.sort}
+          dir={list.dir}
+          onSort={list.toggleSort}
+          error={emails.error}
+          onRetry={() => void emails.refetch()}
+          busy={emails.isPlaceholderData}
+          stickyHeader
+          empty={
+            q ? (
+              <Empty
+                title={`No emails match "${q}"`}
+                icon={SearchX}
+                action={
+                  <button type="button" className="btn btn-quiet" onClick={() => list.update({ q: null }, { replace: true })}>
+                    Clear search
+                  </button>
+                }
+              >
+                Try another subject, name or address.
+              </Empty>
+            ) : filtered ? (
+              <Empty title="No emails match these filters" icon={SearchX} action={<button type="button" className="btn btn-quiet" onClick={() => list.update({ q: null, state: null, account: null })}>Clear filters</button>}>
+                Try another search or filter.
               </Empty>
             ) : (
-              <>
-                <EmailTable emails={result.items} now={now} />
-                <Pagination page={result.page} size={result.size} total={result.total} onPage={(next) => update({ page: String(next) })} />
-              </>
+              <Empty title="No tracked emails yet" icon={Inbox}>
+                Send an email from Gmail with the MailPulse extension installed. It shows up here within seconds.
+              </Empty>
             )
           }
-        </QueryState>
+        />
+        {pager('bottom')}
       </Card>
     </>
   );

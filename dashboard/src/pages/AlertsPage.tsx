@@ -1,31 +1,40 @@
-import { useSearchParams } from 'react-router';
+import { BellOff } from 'lucide-react';
 import { useAlerts, useUpdateAlert } from '../api/queries';
-import type { AlertType, AlertView } from '../api/types';
+import type { AlertView } from '../api/types';
 import { Segmented } from '../components/controls';
-import { Card, Empty, ErrorBox, PageHeader, Pagination, QueryState, TextLink } from '../components/ui';
+import { toast, toastError } from '../components/toast';
+import { Badge, Card, Empty, ErrorBox, LoadingBlock, PageHeader, Pagination, TextLink } from '../components/ui';
 import { formatDateTime, relativeTime } from '../lib/format';
+import { ALERT_LABELS } from '../lib/labels';
 import { useNow } from '../lib/now';
+import { useListParams } from '../lib/paging';
 
-export const ALERT_LABELS: Record<AlertType, { label: string; tone: string }> = {
-  FOLLOW_UP: { label: 'Follow up', tone: 'text-warn' },
-  OPEN_SPIKE: { label: 'Hot', tone: 'text-good' },
-  REVIVAL: { label: 'Opened again', tone: 'text-accent' },
-  DOC_VIEWS: { label: 'Document viewed often', tone: 'text-good' },
-};
+type Change = { status: AlertView['status']; snoozeHours?: number };
+
+const DONE: Record<AlertView['status'], string> = { NEW: 'Alert reopened', SEEN: 'Marked as seen', SNOOZED: 'Snoozed for a day', DISMISSED: 'Alert dismissed' };
 
 export function AlertsPage() {
   const now = useNow();
-  const [params, setParams] = useSearchParams();
-  const status = params.get('status') === 'all' ? 'all' : 'active';
-  const page = Number(params.get('page') ?? '0') || 0;
-  const alerts = useAlerts(status, page);
+  const list = useListParams();
+  const status = list.get('status') === 'all' ? 'all' : 'active';
+  const alerts = useAlerts(status, list.page, true, list.size);
   const update = useUpdateAlert();
+  const result = alerts.data;
+
+  const change = (alert: AlertView, next: Change) =>
+    update.mutate(
+      { id: alert.id, ...next },
+      {
+        onSuccess: () => toast({ title: DONE[next.status], tone: 'success' }),
+        onError: (error) => toastError('The alert was not changed', error),
+      },
+    );
 
   return (
     <>
       <PageHeader
         title="Alerts"
-        description="Follow-up reminders, open spikes and revivals. Rules and times are under Settings → Alerts."
+        description="Follow-up reminders, open spikes, revivals and often-viewed documents. Rules and times are under Settings → Alerts."
         actions={
           <Segmented
             label="Show"
@@ -34,50 +43,39 @@ export function AlertsPage() {
               { value: 'active', label: 'Open' },
               { value: 'all', label: 'All' },
             ]}
-            onChange={(option) => setParams(option === 'all' ? { status: 'all' } : {})}
+            onChange={(option) => list.update({ status: option === 'all' ? 'all' : null })}
           />
         }
       />
-      {update.isError && (
-        <div className="mb-4">
-          <ErrorBox error={update.error} />
-        </div>
-      )}
       <Card>
-        <QueryState query={alerts}>
-          {(result) =>
-            result.total === 0 ? (
-              <Empty title={status === 'active' ? 'No open alerts' : 'No alerts yet'}>
-                Alerts appear when an email is not opened in time, is opened many times, or is opened again after a long time.
-              </Empty>
-            ) : (
-              <>
-                <ul className="divide-y divide-line">
-                  {result.items.map((alert) => (
-                    <AlertRow key={alert.id} alert={alert} now={now} busy={update.isPending} onChange={(change) => update.mutate({ id: alert.id, ...change })} />
-                  ))}
-                </ul>
-                <Pagination page={result.page} size={result.size} total={result.total} onPage={(next) => setParams({ ...(status === 'all' ? { status } : {}), page: String(next) })} />
-              </>
-            )
-          }
-        </QueryState>
+        {alerts.isPending ? (
+          <LoadingBlock lines={5} />
+        ) : alerts.isError || !result ? (
+          <div className="p-4">
+            <ErrorBox error={alerts.error} onRetry={() => void alerts.refetch()} />
+          </div>
+        ) : result.total === 0 ? (
+          <Empty title={status === 'active' ? 'No open alerts' : 'No alerts yet'} icon={BellOff}>
+            Alerts appear when an email is not opened in time, is opened many times, is opened again after a long time, or a
+            document is viewed often.
+          </Empty>
+        ) : (
+          <>
+            {result.total > result.size && <Pagination page={result.page} size={result.size} total={result.total} onPage={list.setPage} position="top" label="Pages (top)" />}
+            <ul className={`divide-y divide-line transition-opacity ${alerts.isPlaceholderData ? 'opacity-60' : ''}`}>
+              {result.items.map((alert) => (
+                <AlertRow key={alert.id} alert={alert} now={now} busy={update.isPending} onChange={(next) => change(alert, next)} />
+              ))}
+            </ul>
+            <Pagination page={result.page} size={result.size} total={result.total} onPage={list.setPage} onSize={list.setSize} />
+          </>
+        )}
       </Card>
     </>
   );
 }
 
-function AlertRow({
-  alert,
-  now,
-  busy,
-  onChange,
-}: {
-  alert: AlertView;
-  now: number;
-  busy: boolean;
-  onChange: (change: { status: AlertView['status']; snoozeHours?: number }) => void;
-}) {
+function AlertRow({ alert, now, busy, onChange }: { alert: AlertView; now: number; busy: boolean; onChange: (change: Change) => void }) {
   const kind = ALERT_LABELS[alert.type];
   const closed = alert.status === 'DISMISSED' || alert.status === 'SNOOZED';
   return (
@@ -85,9 +83,9 @@ function AlertRow({
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2">
           <span className={`font-semibold ${kind.tone}`}>{kind.label}</span>
-          {alert.status === 'NEW' && <span className="chip">New</span>}
-          {alert.status === 'SNOOZED' && alert.snoozedUntil && <span className="chip">Snoozed until {formatDateTime(alert.snoozedUntil)}</span>}
-          {alert.status === 'DISMISSED' && <span className="chip">Dismissed</span>}
+          {alert.status === 'NEW' && <Badge tone="accent">New</Badge>}
+          {alert.status === 'SNOOZED' && alert.snoozedUntil && <Badge>Snoozed until {formatDateTime(alert.snoozedUntil)}</Badge>}
+          {alert.status === 'DISMISSED' && <Badge>Dismissed</Badge>}
         </p>
         <p className="mt-0.5">{alert.text}</p>
         <p className="mt-0.5 truncate text-xs text-muted">
