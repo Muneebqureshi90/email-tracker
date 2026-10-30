@@ -256,4 +256,5 @@ describe('alerts and per-email extras (Phase 5)', () => {
   });
 });
 
-vi.setConfig({ testTimeout: 15_000 });
+// The first visit to a lazy page imports it and the chart library cold; on a busy PC that took 17 s.
+vi.setConfig({ testTimeout: 60_000 });
