@@ -4,6 +4,7 @@ import com.mailpulse.activity.ActivityService;
 import com.mailpulse.common.crypto.FieldCipher;
 import com.mailpulse.common.web.ApiException;
 import com.mailpulse.common.web.Paging;
+import com.mailpulse.documents.DocumentService;
 import com.mailpulse.emails.AddressBook;
 import com.mailpulse.emails.EmailApi;
 import com.mailpulse.emails.EmailService;
@@ -16,17 +17,23 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Raises follow-up, open-spike and revival alerts (PLAN §4.7). Every alert is also an activity item,
- * so it reaches desktop notifications (if the email is not muted) and the live dashboard.
+ * Raises follow-up, open-spike and revival alerts (PLAN §4.7) and DOC_VIEWS for document links. Every alert is
+ * also an activity item, so it reaches desktop notifications (if the email is not muted) and the live dashboard.
  */
 @Service
 public class AlertService {
 
+    /**
+     * @param emailId null (and subject, recipients empty) for a DOC_VIEWS alert of a share link
+     * @param documentId the document of a DOC_VIEWS alert, otherwise null (also documentName and linkLabel)
+     */
     public record AlertView(
             UUID id,
             AlertType type,
@@ -36,7 +43,10 @@ public class AlertService {
             Instant snoozedUntil,
             UUID emailId,
             String subject,
-            String recipients) {}
+            String recipients,
+            UUID documentId,
+            String documentName,
+            String linkLabel) {}
 
     public record AlertBrief(AlertType type, String text) {}
 
@@ -77,15 +87,30 @@ public class AlertService {
         Settings current = settings.current();
         List<Long> created = new ArrayList<>();
         AlertRules.revival(previousOpenAt, openedAt, current.revivalDays()).ifPresent(silence -> created.add(raise(
-                AlertType.REVIVAL, emailId, now, details("days", silence.toDays(),
+                AlertType.REVIVAL, emailId, null, now, details("days", silence.toDays(),
                         "Opened again after " + silence.toDays() + " days without opens"))));
         Duration window = Duration.ofMinutes(current.spikeWindowMinutes());
         int opens = repository.countedOpensBetween(emailId, openedAt.minus(window), openedAt);
         if (AlertRules.openSpike(opens, current.spikeOpens(), repository.existsSince(emailId, AlertType.OPEN_SPIKE, openedAt.minus(window)))) {
-            created.add(raise(AlertType.OPEN_SPIKE, emailId, now, details("opens", opens,
+            created.add(raise(AlertType.OPEN_SPIKE, emailId, null, now, details("opens", opens,
                     "Opened " + opens + " times within " + current.spikeWindowMinutes() + " minutes")));
         }
         return created;
+    }
+
+    /**
+     * Called inside the document tracker's transaction after a document view was counted: DOC_VIEWS once the
+     * link reaches three counted views (once per link).
+     *
+     * @param emailId the link's email, or null for a share link
+     * @return the id of the new activity item, to publish after the transaction commits
+     */
+    public Optional<Long> onDocumentViewCounted(UUID documentLinkId, UUID emailId, int countedViews, Instant now) {
+        if (!AlertRules.documentViews(countedViews, repository.existsForLink(documentLinkId, AlertType.DOC_VIEWS))) {
+            return Optional.empty();
+        }
+        return Optional.of(raise(AlertType.DOC_VIEWS, emailId, documentLinkId, now,
+                details("views", countedViews, "Document viewed " + countedViews + " times")));
     }
 
     /** Due follow-ups and finished snoozes. Runs every five minutes (maintenance Jobs); tests call it directly. */
@@ -96,7 +121,7 @@ public class AlertService {
             List<Long> ids = new ArrayList<>();
             for (AlertRepository.FollowUpCandidate candidate : repository.followUpCandidates(now, current.followUpHours())) {
                 if (AlertRules.followUpDue(candidate.sentAt(), candidate.hours(), candidate.opens(), candidate.clicks(), now)) {
-                    ids.add(raise(AlertType.FOLLOW_UP, candidate.emailId(), now, details("hours", candidate.hours(),
+                    ids.add(raise(AlertType.FOLLOW_UP, candidate.emailId(), null, now, details("hours", candidate.hours(),
                             "Not opened " + candidate.hours() + " hours after sending")));
                 }
             }
@@ -140,9 +165,9 @@ public class AlertService {
         return views(List.of(repository.find(id).orElseThrow())).getFirst();
     }
 
-    private long raise(AlertType type, UUID emailId, Instant now, Map<String, Object> details) {
+    private long raise(AlertType type, UUID emailId, UUID documentLinkId, Instant now, Map<String, Object> details) {
         UUID id = UUID.randomUUID();
-        repository.insert(id, type, emailId, now, details);
+        repository.insert(id, type, emailId, documentLinkId, now, details);
         return activity.recordAlert(emailId, id, now);
     }
 
@@ -154,8 +179,8 @@ public class AlertService {
     }
 
     private List<AlertView> views(List<AlertRepository.AlertRow> rows) {
-        Map<UUID, List<EmailApi.Recipient>> recipients =
-                addressBook.recipientsOf(rows.stream().map(AlertRepository.AlertRow::emailId).distinct().toList());
+        Map<UUID, List<EmailApi.Recipient>> recipients = addressBook.recipientsOf(
+                rows.stream().map(AlertRepository.AlertRow::emailId).filter(Objects::nonNull).distinct().toList());
         return rows.stream()
                 .map(row -> new AlertView(
                         row.id(),
@@ -166,7 +191,10 @@ public class AlertService {
                         row.snoozedUntil(),
                         row.emailId(),
                         cipher.decrypt(row.subjectEnc(), EmailService.SUBJECT_COLUMN),
-                        ActivityService.recipientSummary(recipients.getOrDefault(row.emailId(), List.of()))))
+                        ActivityService.recipientSummary(recipients.getOrDefault(row.emailId(), List.of())),
+                        row.documentId(),
+                        cipher.decrypt(row.documentNameEnc(), DocumentService.NAME_COLUMN),
+                        cipher.decrypt(row.linkLabelEnc(), DocumentService.LABEL_COLUMN)))
                 .toList();
     }
 }

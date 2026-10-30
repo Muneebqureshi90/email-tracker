@@ -37,7 +37,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Two filter chains. Tracking routes (/t, /c) are open but only reachable on the public port.
+ * Two filter chains. Tracking and document routes (/t, /c, /d) are open but only reachable on the public
+ * port; they use no session, cookie or CSRF token (the unguessable token in the path is the key).
  * Everything else needs the owner's session cookie or an extension API token. Cross-site requests are
  * stopped by the SameSite=Strict cookie and by CORS, which rejects every origin not on the allow-list.
  */
@@ -53,7 +54,7 @@ class SecurityConfig {
     @Bean
     @Order(1)
     SecurityFilterChain trackingChain(HttpSecurity http) throws Exception {
-        http.securityMatcher("/t/**", "/c/**")
+        http.securityMatcher("/t/**", "/c/**", "/d/**")
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -90,12 +91,13 @@ class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/index.html", "/assets/**", "/favicon.svg").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/status", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/setup", "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/emails", "/api/emails/*/links", "/api/self-views")
+                        .requestMatchers(HttpMethod.POST, "/api/emails", "/api/emails/*/links", "/api/self-views",
+                                "/api/documents/*/links")
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)
                         .requestMatchers(HttpMethod.PATCH, "/api/emails/*", "/api/emails/*/preferences")
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)
                         .requestMatchers(HttpMethod.GET, "/api/emails/by-token/*", "/api/emails/*/card", "/api/marks", "/api/activity",
-                                "/api/config")
+                                "/api/config", "/api/documents")
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)
                         .requestMatchers("/api/**").hasRole(Roles.OWNER)
                         .anyRequest().denyAll());

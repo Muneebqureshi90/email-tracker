@@ -55,6 +55,38 @@ public final class TestHttp {
             String json = body instanceof String text ? text : JSON.writeValueAsString(body);
             builder.method(method, HttpRequest.BodyPublishers.ofString(json));
         }
+        return execute(builder);
+    }
+
+    /** A body of any type, sent as is (for example text/plain from sendBeacon). */
+    public Response sendRaw(String method, URI uri, String contentType, byte[] body, String... headers) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20));
+        for (int i = 0; i < headers.length; i += 2) {
+            builder.header(headers[i], headers[i + 1]);
+        }
+        if (contentType != null) {
+            builder.header("Content-Type", contentType);
+        }
+        builder.method(method, HttpRequest.BodyPublishers.ofByteArray(body));
+        return execute(builder);
+    }
+
+    /** multipart/form-data with one file part ({@code file}) and optional text fields (name, value, name, value...). */
+    public Response multipart(String method, URI uri, String filename, String partType, byte[] file, String[] fields, String... headers) {
+        String boundary = "mp-test-" + System.nanoTime();
+        java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
+        for (int i = 0; i < fields.length; i += 2) {
+            body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + fields[i] + "\"\r\n\r\n" + fields[i + 1]
+                    + "\r\n").getBytes(StandardCharsets.UTF_8));
+        }
+        body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n"
+                + "Content-Type: " + partType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        body.writeBytes(file);
+        body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        return sendRaw(method, uri, "multipart/form-data; boundary=" + boundary, body.toByteArray(), headers);
+    }
+
+    private Response execute(HttpRequest.Builder builder) {
         try {
             HttpResponse<byte[]> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
             return new Response(response.statusCode(), response.headers(), response.body());

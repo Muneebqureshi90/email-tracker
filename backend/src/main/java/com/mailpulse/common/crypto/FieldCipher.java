@@ -10,7 +10,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * AES-256-GCM encryption for sensitive columns (subjects, addresses, names, link URLs).
+ * AES-256-GCM encryption for sensitive columns (subjects, addresses, names, link URLs) and document files.
  * Stored layout: version byte (1) | 12-byte IV | ciphertext with 16-byte tag. The column name is
  * bound in as associated data, so a value copied into another column fails to decrypt.
  */
@@ -32,6 +32,15 @@ public final class FieldCipher {
     }
 
     public byte[] encrypt(String plaintext, String column) {
+        return plaintext == null ? null : encryptBytes(plaintext.getBytes(StandardCharsets.UTF_8), column);
+    }
+
+    public String decrypt(byte[] stored, String column) {
+        return stored == null ? null : new String(decryptBytes(stored, column), StandardCharsets.UTF_8);
+    }
+
+    /** Binary values (document files) in the same layout; {@code context} is bound in like a column name. */
+    public byte[] encryptBytes(byte[] plaintext, String context) {
         if (plaintext == null) {
             return null;
         }
@@ -40,15 +49,15 @@ public final class FieldCipher {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
-            cipher.updateAAD(column.getBytes(StandardCharsets.UTF_8));
-            byte[] sealed = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+            cipher.updateAAD(context.getBytes(StandardCharsets.UTF_8));
+            byte[] sealed = cipher.doFinal(plaintext);
             return ByteBuffer.allocate(1 + IV_LENGTH + sealed.length).put(VERSION).put(iv).put(sealed).array();
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Encryption failed", e);
         }
     }
 
-    public String decrypt(byte[] stored, String column) {
+    public byte[] decryptBytes(byte[] stored, String context) {
         if (stored == null) {
             return null;
         }
@@ -58,9 +67,8 @@ public final class FieldCipher {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, stored, 1, IV_LENGTH));
-            cipher.updateAAD(column.getBytes(StandardCharsets.UTF_8));
-            byte[] plain = cipher.doFinal(stored, 1 + IV_LENGTH, stored.length - 1 - IV_LENGTH);
-            return new String(plain, StandardCharsets.UTF_8);
+            cipher.updateAAD(context.getBytes(StandardCharsets.UTF_8));
+            return cipher.doFinal(stored, 1 + IV_LENGTH, stored.length - 1 - IV_LENGTH);
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Decryption failed (wrong key or damaged value)", e);
         }

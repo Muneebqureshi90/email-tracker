@@ -18,7 +18,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Export everything, or delete every email and event (account, settings and tokens stay). */
+/**
+ * Export everything, or delete every email, event and document with its links (account, settings and tokens
+ * stay; DECISIONS D-085).
+ */
 @RestController
 class DataController {
 
@@ -55,7 +58,8 @@ class DataController {
             throw ApiException.badRequest("Type " + CONFIRMATION + " to confirm");
         }
         owner.verifyLogin(body.password());
-        jdbc.sql("TRUNCATE activity, alert, tracking_event, self_view, tracked_link, tracking_token, recipient, tracked_email, contact, gmail_account")
+        jdbc.sql("TRUNCATE activity, alert, document_event, document_view, document_link, document_file, document, tracking_event,"
+                        + " self_view, tracked_link, tracking_token, recipient, tracked_email, contact, gmail_account")
                 .update();
         return ResponseEntity.noContent().build();
     }

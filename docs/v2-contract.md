@@ -37,7 +37,8 @@ inside `dedupeWindowSeconds` still count as one (existing rule).
 - `recentOpens: string[]`: up to 5 latest counted open times, newest first.
 
 `EmailDetail` adds `opens: { eventId: number; at: string; source: string }[]` (every counted open,
-oldest first) and `account` is already in `summary`.
+oldest first) and `account` is already in `summary`. It also adds `documentLinks: DocLinkView[]` (the email's
+document links, oldest first) and `documentEvents: DocEventView[]` (the latest 100 events of those links, newest first).
 
 Owner correction (the "that was me" fix for opens from the owner's phone or other browsers):
 - `POST /api/emails/{id}/events/{eventId}/mine` (owner only): a COUNTED open or click becomes IGNORED
@@ -61,7 +62,8 @@ period of the same length just before (trend arrows on Overview).
 `{ emails: EmailSummary[], contacts: ContactSummary[], documents: DocumentSummary[] }`, 5 of each at most.
 
 ## Marks and hover card (extension token or owner)
-`Mark` adds `firstOpenedAt`, `recentOpens` (as above), `openedAgain`, `documentViews` (int).
+`Mark` adds `firstOpenedAt`, `recentOpens` (as above), `openedAgain`, `documentViews` (int: counted views of the
+email's document links).
 Display rule (dashboard and extension use the same):
 
 | Status | Mark |
@@ -82,8 +84,17 @@ documents: { name, views, reads, downloads }[] }`. `alerts` are the email's new 
 - `openNumber`: for OPEN, the n-th counted open of that email (1 = first).
 - `account`, `gmailThreadId`: for "Open in Gmail".
 - `documentId`, `documentName`, `linkLabel`, `readSeconds`, `pagesViewed`, `pageCount`: for DOC_*.
+  `documentId` (uuid string), `documentName` (the cleaned name, e.g. "Resume.pdf") and `linkLabel` are also set on a
+  DOC_VIEWS alert. `readSeconds` (integer) and `pagesViewed` (integer count of distinct pages, not a list) describe the
+  view of a DOC_VIEW or DOC_READ and keep growing while that view goes on; null for DOC_DOWNLOAD. `pageCount` is the
+  count the viewer reported (or the upload's, when known), else null.
+- For DOC_*, `emailId` (and `subject`, `account`, `gmailThreadId`) are null for a share link (no email); `recipients`
+  is then "". `openNumber` for DOC_VIEW is the n-th counted view of that link; a DOC_READ carries the number of the
+  view that was read; for DOC_DOWNLOAD it is the n-th counted download of the link.
 - `shouldNotify` now also applies `notifyOn` (FIRST: openNumber 1 only; EVERY_AFTER_GAP: first open, or
-  an open at least 60 minutes after the previous counted open) and `notifyDocuments`.
+  an open at least 60 minutes after the previous counted open) and `notifyDocuments`. Document items follow the same
+  `notifyOn` rule on their own numbers (a read notifies like its view), need `notifyDocuments`, and are silent when
+  the link's email is muted.
 
 `GET /api/activity` (existing, `since` with the alias `after`, and `limit` 1..100) adds the `kinds` filter (comma
 list; unknown kinds give 400) and `before=<id>` for the page of older items. The response adds `configVersion` and
@@ -95,7 +106,9 @@ Notification center (owner): `GET /api/notifications?limit=30` (1..100) → `{ i
 lastReadId: number }`, items newest first, `unread` = items with an id above `lastReadId`; `POST /api/notifications/read`
 with `{ upToId }` (≥ 0) → 204 (stored server-side, never moves backwards, capped at the newest item).
 
-`AlertType` adds `DOC_VIEWS` (a document link viewed 3 or more times).
+`AlertType` adds `DOC_VIEWS` (a document link viewed 3 or more times; raised once per link, text "Document viewed 3
+times"). `AlertView` adds `documentId`, `documentName`, `linkLabel` (null for other alerts); for a share link's
+DOC_VIEWS alert `emailId` and `subject` are null and `recipients` is "".
 
 ## Documents (owner; list and per-email links also allowed for the extension token)
 `DocumentSummary`: `{ id, name, sizeBytes, pageCount: number | null, version, createdAt, updatedAt,
@@ -112,10 +125,19 @@ views, reads, downloads, lastActivityAt: string | null }`.
 | `POST /api/documents/{id}/links` | `{ label?, emailId?, expiresAt?, allowDownload? }` | 201 `DocLinkView` |
 | `PATCH /api/document-links/{linkId}` | `{ label?, expiresAt?, allowDownload?, revoked? }` | `DocLinkView` |
 
-`DocLinkView`: `{ id, url, label, emailId, emailSubject, recipients, createdAt, expiresAt, revokedAt,
-allowDownload, views, reads, downloads, lastActivityAt }`. `url` is `publicBaseUrl + /d/{token}`.
+`DocLinkView`: `{ id, documentId, documentName, url, label, emailId, emailSubject, recipients, createdAt, expiresAt,
+revokedAt, allowDownload, views, reads, downloads, lastActivityAt }`. `url` is `publicBaseUrl + /d/{token}`.
+`recipients` is the email's recipient summary ("Jane Doe +1"), null for a share link.
 `DocEventView`: `{ id, linkId, type, at, verdict, reason, source, userAgent, ipPrefix, readSeconds,
-pagesViewed }`.
+pagesViewed }` (`verdict` COUNTED or IGNORED; `readSeconds` and `pagesViewed` integers as in ActivityItem, null for
+downloads). `/api/documents/{id}` carries the latest 100 links and events; the paged endpoints have the rest.
+
+Links: `POST /api/documents/{id}/links` with `emailId` returns the email's existing working link (not revoked, not
+expired) with 200, otherwise creates one (201): one link per email. Without `emailId` it creates a share link (owner
+only; the extension token gets 403). `label` is at most 60 characters (400), `expiresAt` must be in the future (400),
+`allowDownload` defaults to true. `PATCH /api/document-links/{linkId}` changes only the fields present: `label` null or
+blank clears it, `expiresAt` null clears it, `revoked: false` restores the link; other fields give 400.
+Upload errors: not a PDF or no file 400, larger than 10 MB 413, more than 100 documents 409, not multipart 415.
 
 Rules: PDF only (first bytes `%PDF-`), at most 10 MB, at most 100 documents. The stored name is cleaned
 (no path, no control characters, at most 120 characters, ends in `.pdf`); the uploaded file name is never
@@ -140,6 +162,23 @@ trusted. Files are encrypted at rest with AES-256-GCM (same key handling as the 
   form-action 'none'`.
 Requests with the self header (`X-MailPulse-Self`) never count. Document events count without the
 self-view hold, so notifications arrive within 15 s.
+
+Details (backend, v2-core):
+- Pages: unknown or deleted link 404 "Link not found", revoked or expired 410 "Link no longer available", downloads
+  off 403 (with a "Read it online" link), viewer not packaged 503, too many requests 429. They are static HTML with a
+  strict CSP (`default-src 'none'`, one hashed inline style). `/info`, `/pdf` and `/beat` answer problem JSON instead.
+- The viewer page is `classpath:/static/viewer/index.html` (`no-store`); `/d/_/{path}` serves nested viewer files only
+  (`.js`/`.mjs` text/javascript, `.css`, `.bcmap`/`.pfb` octet-stream, `.ttf`, `.wasm`, `.icc`, `.svg`, `.png`),
+  `assets/` cached for a year (hashed names), the rest for an hour; anything else 404.
+- Beats: `application/json` or `text/plain` holding JSON (sendBeacon), at most 64 KB (413), unknown fields ignored,
+  `visibleMs` above 10000 capped; a page never adds more visible time than the wall-clock time since its first beat
+  plus 10 s. A new viewId from the same network and browser within `dedupeWindowSeconds` of the previous beat continues
+  that view (a reload), so its time adds up and it is not a second view. 404 unknown link, 410 revoked or expired.
+- Counting uses the click rules: self header, tracking off, HEAD, scanner user agents, the send grace, unsent drafts,
+  the first 15 s after sending, bursts with the email's tracked links, and duplicate downloads within
+  `dedupeWindowSeconds` are recorded as IGNORED with their reason.
+- Rate limits: 600 requests/min per address on /d/, 60/min per link and network for the page, info and beats, 10/min
+  per link and network for `/pdf` and `/file`.
 
 ## Pagination
 Every paged endpoint returns `Page<T>` = `{ items, page, size, total }`, takes `page` (0-based, default 0) and accepts

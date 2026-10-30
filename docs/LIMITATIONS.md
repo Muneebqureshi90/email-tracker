@@ -81,3 +81,21 @@ Draft from Step 0. Spike results will confirm or correct each item.
   tell these apart. Use "That was me" on the email page to remove an open or click that was yours (undo is possible).
 - Tip: in the Gmail app on your own phone, set "Ask before displaying external images" (Settings, your account,
   Images), so opening your sent mail there no longer loads the pixel.
+
+## Document links (v2)
+- Gmail attachments cannot be tracked, so a document is shared as a MailPulse link (`/d/...`). The link only works
+  while this PC, Docker and Tailscale Funnel are running; when the PC is off, recipients get an error from Tailscale.
+- A view counts when the viewer page sends its first heartbeat, which needs JavaScript. Opening the link in a tool
+  that does not run JavaScript, or previewing it in a link scanner, never counts (on purpose).
+- Reading time is the time the viewer page was visible (every 5 s while visible). It cannot tell whether someone was
+  actually reading, and a tab left open in the foreground keeps counting until it is hidden or closed. One beat adds
+  at most 10 s, and a page never adds more time than has passed on the server's clock.
+- A reload within the duplicate window (60 s by default) from the same network and browser continues the same view.
+  Two different people behind one office network with the same browser look like one reader for that minute.
+- The owner's own views never count when the extension adds the self header; a view of your own link from a phone or
+  another browser counts like a recipient's.
+- Downloads are counted when the file is requested; MailPulse cannot see whether the download finished or the file
+  was opened afterwards, or where the file goes once downloaded.
+- PDF only, at most 10 MB and 100 documents. The page count shown in the list comes from a light scan of the file and
+  can be missing for compressed PDFs; each view reports the page count its viewer saw.
+- "Delete all my data" also deletes documents, their links and their events.

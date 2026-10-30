@@ -547,3 +547,55 @@ Alerts, Documents) map to the `kinds` parameter and live in the URL.
 of the account number, so the thread opens in the right account, and the hex thread ID from InboxSDK
 opens with `#all/`. Without a thread ID there is no link. It is a plain link the owner clicks; nothing
 is sent anywhere.
+## D-077 Documents are stored in PostgreSQL, encrypted — Accepted
+The file is a `bytea` in `document_file`, AES-256-GCM with the field key (associated data: the document id), so
+backups (`pg_dump`) include documents and nothing plain is ever on disk: uploads stay in memory (multipart threshold
+above the 10 MB limit). Only the latest version is kept; old links serve it. Names and labels are encrypted like
+subjects. Options: files on disk (a second backup path, and a plain temp file during upload).
+
+## D-078 No PDF library on the server — Accepted
+The upload is checked by its first bytes (`%PDF-`) and size only; the page count comes from a light text scan of the
+page tree and is null for compressed PDFs (each view reports the count its viewer saw). The server never renders or
+parses the file further, so a crafted PDF cannot attack it. Options: PDFBox (heavier, a parser on untrusted input).
+
+## D-079 One working link per email; share links are the owner's — Accepted
+`POST /api/documents/{id}/links` with `emailId` returns the email's existing working link (200) and creates one
+only when there is none or it was revoked or expired, so "Insert tracked file" retries never create two links and
+every view maps to one email. The email row is locked while deciding. The extension token can only create email
+links (403 without `emailId`); share links with a label, expiry and the download switch are owner only.
+
+## D-080 A view is a viewer page that sent a heartbeat — Accepted
+Serving the page counts nothing; the first beat of a `viewId` counts DOC_VIEW, so scanners that do not run
+JavaScript never count. A new `viewId` from the same network and browser within `dedupeWindowSeconds` of the last
+beat continues that view (a reload), so its time adds up instead of counting a second view. Visible time is capped at
+10 s per beat, and a page never adds more than the wall-clock time since its first beat plus 10 s (the injectable
+Clock). DOC_READ counts once per view at `docReadSeconds`; its reading time keeps growing afterwards.
+
+## D-081 Document events use the click rules and no hold — Accepted
+Self header, tracking off, HEAD, scanner user agents, Apple prefetch, the send grace, unsent drafts, the first 15 s
+after sending, bursts with the email's tracked links (the document link counts as one of three) and duplicate
+downloads within `dedupeWindowSeconds` are stored as IGNORED with their reason. Events are decided at once under a
+per-link row lock, so notifications come within seconds. There is no "That was me" for documents.
+
+## D-082 Document numbers are stored when counted — Accepted
+Without "That was me" for documents, numbering never changes, so each counted event stores its sequence number and
+the time of the one before (`seq_number`, `seq_previous_at`): the n-th view of the link (a read carries its view's
+number) or the n-th download. `openNumber` carries it for DOC_* items, and `notifyOn` applies to it as for opens. A
+read notifies like its view; a muted email mutes its document links; `notifyDocuments` off silences all three kinds.
+
+## D-083 DOC_VIEWS once per link, and items without an email — Accepted
+The alert fires when a link reaches 3 counted views, once per link. A share link has no email, so `activity` and
+`alert` rows may have no email (a check keeps an alert tied to an email or a document link); the feed and the alert
+list join the email, the link and the document as optional.
+
+## D-084 Public document routes are deny by default — Accepted
+PortRoutingFilter allows only the contract's paths (token `[A-Za-z0-9_-]{24}`) and viewer files with nested plain
+names and a known extension, so `..`, encoded characters and backslashes never reach a controller (Tomcat already
+answers 400 for an encoded slash). Recipients get small static pages for 404, 410, 403 (downloads off), 429 and 503
+(viewer not packaged), never a stack trace. Rate limits: 600/min per address, 60/min per link and network for the
+page, info and beats, 10/min for the PDF and the download.
+
+## D-085 Retention and "Delete all" cover documents — Accepted
+Retention removes document views and downloads older than `retentionDays` (an email's links go with the email);
+documents and share links stay until the owner deletes them. A draft whose document link was opened is not a stale
+draft. "Delete all my data" truncates documents, links and their events with the emails.

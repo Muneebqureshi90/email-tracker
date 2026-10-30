@@ -140,6 +140,43 @@ public abstract class IntegrationTest {
         finalizer.runOnce();
     }
 
+    /** Uploads a PDF as the owner; returns its DocumentSummary. */
+    protected JsonNode uploadPdf(String fileName, byte[] pdf) {
+        TestHttp.Response response = http.multipart("POST", api("/api/documents"), fileName, "application/pdf", pdf, new String[0], asOwner());
+        assertThat(response.status()).as("upload").isEqualTo(201);
+        return response.json();
+    }
+
+    /** Creates a document link (share link or email link) with the given credentials; returns the DocLinkView. */
+    protected JsonNode createLink(String documentId, Map<String, ?> body, String... auth) {
+        TestHttp.Response response = http.post(api("/api/documents/" + documentId + "/links"), body, auth);
+        assertThat(response.status()).as("create link").isIn(200, 201);
+        return response.json();
+    }
+
+    /** The token at the end of a DocLinkView url (publicBaseUrl + /d/{token}). */
+    protected static String linkToken(JsonNode link) {
+        String url = link.get("url").asString();
+        return url.substring(url.lastIndexOf("/d/") + 3);
+    }
+
+    /** One viewer heartbeat, as the viewer sends it. */
+    protected TestHttp.Response beat(String token, UUID viewId, long visibleMs, List<Integer> pagesViewed, int pageCount,
+            String... headers) {
+        Map<String, Object> body = Map.of(
+                "viewId", viewId.toString(),
+                "visibleMs", visibleMs,
+                "page", pagesViewed.isEmpty() ? 1 : pagesViewed.getLast(),
+                "pagesViewed", pagesViewed,
+                "pageCount", pageCount);
+        return http.post(pub("/d/" + token + "/beat"), body, headers);
+    }
+
+    /** Request headers of a recipient's browser in a network of its own (private range; addresses are truncated to /24). */
+    protected static String[] reader(int network) {
+        return new String[] {"User-Agent", BROWSER_UA, "X-Forwarded-For", "10." + ((network >> 8) & 0xff) + "." + (network & 0xff) + ".23"};
+    }
+
     protected long eventCount(UUID emailId) {
         return jdbc.sql("SELECT count(*) FROM tracking_event WHERE tracked_email_id = :id").param("id", emailId)
                 .query(Long.class).single();

@@ -10,7 +10,7 @@ public enum Source {
     DIRECT,
     UNKNOWN;
 
-    boolean isMailProxy() {
+    public boolean isMailProxy() {
         return this == GMAIL_PROXY || this == YAHOO_PROXY || this == OUTLOOK_PROXY || this == APPLE_MPP;
     }
 }
