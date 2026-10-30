@@ -436,3 +436,47 @@ Marking twice, or undoing an event that already counts, is harmless (200); other
 ## D-073 Activity paging keeps the old shape — Accepted
 `since` stays (the extension uses it) and `after` is accepted as the contract's name for it. `before=<id>` pages
 backwards, `hasMore` tells whether another page exists, and items stay oldest first in every mode, as before.
+
+## v2 dashboard decisions (2026-10-30)
+
+## D-090 App shell: fixed top bar, one scroll container — Accepted
+`html`, `body` and `#root` never scroll. The sidebar is full height with its own scrolling nav and a
+pinned footer (live indicator, theme switch, sign out) and collapses to icons (remembered in this
+browser). The main column is a fixed top bar plus one scroll container (`main#content`). Pages put
+their title and actions into the top bar through `PageHeader` portals, so the top bar sits outside
+the scroll container; it is solid and gets a border and shadow once the content scrolls under it.
+The scroll container starts at the top on every new page and gets its old position back on Back.
+Under 1024 px the top bar shows a menu button and the navigation opens as a drawer (Radix Dialog:
+focus trap, Esc, backdrop tap, closes on navigation). Tables stick their header to the top of the
+content area on wide screens and scroll sideways in their own container on narrow ones.
+
+## D-091 Time zone: saved once from the browser, used for every date — Accepted
+When the settings say `timeZoneSource = DEFAULT`, the dashboard saves the browser zone with `AUTO`
+once (v2 contract). The searchable picker and "Use my current time zone" save with `USER`. The shell
+waits for the settings before rendering a page, sets the display zone for all formatters and
+remounts the page when the zone changes; a failed settings load falls back to the browser zone.
+
+## D-092 Theme without a flash under the strict CSP — Accepted
+`script-src 'self'` allows no inline script, so a 15-line `theme-init.js` runs from `<head>`. It is
+in `public/assets/` because SecurityConfig opens only `/assets/**`, `/index.html` and the favicon,
+and this branch may change only `DashboardController`. All theme switches share one state; a switch
+fades colours for 0.2 s, never on load, and reduced motion turns animations off.
+
+## D-093 Self-hosted Inter, lucide icons and Radix Dialog — Accepted
+`@fontsource-variable/inter` 5.3.0 is bundled (no font CDN), `lucide-react` 1.57.0 gives the icons and
+`@radix-ui/react-dialog` 1.3.1 the drawer and confirm dialogs; all pinned with the 14-day rule.
+Known gap: Radix's scroll lock (react-remove-scroll) tries to add a `<style>` element, which the CSP
+blocks; the body never scrolls in this shell, so only a console message results.
+
+## D-094 Settings: natural card heights, Advanced collapsed, unsaved-changes bar — Accepted
+The old "Not yet proven (Step 1 spikes)" card is now "Advanced", collapsed by default. Cards align
+to the top (no stretched empty cards). While the form differs from the saved settings a sticky
+"Unsaved changes · Discard · Save" bar shows; leaving the page asks first (router blocker) and
+closing the tab triggers the browser's own warning. Notifications and Documents sections carry the
+v2 fields (`notifyOn`, quiet hours, `notifyDocuments`, `docReadSeconds`).
+
+## D-095 Charts: whole-number ticks, styled tooltip, every weekday — Accepted
+The y-axis ticks are whole numbers that end at the data (a peak of 1 shows 0 and 1). The tooltip is
+a themed card that may leave the chart vertically, so it is never clipped. The week chart labels
+all seven days. The report date input always shows a date (the chosen day or today in the owner's
+zone).

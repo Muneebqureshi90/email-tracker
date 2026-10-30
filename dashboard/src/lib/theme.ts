@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
@@ -20,11 +20,33 @@ function systemDark(): boolean {
 export function applyTheme(choice: ThemeChoice = readChoice()): void {
   const dark = choice === 'dark' || (choice === 'system' && systemDark());
   document.documentElement.classList.toggle('dark', dark);
+  document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
 }
 
-/** Light, dark or follow Windows; remembered in this browser only. */
+/** A short colour fade when the owner switches themes (never on page load, see theme-init.js). */
+function applyWithTransition(choice: ThemeChoice): void {
+  const root = document.documentElement;
+  root.classList.add('theme-transition');
+  applyTheme(choice);
+  window.setTimeout(() => root.classList.remove('theme-transition'), 250);
+}
+
+const listeners = new Set<() => void>();
+let current: ThemeChoice | null = null;
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function snapshot(): ThemeChoice {
+  current ??= readChoice();
+  return current;
+}
+
+/** Light, dark or follow Windows; remembered in this browser only. Every switch shares one state. */
 export function useTheme(): [ThemeChoice, (choice: ThemeChoice) => void] {
-  const [choice, setChoice] = useState<ThemeChoice>(readChoice);
+  const choice = useSyncExternalStore(subscribe, snapshot);
 
   useEffect(() => {
     applyTheme(choice);
@@ -41,7 +63,9 @@ export function useTheme(): [ThemeChoice, (choice: ThemeChoice) => void] {
     } catch {
       // storage blocked: the choice lasts for this tab only
     }
-    setChoice(next);
+    applyWithTransition(next);
+    current = next;
+    for (const notify of listeners) notify();
   };
   return [choice, update];
 }

@@ -21,9 +21,11 @@ export function ContactsPage() {
 
   return (
     <>
-      <PageHeader title="Contacts" description="Everyone you emailed with tracking, and how often they opened." />
-      <Card>
-        <form onSubmit={search} className="flex gap-2 border-b border-line p-4" role="search">
+      <PageHeader
+        title="Contacts"
+        description="Everyone you emailed with tracking, and how often they opened."
+        actions={
+        <form onSubmit={search} className="flex w-full max-w-xl gap-2" role="search">
           <label className="flex-1">
             <span className="sr-only">Search contacts</span>
             <input className="input" type="search" value={text} onChange={(event) => setText(event.target.value)} placeholder="Search name or address" />
@@ -32,6 +34,9 @@ export function ContactsPage() {
             Search
           </button>
         </form>
+        }
+      />
+      <Card>
         <QueryState query={contacts}>
           {(result) =>
             result.total === 0 ? (

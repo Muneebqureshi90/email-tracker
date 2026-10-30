@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { vi } from 'vitest';
-import type { EmailSummary } from '../api/types';
+import type { EmailSummary, Settings } from '../api/types';
 import { routes } from '../router';
 
 export interface Call {
@@ -24,6 +24,7 @@ export function mockApi(handlers: Record<string, Handler>): Call[] {
   const all: Record<string, Handler> = {
     'GET /api/auth/status': { body: { setupRequired: false, authenticated: true } },
     'GET /api/alerts': { body: { items: [], page: 0, size: 25, total: 0, newCount: 0 } },
+    'GET /api/settings': { body: SETTINGS },
     ...handlers,
   };
   vi.stubGlobal(
@@ -61,6 +62,35 @@ export function renderAt(path: string) {
   );
   return router;
 }
+
+export const SETTINGS: Settings = {
+  trackingDefault: true,
+  linkTrackingDefault: false,
+  sendGraceSeconds: 10,
+  selfViewWindowSeconds: 30,
+  dedupeWindowSeconds: 60,
+  followUpHours: 48,
+  spikeOpens: 3,
+  spikeWindowMinutes: 60,
+  revivalDays: 7,
+  retentionDays: 365,
+  ipMode: 'TRUNCATED',
+  countApplePrefetch: false,
+  notifyOpens: true,
+  notifyClicks: true,
+  notifyAlerts: true,
+  timeZone: 'Asia/Karachi',
+  sendMode: 'PRESYNC',
+  dnrBlocking: true,
+  trackConfidential: true,
+  timeZoneSource: 'USER',
+  notifyOn: 'EVERY',
+  notifyDocuments: true,
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+  docReadSeconds: 30,
+};
 
 export function email(overrides: Partial<EmailSummary> = {}): EmailSummary {
   return {

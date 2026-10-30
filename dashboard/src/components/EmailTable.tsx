@@ -7,7 +7,7 @@ import { OpenMark } from './ui';
 export function EmailTable({ emails, now }: { emails: EmailSummary[]; now: number }) {
   return (
     <>
-      <div className="hidden overflow-x-auto md:block">
+      <div className="table-wrap hidden md:block">
         <table className="table">
           <thead>
             <tr>

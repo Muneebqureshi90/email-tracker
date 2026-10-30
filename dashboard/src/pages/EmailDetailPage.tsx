@@ -122,7 +122,7 @@ function EmailView({ detail }: { detail: EmailDetail }) {
         {detail.events.length === 0 ? (
           <Empty title="No requests yet">The pixel has not been loaded by anyone yet.</Empty>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>

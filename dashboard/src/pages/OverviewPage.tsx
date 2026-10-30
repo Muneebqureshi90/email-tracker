@@ -34,7 +34,7 @@ export function OverviewPage() {
                 <p className="px-4 pt-3 text-sm text-muted">
                   {report.sent} sent · {formatPercent(report.openRate)} opened · {count(report.opens, 'open')} · {count(report.clicks, 'click')}
                 </p>
-                <LazyBucketChart buckets={report.buckets} period="WEEK" />
+                <LazyBucketChart buckets={report.buckets} period="WEEK" height={200} />
               </>
             )}
           </QueryState>

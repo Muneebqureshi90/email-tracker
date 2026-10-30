@@ -1,16 +1,33 @@
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import { ApiError } from '../api/client';
+import { useTopBar } from './shell';
 
+/**
+ * The page title and actions go into the fixed top bar (portals into its slots); the description
+ * stays at the top of the scrolling content. Outside the shell everything renders in place.
+ */
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
+  const slots = useTopBar();
+  const heading = <h1 className="truncate text-lg font-semibold tracking-tight">{title}</h1>;
+  if (!slots) {
+    return (
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          {heading}
+          {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      </header>
+    );
+  }
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted">{description}</p>}
-      </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </header>
+    <>
+      {slots.title && createPortal(heading, slots.title)}
+      {slots.toolbar && actions && createPortal(<div className="flex flex-wrap items-center gap-2">{actions}</div>, slots.toolbar)}
+      {description && <p className="mb-6 text-sm text-muted">{description}</p>}
+    </>
   );
 }
 
@@ -142,21 +159,58 @@ export function OpenMark({ opened, unreliable = false }: { opened: boolean; unre
   );
 }
 
-export function Pagination({ page, size, total, onPage }: { page: number; size: number; total: number; onPage: (page: number) => void }) {
+export const PAGE_SIZES = [25, 50, 100] as const;
+
+/** Client-side paging for lists the API returns whole (documents, tokens). */
+export function paginate<T>(items: T[], page: number, size: number): T[] {
+  return items.slice(page * size, page * size + size);
+}
+
+/** "1–25 of 140" with first, previous, next and last, plus an optional page-size choice. */
+export function Pagination({
+  page,
+  size,
+  total,
+  onPage,
+  onSize,
+}: {
+  page: number;
+  size: number;
+  total: number;
+  onPage: (page: number) => void;
+  onSize?: (size: number) => void;
+}) {
   const pages = Math.max(1, Math.ceil(total / size));
-  if (pages <= 1) return null;
+  if (total <= PAGE_SIZES[0] && !(onSize && size !== PAGE_SIZES[0])) return null;
+  const first = total === 0 ? 0 : page * size + 1;
+  const last = Math.min(total, (page + 1) * size);
+  const button = (label: string, target: number, disabled: boolean, text: string) => (
+    <button type="button" className="btn btn-quiet px-2.5" aria-label={label} title={label} disabled={disabled} onClick={() => onPage(target)}>
+      <span aria-hidden="true">{text}</span>
+    </button>
+  );
   return (
-    <nav className="flex items-center justify-between gap-2 border-t border-line px-4 py-3 text-sm" aria-label="Pages">
-      <span className="text-muted">
-        Page {page + 1} of {pages} · {total} total
+    <nav className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-sm" aria-label="Pages">
+      <span className="text-muted tabular-nums" aria-live="polite">
+        {first}–{last} of {total}
       </span>
-      <span className="flex gap-2">
-        <button type="button" className="btn btn-quiet" disabled={page === 0} onClick={() => onPage(page - 1)}>
-          Previous
-        </button>
-        <button type="button" className="btn btn-quiet" disabled={page + 1 >= pages} onClick={() => onPage(page + 1)}>
-          Next
-        </button>
+      <span className="flex flex-wrap items-center gap-2">
+        {onSize && (
+          <label className="flex items-center gap-2 text-muted">
+            <span>Per page</span>
+            <select className="input w-auto py-1.5" value={size} onChange={(event) => onSize(Number(event.target.value))}>
+              {PAGE_SIZES.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {button('First page', 0, page === 0, '«')}
+        {button('Previous page', page - 1, page === 0, '‹')}
+        {button('Next page', page + 1, page + 1 >= pages, '›')}
+        {button('Last page', pages - 1, page + 1 >= pages, '»')}
       </span>
     </nav>
   );

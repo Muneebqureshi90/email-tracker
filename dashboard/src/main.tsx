@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { ApiError } from './api/client';
 import { keys } from './api/queries';
+import '@fontsource-variable/inter';
 import './index.css';
 import { applyTheme } from './lib/theme';
 import { routes } from './router';

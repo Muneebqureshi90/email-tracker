@@ -79,7 +79,7 @@ export const useReport = (period: 'daily' | 'weekly', date: string | undefined) 
       api<Report>(`/api/reports/${period}${query(period === 'daily' ? { date } : { weekStart: date })}`, { signal }),
   });
 
-export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: () => api<Settings>('/api/settings') });
+export const useSettings = (enabled = true) => useQuery({ enabled, queryKey: keys.settings, queryFn: () => api<Settings>('/api/settings') });
 export const useTokens = () => useQuery({ queryKey: keys.tokens, queryFn: () => api<ApiToken[]>('/api/tokens') });
 export const useAccounts = () => useQuery({ queryKey: keys.accounts, queryFn: () => api<string[]>('/api/accounts') });
 

@@ -2,7 +2,11 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Semantic colour tokens; the .dark class on <html> swaps them (lib/theme.ts). */
+/*
+ * Design tokens. Semantic colours live in --mp-* variables; the .dark class on <html> swaps them
+ * (public/assets/theme-init.js before paint, then lib/theme.ts). Text colours meet WCAG AA on
+ * --mp-bg and --mp-surface in both themes. Spacing is Tailwind's 4 px grid.
+ */
 @theme inline {
   --color-bg: var(--mp-bg);
   --color-surface: var(--mp-surface);
@@ -10,59 +14,139 @@
   --color-fg: var(--mp-fg);
   --color-muted: var(--mp-muted);
   --color-line: var(--mp-line);
+  --color-line-strong: var(--mp-line-strong);
   --color-accent: var(--mp-accent);
   --color-accent-fg: var(--mp-accent-fg);
+  --color-accent-soft: var(--mp-accent-soft);
   --color-good: var(--mp-good);
   --color-warn: var(--mp-warn);
   --color-bad: var(--mp-bad);
+  --color-bad-fg: var(--mp-bad-fg);
   --color-chip: var(--mp-chip);
-  --font-sans: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-overlay: var(--mp-overlay);
+  --font-sans: "Inter Variable", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.08), 0 1px 3px rgb(15 23 42 / 0.06);
+  --shadow-lg: 0 16px 40px rgb(15 23 42 / 0.18), 0 2px 6px rgb(15 23 42 / 0.08);
 }
 
 :root {
-  --mp-bg: #f4f6f8;
+  --mp-bg: #f6f7f9;
   --mp-surface: #ffffff;
-  --mp-raised: #eef2f5;
-  --mp-fg: #17212b;
-  --mp-muted: #5a6772;
-  --mp-line: #dce2e8;
-  --mp-accent: #0f766e;
+  --mp-raised: #f0f2f5;
+  --mp-fg: #111827;
+  --mp-muted: #4b5563;
+  --mp-line: #e3e6eb;
+  --mp-line-strong: #cfd4dc;
+  --mp-accent: #4f46e5;
   --mp-accent-fg: #ffffff;
+  --mp-accent-soft: #eef0ff;
   --mp-good: #15803d;
   --mp-warn: #b45309;
   --mp-bad: #b91c1c;
-  --mp-chip: #e9eef2;
-  --mp-chart-2: #6366f1;
+  --mp-bad-fg: #ffffff;
+  --mp-chip: #eef0f3;
+  --mp-chart-2: #0891b2;
+  --mp-overlay: rgb(15 23 42 / 0.45);
+  --mp-scroll: #c3c9d2;
+  --mp-topbar-h: 3.5rem;
   color-scheme: light;
 }
 
 .dark {
-  --mp-bg: #0d1217;
-  --mp-surface: #141b22;
-  --mp-raised: #1a232c;
-  --mp-fg: #e5ecf2;
-  --mp-muted: #98a6b3;
-  --mp-line: #28323c;
-  --mp-accent: #2dd4bf;
-  --mp-accent-fg: #062320;
+  --mp-bg: #0b0d12;
+  --mp-surface: #12151c;
+  --mp-raised: #1b1f29;
+  --mp-fg: #e6e8ee;
+  --mp-muted: #9aa3b2;
+  --mp-line: #252a35;
+  --mp-line-strong: #343a47;
+  --mp-accent: #818cf8;
+  --mp-accent-fg: #0b0d12;
+  --mp-accent-soft: #1f2340;
   --mp-good: #4ade80;
   --mp-warn: #fbbf24;
   --mp-bad: #f87171;
-  --mp-chip: #1e2831;
-  --mp-chart-2: #a5b4fc;
+  --mp-bad-fg: #0b0d12;
+  --mp-chip: #1e2330;
+  --mp-chart-2: #22d3ee;
+  --mp-overlay: rgb(0 0 0 / 0.6);
+  --mp-scroll: #3a4150;
   color-scheme: dark;
+}
+
+/* App shell (D-090): html and body never scroll; the sidebar and the content area scroll on their own. */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   @apply bg-bg font-sans text-fg antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Thin themed scrollbars, shown only where content scrolls (Chromium 121+ and Firefox). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mp-scroll) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--mp-accent);
+  outline-offset: 2px;
+}
+
+/* Theme switch fades colours; nothing animates for people who ask for reduced motion. */
+html.theme-transition,
+html.theme-transition * {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes mp-drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes mp-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-line bg-surface;
+    @apply rounded-xl border border-line bg-surface shadow-(--shadow-sm);
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-primary {
     @apply bg-accent text-accent-fg hover:opacity-90;
@@ -70,11 +154,17 @@ body {
   .btn-quiet {
     @apply border border-line bg-surface text-fg hover:bg-raised;
   }
+  .btn-ghost {
+    @apply text-muted hover:bg-raised hover:text-fg;
+  }
   .btn-danger {
-    @apply bg-bad text-white hover:opacity-90;
+    @apply bg-bad text-bad-fg hover:opacity-90;
+  }
+  .icon-btn {
+    @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg lg:h-9 lg:w-9;
   }
   .input {
-    @apply w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/30;
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/30;
   }
   .label {
     @apply mb-1 block text-sm font-medium;
@@ -83,22 +173,30 @@ body {
     @apply mt-1 text-xs text-muted;
   }
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full bg-chip px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 rounded-full bg-chip px-2 py-0.5 text-xs font-medium whitespace-nowrap;
   }
   .nav-link {
-    @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted hover:bg-raised hover:text-fg;
+    @apply flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-raised hover:text-fg lg:min-h-9;
   }
   .nav-link.active {
-    @apply bg-raised text-fg;
+    @apply bg-accent-soft text-accent;
+  }
+  /* Narrow screens: tables scroll sideways in their own container. Wide screens: the container
+     does not clip, so the header sticks to the top of the content area, just below the top bar. */
+  .table-wrap {
+    @apply overflow-x-auto lg:overflow-visible;
   }
   .table {
-    @apply w-full text-left text-sm;
+    @apply w-full border-separate border-spacing-0 text-left text-sm;
   }
   .table th {
-    @apply border-b border-line px-4 py-2.5 text-xs font-semibold tracking-wide text-muted uppercase;
+    @apply sticky top-0 z-10 border-b border-line bg-surface px-4 py-2.5 text-xs font-semibold tracking-wide whitespace-nowrap text-muted uppercase;
   }
   .table td {
     @apply border-b border-line px-4 py-3 align-top;
+  }
+  .table tbody tr:hover td {
+    @apply bg-raised;
   }
   .table tr:last-child td {
     @apply border-b-0;

@@ -1,4 +1,4 @@
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
 // Browser APIs that jsdom lacks. Tests mock the API with fetch stubs only (test code, never the app).
@@ -27,6 +27,9 @@ vi.stubGlobal('matchMedia', (query: string) => ({
   addEventListener: () => undefined,
   removeEventListener: () => undefined,
 }));
+
+// Pages wait for the settings (time zone) and import lazily; give slow PCs time before a find* gives up.
+configure({ asyncUtilTimeout: 10_000 });
 
 afterEach(() => {
   cleanup();
