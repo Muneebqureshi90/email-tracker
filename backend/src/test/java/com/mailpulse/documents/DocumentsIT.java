@@ -44,6 +44,8 @@ class DocumentsIT extends IntegrationTest {
         byte[] name = jdbc.sql("SELECT name_enc FROM document WHERE id = :id").param("id", id).query((rs, row) -> rs.getBytes(1)).single();
         assertThat(new String(name, StandardCharsets.ISO_8859_1)).doesNotContain("Resume");
 
+        // A later upload: two uploads at the same instant have no defined order.
+        clock.advance(java.time.Duration.ofMinutes(1));
         TestHttp.Response named = http.multipart("POST", api("/api/documents"), "upload.pdf", "application/octet-stream",
                 TestPdfs.pdf(1, "CV"), new String[] {"name", "../CV\u0007  final"}, asOwner());
         assertThat(named.status()).isEqualTo(201);
