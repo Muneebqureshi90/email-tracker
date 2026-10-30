@@ -27,7 +27,7 @@ Updated 2026-10-30 by the dashboard engineer. Contract: docs/v2-contract.md. Dec
   drawer, theme switch, sidebar collapse, time-zone migration and picker, settings layout and the
   leave warning, chart ticks, activity truncation, report date.
 
-Checks: `scriptserify.ps1` green on 2026-10-30 13:02 (dashboard 39 tests in 3 files, extension 45,
+Checks: `scripts/verify.ps1` green on 2026-10-30 13:02 (dashboard 39 tests in 3 files, extension 45,
 backend 55 unit plus integration tests, npm audit clean). Initial bundle 461 kB (143 kB gzip); pages
 are not lazy-loaded yet.
 
