@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -148,6 +149,38 @@ public class TrackingEventRepository {
             result.computeIfAbsent(Sql.uuid(rs, "tracked_email_id"), id -> new ArrayList<>()).add(eventView(rs));
         });
         return result;
+    }
+
+    /** Up to {@code perEmail} latest counted open times per email, newest first. */
+    public Map<UUID, List<Instant>> latestCountedOpens(Collection<UUID> emailIds, int perEmail) {
+        Map<UUID, List<Instant>> result = new LinkedHashMap<>();
+        if (emailIds.isEmpty()) {
+            return result;
+        }
+        jdbc.sql("""
+                SELECT tracked_email_id, received_at FROM (
+                    SELECT tracked_email_id, received_at,
+                           row_number() OVER (PARTITION BY tracked_email_id ORDER BY received_at DESC, id DESC) AS n
+                    FROM tracking_event WHERE tracked_email_id IN (:ids) AND type = 'OPEN' AND verdict = 'COUNTED'
+                ) latest WHERE n <= :perEmail ORDER BY tracked_email_id, received_at DESC
+                """)
+                .param("ids", emailIds)
+                .param("perEmail", perEmail)
+                .query(rs -> {
+                    result.computeIfAbsent(Sql.uuid(rs, "tracked_email_id"), id -> new ArrayList<>()).add(Sql.instant(rs, "received_at"));
+                });
+        return result;
+    }
+
+    /** Every counted open of an email, oldest first. */
+    public List<EmailApi.OpenView> countedOpens(UUID emailId) {
+        return jdbc.sql("""
+                SELECT id, received_at, source FROM tracking_event
+                WHERE tracked_email_id = :email AND type = 'OPEN' AND verdict = 'COUNTED' ORDER BY received_at, id
+                """)
+                .param("email", emailId)
+                .query((rs, row) -> new EmailApi.OpenView(rs.getLong("id"), Sql.instant(rs, "received_at"), rs.getString("source")))
+                .list();
     }
 
     public List<EmailApi.EventView> findForEmail(UUID emailId, int limit) {

@@ -21,7 +21,11 @@ browser zone (`Intl.DateTimeFormat().resolvedOptions().timeZone`) with `timeZone
 The picker and "Use my current time zone" save with `USER`. Every date and time in the dashboard is
 formatted in `settings.timeZone`.
 
-`GET /api/config` (extension) adds `configVersion` (string, changes whenever settings change),
+Validation: `quietHoursStart` and `quietHoursEnd` must be `HH:mm` (00:00..23:59) and differ; enums are case-sensitive;
+the PUT body is the full `Settings` object (missing fields give 400, as before).
+
+`GET /api/config` (extension) adds `configVersion` (16 hex characters, a hash of every config value, so it changes
+whenever settings change),
 `notifyOn`, `notifyDocuments`, `quietHoursEnabled`, `quietHoursStart`, `quietHoursEnd`, `timeZone`.
 
 ## Opens
@@ -80,8 +84,11 @@ documents: { name, views, reads, downloads }[] }`.
 - `shouldNotify` now also applies `notifyOn` (FIRST: openNumber 1 only; EVERY_AFTER_GAP: first open, or
   an open at least 60 minutes after the previous counted open) and `notifyDocuments`.
 
-`GET /api/activity` (existing, `after`/`limit`) adds `kinds` filter (comma list) and the response adds
-`configVersion`. Dashboard grouping and filter chips use `kinds`.
+`GET /api/activity` (existing, `since` with the alias `after`, and `limit` 1..100) adds the `kinds` filter (comma
+list; unknown kinds give 400) and `before=<id>` for the page of older items. The response adds `configVersion` and
+`hasMore` (with `since`/`after`: newer items exist beyond this page; otherwise older items exist). Items are always
+oldest first; `lastId` stays the newest id overall, whatever the filter. Dashboard grouping and filter chips use `kinds`.
+An open restored with "That was me" undo comes back as a new item with `shouldNotify: false`.
 
 Notification center (owner): `GET /api/notifications?limit=30` → `{ items: ActivityItem[], unread: number,
 lastReadId: number }`; `POST /api/notifications/read` with `{ upToId }` → 204 (stored server-side).
@@ -115,6 +122,8 @@ trusted. Files are encrypted at rest with AES-256-GCM (same key handling as the 
 ## Public document routes (port 8081; Funnel mounts `/d/`)
 - `GET|HEAD /d/{token}`: viewer page (static shell, assets under `/d/_/`). Expired, revoked or deleted
   links get a friendly HTML page (410 or 404), never a stack trace.
+- `GET /d/{token}/info`: JSON `{ name, pageCount, sizeBytes, allowDownload }` for the viewer page (`Cache-Control:
+  no-store`); expired, revoked or unknown links answer 410 or 404 as problem JSON.
 - `GET /d/{token}/pdf`: the PDF for the viewer (inline, `Cache-Control: no-store`, `nosniff`).
 - `GET /d/{token}/file`: download (`Content-Disposition: attachment` with a safe file name); 403 page when
   downloads are off. Counts `DOC_DOWNLOAD` (HEAD, scanners, bursts and the self header are ignored like
@@ -129,3 +138,15 @@ trusted. Files are encrypted at rest with AES-256-GCM (same key handling as the 
   form-action 'none'`.
 Requests with the self header (`X-MailPulse-Self`) never count. Document events count without the
 self-view hold, so notifications arrive within 15 s.
+
+## Pagination
+Every paged endpoint returns `Page<T>` = `{ items, page, size, total }`, takes `page` (0-based, default 0) and accepts
+`size` 25, 50 or 100 only (default 25); other sizes give 400. This includes the existing `/api/emails`, `/api/contacts`
+and `/api/alerts`. Existing response shapes stay; these endpoints are additions:
+- `GET /api/emails/{id}/events?page=&size=` → `Page<EventView>`, newest first. `EmailDetail.events` stays, capped at
+  the latest 100.
+- `GET /api/contacts/{address}/emails?page=&size=&sort=&dir=` → `Page<EmailSummary>`, same sort keys as `/api/emails`.
+- `GET /api/activity?before=<id>&limit=` for older items, with the `kinds` filter; the response has `hasMore`.
+- `GET /api/documents/{id}/links?page=&size=` → `Page<DocLinkView>`; `GET /api/documents/{id}/events?page=&size=` →
+  `Page<DocEventView>`.
+- `/api/documents` (at most 100) and `/api/tokens` stay arrays; the dashboard pages them on the client.

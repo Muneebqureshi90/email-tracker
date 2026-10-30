@@ -23,5 +23,7 @@ public enum Reason {
     /** Apple Mail Privacy Protection loads images on delivery, not when read. */
     PREFETCH,
     /** Tracking was switched off for this email. */
-    TRACKING_OFF
+    TRACKING_OFF,
+    /** The owner marked this counted open or click as their own view ("That was me"). */
+    OWNER
 }

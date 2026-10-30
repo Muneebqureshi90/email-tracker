@@ -30,7 +30,10 @@ class SettingsRepository {
                     retention_days = :retentionDays, ip_mode = :ipMode, count_apple_prefetch = :countApplePrefetch,
                     notify_opens = :notifyOpens, notify_clicks = :notifyClicks, notify_alerts = :notifyAlerts,
                     time_zone = :timeZone, send_mode = :sendMode, dnr_blocking = :dnrBlocking,
-                    track_confidential = :trackConfidential, updated_at = :now
+                    track_confidential = :trackConfidential, time_zone_source = :timeZoneSource,
+                    notify_on = :notifyOn, notify_documents = :notifyDocuments, quiet_hours_enabled = :quietHoursEnabled,
+                    quiet_hours_start = :quietHoursStart, quiet_hours_end = :quietHoursEnd, doc_read_seconds = :docReadSeconds,
+                    updated_at = :now
                 WHERE id = 1
                 """)
                 .param("trackingDefault", s.trackingDefault())
@@ -52,6 +55,13 @@ class SettingsRepository {
                 .param("sendMode", s.sendMode().name())
                 .param("dnrBlocking", s.dnrBlocking())
                 .param("trackConfidential", s.trackConfidential())
+                .param("timeZoneSource", s.timeZoneSource().name())
+                .param("notifyOn", s.notifyOn().name())
+                .param("notifyDocuments", s.notifyDocuments())
+                .param("quietHoursEnabled", s.quietHoursEnabled())
+                .param("quietHoursStart", s.quietHoursStart())
+                .param("quietHoursEnd", s.quietHoursEnd())
+                .param("docReadSeconds", s.docReadSeconds())
                 .param("now", Sql.ts(now))
                 .update();
     }
@@ -76,6 +86,13 @@ class SettingsRepository {
                 rs.getString("time_zone"),
                 Settings.SendMode.valueOf(rs.getString("send_mode")),
                 rs.getBoolean("dnr_blocking"),
-                rs.getBoolean("track_confidential"));
+                rs.getBoolean("track_confidential"),
+                Settings.TimeZoneSource.valueOf(rs.getString("time_zone_source")),
+                Settings.NotifyOn.valueOf(rs.getString("notify_on")),
+                rs.getBoolean("notify_documents"),
+                rs.getBoolean("quiet_hours_enabled"),
+                rs.getString("quiet_hours_start"),
+                rs.getString("quiet_hours_end"),
+                rs.getInt("doc_read_seconds"));
     }
 }

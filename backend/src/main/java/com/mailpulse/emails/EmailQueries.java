@@ -2,6 +2,7 @@ package com.mailpulse.emails;
 
 import com.mailpulse.common.crypto.FieldCipher;
 import com.mailpulse.common.web.ApiException;
+import com.mailpulse.tracking.RepeatOpens;
 import com.mailpulse.tracking.TrackingEventRepository;
 import java.time.Instant;
 import java.util.Collection;
@@ -92,7 +93,8 @@ public class EmailQueries {
                 email.gmailThreadId(),
                 email.cancelledAt(),
                 links.findForEmail(id),
-                events.findForEmail(id, MAX_EVENTS));
+                events.findForEmail(id, MAX_EVENTS),
+                events.countedOpens(id));
     }
 
     /** ✓/✓✓ for Gmail rows: the latest tracked email per thread (or per message) of one account. */
@@ -112,8 +114,10 @@ public class EmailQueries {
         String column = byThread ? "gmail_thread_id" : "gmail_message_id";
         Function<EmailRepository.EmailRow, String> key =
                 byThread ? EmailRepository.EmailRow::gmailThreadId : EmailRepository.EmailRow::gmailMessageId;
-        Map<String, EmailApi.Mark> marks = emails.latestByGmailIds(accountId.get(), column, ids).stream()
-                .collect(Collectors.toMap(key, EmailQueries::mark));
+        List<EmailRepository.EmailRow> rows = emails.latestByGmailIds(accountId.get(), column, ids);
+        Map<UUID, List<Instant>> opens = latestOpens(rows);
+        Map<String, EmailApi.Mark> marks = rows.stream()
+                .collect(Collectors.toMap(key, row -> mark(row, opens.getOrDefault(row.id(), List.of()))));
         return new EmailApi.MarksResponse(marks);
     }
 
@@ -129,6 +133,7 @@ public class EmailQueries {
     private List<EmailApi.EmailSummary> summaries(List<EmailRepository.EmailRow> rows) {
         Map<UUID, List<EmailApi.Recipient>> recipients =
                 addressBook.recipientsOf(rows.stream().map(EmailRepository.EmailRow::id).toList());
+        Map<UUID, List<Instant>> opens = latestOpens(rows);
         return rows.stream()
                 .map(row -> new EmailApi.EmailSummary(
                         row.id(),
@@ -143,8 +148,20 @@ public class EmailQueries {
                         row.firstOpenedAt(),
                         row.lastOpenedAt(),
                         row.lastClickedAt(),
-                        row.openStatusUnreliable()))
+                        row.openStatusUnreliable(),
+                        RepeatOpens.openedAgain(opens.getOrDefault(row.id(), List.of())),
+                        recent(opens.getOrDefault(row.id(), List.of()))))
                 .toList();
+    }
+
+    /** One more than shown, so "opened again" can compare the latest open with the one before. */
+    private Map<UUID, List<Instant>> latestOpens(List<EmailRepository.EmailRow> rows) {
+        List<UUID> opened = rows.stream().filter(row -> row.openCount() > 0).map(EmailRepository.EmailRow::id).toList();
+        return events.latestCountedOpens(opened, RepeatOpens.RECENT + 1);
+    }
+
+    private static List<Instant> recent(List<Instant> newestFirst) {
+        return List.copyOf(newestFirst.subList(0, Math.min(RepeatOpens.RECENT, newestFirst.size())));
     }
 
     private static boolean matches(EmailApi.EmailSummary summary, String needle) {
@@ -155,7 +172,7 @@ public class EmailQueries {
                 || (r.name() != null && r.name().toLowerCase(Locale.ROOT).contains(needle)));
     }
 
-    private static EmailApi.Mark mark(EmailRepository.EmailRow row) {
+    private static EmailApi.Mark mark(EmailRepository.EmailRow row, List<Instant> opens) {
         boolean engaged = row.openCount() > 0 || row.clickCount() > 0;
         return new EmailApi.Mark(
                 row.id(),
@@ -164,6 +181,9 @@ public class EmailQueries {
                 row.clickCount(),
                 row.lastOpenedAt(),
                 row.lastClickedAt(),
-                row.openStatusUnreliable());
+                row.openStatusUnreliable(),
+                row.firstOpenedAt(),
+                recent(opens),
+                RepeatOpens.openedAgain(opens));
     }
 }

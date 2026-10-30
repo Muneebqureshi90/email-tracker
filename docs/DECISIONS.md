@@ -405,3 +405,34 @@ for that email through the extension token). The follow-up time can be chosen pe
 compose status bar and on the email page (default, 24, 48 or 72 hours). When every recipient uses a
 provider that blocks images by default, Gmail tooltips and the email page say "open status may be
 unreliable".
+
+## v2 core decisions (2026-10-30)
+
+## D-069 configVersion is a hash of the extension config — Accepted
+`configVersion` is the first 16 hex characters of SHA-256 over every other `/api/config` value, cached per
+settings snapshot. It also comes with every `/api/activity` response, so the extension notices a settings change on
+its next poll (well within the 30 s target) and only then refetches `/api/config`. Options: `settings.updated_at`
+(misses environment changes such as a new public address after a restart).
+
+## D-070 Time-zone source and strict settings bodies — Accepted
+V4 adds `time_zone_source`: an existing row with `UTC` becomes `DEFAULT` (never chosen), any other zone `USER`. The
+dashboard turns `DEFAULT` into the browser zone with `AUTO` once. `PUT /api/settings` still takes the full object;
+missing new fields give 400 with field errors instead of being guessed. Quiet hours are `HH:mm` and must differ
+(an empty or 24-hour window is ambiguous); the extension applies them in the settings time zone.
+
+## D-071 Open numbers and repeat-open notifications are computed when read — Accepted
+`openNumber` (the n-th counted open) and `shouldNotify` under `notifyOn` are worked out from the counted events each
+time activity is read, not stored. So "That was me" on an earlier open renumbers the later ones, and a changed
+`notifyOn` applies to the feed at once. `REOPEN_GAP` (60 min) is one constant for "opened again" and
+`EVERY_AFTER_GAP`. A partial index on counted events keeps the sub-queries cheap.
+
+## D-072 "That was me" recomputes from counted events — Accepted
+The email row is locked first (so a finalizer counting a new open at the same moment is never lost), the event
+becomes IGNORED with reason `OWNER`, its activity row is deleted, and open/click counters and per-link counters are
+recomputed from the counted events that remain. Undo counts it again and inserts a silent activity row
+(`shouldNotify: false`), so nothing notifies twice. Alerts that the open raised stay; the owner can dismiss them.
+Marking twice, or undoing an event that already counts, is harmless (200); other events give 409.
+
+## D-073 Activity paging keeps the old shape — Accepted
+`since` stays (the extension uses it) and `after` is accepted as the contract's name for it. `before=<id>` pages
+backwards, `hasMore` tells whether another page exists, and items stay oldest first in every mode, as before.

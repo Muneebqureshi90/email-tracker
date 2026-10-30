@@ -70,6 +70,16 @@ class ContactsAndReportsIT extends IntegrationTest {
         assertThat(week.get("buckets").get(2).get("opens").asInt()).isEqualTo(2);
         assertThat(week.get("sent").asInt()).isEqualTo(2);
 
+        JsonNode nextDay = http.get(api("/api/reports/daily?date=2025-03-13"), asOwner()).json().get("previous");
+        assertThat(nextDay.get("sent").asInt()).as("the day before is the previous period").isEqualTo(2);
+        assertThat(nextDay.get("openedEmails").asInt()).isEqualTo(2);
+        assertThat(nextDay.get("openRate").asDouble()).isEqualTo(1.0);
+        assertThat(nextDay.get("opens").asInt()).isEqualTo(2);
+        assertThat(nextDay.get("clicks").asInt()).isZero();
+        assertThat(day.get("previous").get("sent").asInt()).isZero();
+        assertThat(http.get(api("/api/reports/weekly?weekStart=2025-03-17"), asOwner()).json().get("previous").get("opens").asInt())
+                .isEqualTo(2);
+
         assertThat(http.get(api("/api/reports/daily?date=2025-03-11"), asOwner()).json().get("sent").asInt()).isZero();
         assertThat(http.get(api("/api/reports/daily"), asOwner()).status()).isEqualTo(200);
         assertThat(http.get(api("/api/reports/daily?date=yesterday"), asOwner()).status()).isEqualTo(400);
