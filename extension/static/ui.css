@@ -508,3 +508,166 @@ code {
     background-position: -200% 0;
   }
 }
+
+/* Popup v2: brand, hero status, status lines, clickable activity rows. */
+.brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand .hint {
+  margin: 0;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+
+.hero.good {
+  border: 1px solid color-mix(in srgb, var(--good) 35%, transparent);
+  background: var(--good-bg);
+}
+
+.hero strong {
+  display: block;
+  color: var(--good);
+  font-size: 15px;
+}
+
+.hero .hint {
+  display: block;
+  margin: 2px 0 0;
+}
+
+.hero-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--good);
+  color: var(--card);
+}
+
+.hero-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.state-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.state-dot.good {
+  background: var(--good);
+  box-shadow: 0 0 0 3px var(--good-bg);
+}
+
+.state-dot.warn {
+  background: var(--warn);
+}
+
+.state-dot.bad {
+  background: var(--bad);
+  box-shadow: 0 0 0 3px var(--bad-bg);
+}
+
+.status-name {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+}
+
+.status-name .hint {
+  margin: 0;
+  font-weight: 400;
+}
+
+.status-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 13px;
+  text-align: right;
+}
+
+button.link-button {
+  min-height: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--focus);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+button.link-button:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font-weight: 400;
+  text-align: left;
+}
+
+button.activity-row:hover:not(:disabled) {
+  background: var(--chip);
+}
+
+.activity li {
+  padding: 2px 0;
+}
+
+.activity .what {
+  flex: 1;
+}
+
+.activity .verb {
+  font-weight: 600;
+}
+
+.activity .when {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+footer button {
+  flex: 1;
+}
