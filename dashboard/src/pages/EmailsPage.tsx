@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAccounts, useEmails } from '../api/queries';
+import { Segmented, Select } from '../components/controls';
 import { EmailTable } from '../components/EmailTable';
 import { Card, Empty, PageHeader, Pagination, QueryState } from '../components/ui';
 import { useNow } from '../lib/now';
@@ -44,31 +45,15 @@ export function EmailsPage() {
         description="Every tracked email you sent. Search covers subjects, names and addresses."
         actions={
           <>
-          <div role="group" aria-label="Show" className="flex overflow-hidden rounded-md border border-line">
-            {STATES.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={state === option.value}
-                onClick={() => update({ state: option.value })}
-                className={`px-3 py-2 text-sm font-medium ${state === option.value ? 'bg-accent text-accent-fg' : 'bg-surface hover:bg-raised'}`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <Segmented label="Show" value={state} options={STATES} onChange={(value) => update({ state: value })} />
           {(accounts.data?.length ?? 0) > 1 && (
-            <label>
-              <span className="sr-only">Account</span>
-              <select className="input" value={account} onChange={(event) => update({ account: event.target.value })}>
-                <option value="">All accounts</option>
-                {accounts.data?.map((address) => (
-                  <option key={address} value={address}>
-                    {address}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Select
+              label="Account"
+              value={account}
+              onChange={(value) => update({ account: value })}
+              options={[{ value: '', label: 'All accounts' }, ...(accounts.data ?? []).map((address) => ({ value: address, label: address }))]}
+              className="w-auto max-w-64"
+            />
           )}
           <form onSubmit={search} className="flex min-w-0 flex-1 gap-2 sm:min-w-60" role="search">
             <label className="flex-1">

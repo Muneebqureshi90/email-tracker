@@ -1,7 +1,16 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, query } from './client';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, query, upload } from './client';
 import type {
+  ActivityKind,
   ActivityPage,
+  DocLinkView,
+  DocEventView,
+  DocumentDetail,
+  DocumentSummary,
+  EmailCounts,
+  EventView,
+  NotificationPage,
+  SearchResults,
   AlertPage,
   AlertStatus,
   AlertView,
@@ -26,6 +35,15 @@ export interface EmailFilters {
   to?: string;
   page: number;
   size?: number;
+  sort?: string;
+  dir?: string;
+}
+
+export interface Paging {
+  page: number;
+  size: number;
+  sort?: string;
+  dir?: string;
 }
 
 export const keys = {
@@ -39,10 +57,14 @@ export const keys = {
   tokens: ['tokens'] as const,
   accounts: ['accounts'] as const,
   alerts: ['alerts'] as const,
+  notifications: ['notifications'] as const,
+  documents: ['documents'] as const,
+  document: (id: string) => ['document', id] as const,
+  search: ['search'] as const,
 };
 
-/** Everything that changes when an open or click is counted. */
-export const LIVE_KEYS = [keys.emails, keys.activity, keys.contacts, keys.reports, keys.alerts, ['email']];
+/** Everything that changes when an open, click or document event is counted. */
+export const LIVE_KEYS = [keys.emails, keys.activity, keys.contacts, keys.reports, keys.alerts, keys.notifications, keys.documents, ['email'], ['document']];
 
 export const useAuthStatus = () => useQuery({ queryKey: keys.auth, queryFn: () => api<AuthStatus>('/api/auth/status') });
 
@@ -59,10 +81,44 @@ export const useEmail = (id: string) =>
 export const useActivity = (limit: number) =>
   useQuery({ queryKey: [...keys.activity, limit], queryFn: ({ signal }) => api<ActivityPage>(`/api/activity${query({ limit })}`, { signal }) });
 
-export const useContacts = (q: string, page: number) =>
+export const ACTIVITY_PAGE = 50;
+
+/** Activity pages, newest first; "Load older" asks for the items before the oldest one shown. */
+export const useActivityFeed = (kinds: ActivityKind[]) =>
+  useInfiniteQuery({
+    queryKey: [...keys.activity, 'feed', kinds.join(',')],
+    initialPageParam: null as number | null,
+    queryFn: ({ pageParam, signal }) =>
+      api<ActivityPage>(`/api/activity${query({ limit: ACTIVITY_PAGE, kinds: kinds.join(','), before: pageParam })}`, { signal }),
+    getNextPageParam: (last) => (last.hasMore && last.items.length > 0 ? Math.min(...last.items.map((item) => item.id)) : null),
+  });
+
+export const useEmailCounts = (account: string, q: string) =>
   useQuery({
-    queryKey: [...keys.contacts, q, page],
-    queryFn: ({ signal }) => api<Page<ContactSummary>>(`/api/contacts${query({ q, page, size: 25 })}`, { signal }),
+    queryKey: [...keys.emails, 'counts', account, q],
+    queryFn: ({ signal }) => api<EmailCounts>(`/api/emails/counts${query({ account, q })}`, { signal }),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+
+export const useEmailEvents = (id: string, paging: Paging) =>
+  useQuery({
+    queryKey: [...keys.email(id), 'events', paging],
+    queryFn: ({ signal }) => api<Page<EventView>>(`/api/emails/${encodeURIComponent(id)}/events${query({ page: paging.page, size: paging.size })}`, { signal }),
+    placeholderData: keepPreviousData,
+  });
+
+export const useContacts = (q: string, paging: Paging) =>
+  useQuery({
+    queryKey: [...keys.contacts, q, paging],
+    queryFn: ({ signal }) => api<Page<ContactSummary>>(`/api/contacts${query({ q, ...paging })}`, { signal }),
+    placeholderData: keepPreviousData,
+  });
+
+export const useContactEmails = (address: string, paging: Paging) =>
+  useQuery({
+    queryKey: [...keys.contacts, 'emails', address, paging],
+    queryFn: ({ signal }) => api<Page<EmailSummary>>(`/api/contacts/${encodeURIComponent(address)}/emails${query({ ...paging })}`, { signal }),
     placeholderData: keepPreviousData,
   });
 
@@ -83,11 +139,11 @@ export const useSettings = (enabled = true) => useQuery({ enabled, queryKey: key
 export const useTokens = () => useQuery({ queryKey: keys.tokens, queryFn: () => api<ApiToken[]>('/api/tokens') });
 export const useAccounts = () => useQuery({ queryKey: keys.accounts, queryFn: () => api<string[]>('/api/accounts') });
 
-export const useAlerts = (status: 'active' | 'all', page: number, enabled = true) =>
+export const useAlerts = (status: 'active' | 'all', page: number, enabled = true, size = 25) =>
   useQuery({
     enabled,
-    queryKey: [...keys.alerts, status, page],
-    queryFn: ({ signal }) => api<AlertPage>(`/api/alerts${query({ status, page, size: 25 })}`, { signal }),
+    queryKey: [...keys.alerts, status, page, size],
+    queryFn: ({ signal }) => api<AlertPage>(`/api/alerts${query({ status, page, size })}`, { signal }),
     placeholderData: keepPreviousData,
   });
 
@@ -151,3 +207,116 @@ export function useDeleteAllData() {
     onSuccess: () => client.invalidateQueries(),
   });
 }
+
+export const useNotifications = (enabled = true) =>
+  useQuery({
+    enabled,
+    queryKey: keys.notifications,
+    queryFn: ({ signal }) => api<NotificationPage>(`/api/notifications${query({ limit: 30 })}`, { signal }),
+    retry: false,
+  });
+
+export function useMarkNotificationsRead() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (upToId: number) => api<void>('/api/notifications/read', { method: 'POST', body: { upToId } }),
+    onSuccess: (_, upToId) => {
+      client.setQueryData<NotificationPage>(keys.notifications, (current) => (current ? { ...current, unread: 0, lastReadId: upToId } : current));
+    },
+  });
+}
+
+export const useSearch = (q: string) =>
+  useQuery({
+    enabled: q.trim().length >= 2,
+    queryKey: [...keys.search, q.trim()],
+    queryFn: ({ signal }) => api<SearchResults>(`/api/search${query({ q: q.trim() })}`, { signal }),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+
+/** "That was me" on a counted open or click, and its undo. Both answer with the updated detail. */
+export function useMarkMine(emailId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { eventId: number; mine: boolean }) =>
+      api<EmailDetail>(`/api/emails/${encodeURIComponent(emailId)}/events/${input.eventId}/mine`, { method: input.mine ? 'POST' : 'DELETE' }),
+    onSuccess: (detail) => {
+      client.setQueryData(keys.email(emailId), detail);
+      for (const queryKey of LIVE_KEYS) void client.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+export const useDocuments = () => useQuery({ queryKey: keys.documents, queryFn: ({ signal }) => api<DocumentSummary[]>('/api/documents', { signal }) });
+
+export const useDocument = (id: string) =>
+  useQuery({ queryKey: keys.document(id), queryFn: ({ signal }) => api<DocumentDetail>(`/api/documents/${encodeURIComponent(id)}`, { signal }) });
+
+export const useDocumentLinks = (id: string, paging: Paging) =>
+  useQuery({
+    queryKey: [...keys.document(id), 'links', paging],
+    queryFn: ({ signal }) => api<Page<DocLinkView>>(`/api/documents/${encodeURIComponent(id)}/links${query({ page: paging.page, size: paging.size })}`, { signal }),
+    placeholderData: keepPreviousData,
+  });
+
+export const useDocumentEvents = (id: string, paging: Paging) =>
+  useQuery({
+    queryKey: [...keys.document(id), 'events', paging],
+    queryFn: ({ signal }) => api<Page<DocEventView>>(`/api/documents/${encodeURIComponent(id)}/events${query({ page: paging.page, size: paging.size })}`, { signal }),
+    placeholderData: keepPreviousData,
+  });
+
+function useDocumentChange<I, R>(change: (input: I) => Promise<R>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: change,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.documents });
+      void client.invalidateQueries({ queryKey: ['document'] });
+    },
+  });
+}
+
+export const useUploadDocument = () =>
+  useDocumentChange((input: { file: File; onProgress: (fraction: number) => void }) => {
+    const form = new FormData();
+    form.append('file', input.file);
+    return upload<DocumentSummary>('/api/documents', form, { onProgress: input.onProgress });
+  });
+
+export const useReplaceDocument = () =>
+  useDocumentChange((input: { id: string; file: File; onProgress: (fraction: number) => void }) => {
+    const form = new FormData();
+    form.append('file', input.file);
+    return upload<DocumentSummary>(`/api/documents/${encodeURIComponent(input.id)}/file`, form, { method: 'PUT', onProgress: input.onProgress });
+  });
+
+export const useRenameDocument = () =>
+  useDocumentChange((input: { id: string; name: string }) =>
+    api<DocumentSummary>(`/api/documents/${encodeURIComponent(input.id)}`, { method: 'PATCH', body: { name: input.name } }),
+  );
+
+export const useDeleteDocument = () => useDocumentChange((id: string) => api<void>(`/api/documents/${encodeURIComponent(id)}`, { method: 'DELETE' }));
+
+export interface NewLink {
+  label?: string;
+  emailId?: string;
+  expiresAt?: string;
+  allowDownload?: boolean;
+}
+
+export const useCreateLink = (documentId: string) =>
+  useDocumentChange((input: NewLink) => api<DocLinkView>(`/api/documents/${encodeURIComponent(documentId)}/links`, { method: 'POST', body: input }));
+
+export interface LinkChange {
+  label?: string;
+  expiresAt?: string | null;
+  allowDownload?: boolean;
+  revoked?: boolean;
+}
+
+export const useUpdateLink = () =>
+  useDocumentChange((input: { id: string; change: LinkChange }) =>
+    api<DocLinkView>(`/api/document-links/${encodeURIComponent(input.id)}`, { method: 'PATCH', body: input.change }),
+  );

@@ -1,6 +1,7 @@
 import { useParams } from 'react-router';
 import { useEmail, useUpdatePreferences } from '../api/queries';
 import type { EmailDetail, EventView } from '../api/types';
+import { Select } from '../components/controls';
 import { Card, Empty, ErrorBox, OpenMark, PageHeader, QueryState, Stat, TextLink, Toggle } from '../components/ui';
 import { REASONS, SOURCES, count, formatDateTime, relativeTime } from '../lib/format';
 import { useNow } from '../lib/now';
@@ -83,21 +84,29 @@ function EmailView({ detail }: { detail: EmailDetail }) {
               disabled={preferences.isPending}
               onChange={(trackingEnabled) => preferences.mutate({ trackingEnabled })}
             />
-            <label className="block py-2">
-              <span className="block text-sm font-medium">Follow-up reminder</span>
-              <span className="block text-xs text-muted">Alert me when it is still unopened after:</span>
-              <select
-                className="input mt-1"
-                value={detail.followUpHours ?? 0}
+            <div className="py-2">
+              <label id="follow-up-label" htmlFor="follow-up-select" className="block text-sm font-medium">
+                Follow-up reminder
+              </label>
+              <span id="follow-up-hint" className="block text-xs text-muted">
+                Alert me when it is still unopened after:
+              </span>
+              <Select<0 | 24 | 48 | 72>
+                id="follow-up-select"
+                labelledBy="follow-up-label"
+                describedBy="follow-up-hint"
+                className="mt-1"
+                value={(detail.followUpHours ?? 0) as 0 | 24 | 48 | 72}
                 disabled={preferences.isPending}
-                onChange={(event) => preferences.mutate({ followUpHours: Number(event.target.value) as 0 | 24 | 48 | 72 })}
-              >
-                <option value={0}>Default from Settings</option>
-                <option value={24}>24 hours</option>
-                <option value={48}>48 hours</option>
-                <option value={72}>72 hours</option>
-              </select>
-            </label>
+                onChange={(followUpHours) => preferences.mutate({ followUpHours })}
+                options={[
+                  { value: 0, label: 'Default from Settings' },
+                  { value: 24, label: '24 hours' },
+                  { value: 48, label: '48 hours' },
+                  { value: 72, label: '72 hours' },
+                ]}
+              />
+            </div>
             <p className="py-1 text-xs text-muted">Link tracking for this email: {detail.trackLinks ? 'on' : 'off'}</p>
             {preferences.isError && <ErrorBox error={preferences.error} />}
           </div>

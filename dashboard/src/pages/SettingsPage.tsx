@@ -1,19 +1,23 @@
-import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronRight, LocateFixed } from 'lucide-react';
 import { useEffect, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useBlocker } from 'react-router';
 import { ApiError } from '../api/client';
 import { useSaveSettings, useSettings } from '../api/queries';
 import type { Settings } from '../api/types';
-import { Card, ErrorBox, PageHeader, QueryState, Toggle } from '../components/ui';
+import { NumberStepper, RadioGroup, Select } from '../components/controls';
+import { Modal } from '../components/dialogs';
+import { toast } from '../components/toast';
+import { Button, Card, ErrorBox, PageHeader, QueryState, Toggle } from '../components/ui';
 import { browserTimeZone, isValidTimeZone } from '../lib/format';
 
 type NumberField = {
   [K in keyof Settings]: Settings[K] extends number ? K : never;
 }[keyof Settings];
 
+type RangeField = Exclude<NumberField, 'followUpHours'>;
+
 /** Same ranges as the backend (Settings.java); the backend checks them again. */
-const RANGES: Record<Exclude<NumberField, 'followUpHours'>, [number, number]> = {
+const RANGES: Record<RangeField, [number, number]> = {
   sendGraceSeconds: [0, 120],
   selfViewWindowSeconds: [5, 120],
   dedupeWindowSeconds: [0, 600],
@@ -24,7 +28,26 @@ const RANGES: Record<Exclude<NumberField, 'followUpHours'>, [number, number]> = 
   docReadSeconds: [10, 600],
 };
 
+/** What one − / + press changes. */
+const STEPS: Record<RangeField, number> = {
+  sendGraceSeconds: 1,
+  selfViewWindowSeconds: 5,
+  dedupeWindowSeconds: 10,
+  spikeOpens: 1,
+  spikeWindowMinutes: 5,
+  revivalDays: 1,
+  retentionDays: 30,
+  docReadSeconds: 5,
+};
+
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Every half hour, plus the saved time when it is not on the grid. */
+function clockOptions(current: string): { value: string; label: string }[] {
+  const times = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`);
+  if (CLOCK.test(current) && !times.includes(current)) times.push(current);
+  return times.sort().map((time) => ({ value: time, label: time }));
+}
 
 export function validateSettings(settings: Settings): Partial<Record<keyof Settings, string>> {
   const errors: Partial<Record<keyof Settings, string>> = {};
@@ -37,6 +60,7 @@ export function validateSettings(settings: Settings): Partial<Record<keyof Setti
   else if (!isValidTimeZone(settings.timeZone)) errors.timeZone = 'Choose a time zone from the list.';
   if (!CLOCK.test(settings.quietHoursStart)) errors.quietHoursStart = 'Use a time such as 22:00.';
   if (!CLOCK.test(settings.quietHoursEnd)) errors.quietHoursEnd = 'Use a time such as 07:00.';
+  else if (settings.quietHoursEnd === settings.quietHoursStart) errors.quietHoursEnd = 'Choose an end time different from the start.';
   return errors;
 }
 
@@ -172,29 +196,36 @@ function TimeZonePicker({ value, onChange, error }: { value: string; onChange: (
   );
 }
 
-function ChoiceGroup<T extends string>({
+/** A visible label for one of the custom selects (the label names the combobox). */
+function SelectField<T extends string | number>({
+  name,
   label,
   value,
   options,
   onChange,
+  error,
+  className = '',
 }: {
+  name: string;
   label: string;
   value: T;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
+  error?: string | undefined;
+  className?: string;
 }) {
   return (
-    <fieldset>
-      <legend className="label">{label}</legend>
-      <div className="space-y-1">
-        {options.map((option) => (
-          <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-raised">
-            <input type="radio" className="h-4 w-4 accent-(--mp-accent)" checked={value === option.value} onChange={() => onChange(option.value)} />
-            {option.label}
-          </label>
-        ))}
-      </div>
-    </fieldset>
+    <div>
+      <label id={`${name}-label`} htmlFor={`${name}-select`} className="label">
+        {label}
+      </label>
+      <Select id={`${name}-select`} labelledBy={`${name}-label`} value={value} options={options} onChange={onChange} className={className} describedBy={error ? `${name}-error` : undefined} />
+      {error && (
+        <span id={`${name}-error`} className="mt-1 block text-xs text-bad">
+          {error}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -217,39 +248,34 @@ function SettingsForm({ initial }: { initial: Settings }) {
     setForm((current) => ({ ...current, [key]: value }));
     setSaved(false);
   };
-  const number = (key: NumberField, label: string, unit: string, hint?: string) => (
-    <label className="block">
-      <span className="label">{label}</span>
-      <span className="flex items-center gap-2">
-        <input
-          className="input max-w-32 tabular-nums"
-          type="number"
-          inputMode="numeric"
-          value={Number.isNaN(form[key]) ? '' : form[key]}
-          onChange={(event) => set(key, event.target.valueAsNumber)}
-          aria-invalid={errors[key] ? true : undefined}
-          aria-describedby={`${key}-hint`}
-        />
-        <span className="text-sm text-muted">{unit}</span>
-      </span>
-      <span id={`${key}-hint`} className={errors[key] ? 'mt-1 block text-xs text-bad' : 'hint block'}>
-        {errors[key] ?? hint}
-      </span>
-    </label>
-  );
+  const number = (key: RangeField, label: string, unit: string, hint?: string) => {
+    const [min, max] = RANGES[key];
+    return (
+      <div>
+        <label htmlFor={`setting-${key}`} className="label">
+          {label}
+        </label>
+        <span className="flex flex-wrap items-center gap-2">
+          <NumberStepper
+            id={`setting-${key}`}
+            value={form[key]}
+            onChange={(value) => set(key, value)}
+            min={min}
+            max={max}
+            step={STEPS[key]}
+            invalid={Boolean(errors[key])}
+            describedBy={`${key}-hint`}
+          />
+          <span className="text-sm text-muted">{unit}</span>
+        </span>
+        <span id={`${key}-hint`} className={errors[key] ? 'mt-1 block text-xs text-bad' : 'hint block'}>
+          {errors[key] ?? hint ?? `${min} to ${max}`}
+        </span>
+      </div>
+    );
+  };
   const clock = (key: 'quietHoursStart' | 'quietHoursEnd', label: string) => (
-    <label className="block">
-      <span className="label">{label}</span>
-      <input
-        className="input max-w-32 tabular-nums"
-        inputMode="numeric"
-        placeholder="HH:mm"
-        value={form[key]}
-        onChange={(event) => set(key, event.target.value)}
-        aria-invalid={errors[key] ? true : undefined}
-      />
-      {errors[key] && <span className="mt-1 block text-xs text-bad">{errors[key]}</span>}
-    </label>
+    <SelectField name={key} label={label} value={form[key]} options={clockOptions(form[key])} onChange={(value) => set(key, value)} error={errors[key]} className="w-28" />
   );
 
   const submit = (event?: FormEvent) => {
@@ -261,9 +287,12 @@ function SettingsForm({ initial }: { initial: Settings }) {
       onSuccess: (stored) => {
         setForm(stored);
         setSaved(true);
+        toast({ title: 'Settings saved', description: 'The extension picks them up within 30 seconds.', tone: 'success' });
       },
       onError: (error) => {
-        if (error instanceof ApiError) setErrors(error.fieldErrors);
+        const fields = error instanceof ApiError ? error.fieldErrors : {};
+        setErrors(fields);
+        toast({ title: 'Settings not saved', description: Object.keys(fields).length > 0 ? 'Fix the highlighted fields.' : error.message, tone: 'error' });
       },
     });
   };
@@ -294,14 +323,14 @@ function SettingsForm({ initial }: { initial: Settings }) {
           <Toggle label="Opens" checked={form.notifyOpens} onChange={(value) => set('notifyOpens', value)} />
           <Toggle label="Clicks" checked={form.notifyClicks} onChange={(value) => set('notifyClicks', value)} />
           <Toggle label="Alerts" checked={form.notifyAlerts} onChange={(value) => set('notifyAlerts', value)} />
-          <ChoiceGroup
+          <RadioGroup
             label="Notify me on"
             value={form.notifyOn}
             onChange={(value) => set('notifyOn', value)}
             options={[
               { value: 'FIRST', label: 'First open only' },
               { value: 'EVERY', label: 'Every open (default)' },
-              { value: 'EVERY_AFTER_GAP', label: 'Every open after a 1-hour gap' },
+              { value: 'EVERY_AFTER_GAP', label: 'Every open after a 1-hour gap', description: 'A reopen notifies only when the last open was at least an hour before.' },
             ]}
           />
           <Toggle
@@ -336,26 +365,28 @@ function SettingsForm({ initial }: { initial: Settings }) {
             checked={form.countApplePrefetch}
             onChange={(value) => set('countApplePrefetch', value)}
           />
-          <label className="block">
-            <span className="label">Reader network addresses</span>
-            <select className="input" value={form.ipMode} onChange={(event) => set('ipMode', event.target.value as Settings['ipMode'])}>
-              <option value="TRUNCATED">Store shortened (IPv4 /24, IPv6 /48)</option>
-              <option value="OFF">Do not store</option>
-            </select>
-          </label>
+          <SelectField
+            name="ipMode"
+            label="Reader network addresses"
+            value={form.ipMode}
+            onChange={(value) => set('ipMode', value)}
+            options={[
+              { value: 'TRUNCATED', label: 'Store shortened (IPv4 /24, IPv6 /48)' },
+              { value: 'OFF', label: 'Do not store' },
+            ]}
+          />
         </Section>
 
         <Section title="Alerts">
-          <label className="block">
-            <span className="label">Follow-up reminder when not opened after</span>
-            <select className="input max-w-40" value={form.followUpHours} onChange={(event) => set('followUpHours', Number(event.target.value))}>
-              {[24, 48, 72].map((hours) => (
-                <option key={hours} value={hours}>
-                  {hours} hours
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            name="followUpHours"
+            label="Follow-up reminder when not opened after"
+            value={form.followUpHours}
+            onChange={(value) => set('followUpHours', value)}
+            options={[24, 48, 72].map((hours) => ({ value: hours, label: `${hours} hours` }))}
+            error={errors.followUpHours}
+            className="w-40"
+          />
           {number('spikeOpens', 'Open spike: at least', 'opens')}
           {number('spikeWindowMinutes', 'within', 'minutes')}
           {number('revivalDays', 'Revival: opened again after', 'days without opens')}
@@ -372,13 +403,15 @@ function SettingsForm({ initial }: { initial: Settings }) {
           <div className="space-y-3 border-t border-line p-4">
             <p className="text-sm text-muted">How the extension avoids counting your own views and how it sends. The defaults work for most people.</p>
             {number('selfViewWindowSeconds', 'Self-view hold', 'seconds', 'An open waits this long, so your own view of the email in Gmail can cancel it.')}
-            <label className="block">
-              <span className="label">Send mode</span>
-              <select className="input" value={form.sendMode} onChange={(event) => set('sendMode', event.target.value as Settings['sendMode'])}>
-                <option value="PRESYNC">Add the tracking image when you click Send (default, never delays sending)</option>
-                <option value="CANCEL_RESEND">Cancel, add the tracking image, send again (fallback)</option>
-              </select>
-            </label>
+            <RadioGroup
+              label="Send mode"
+              value={form.sendMode}
+              onChange={(value) => set('sendMode', value)}
+              options={[
+                { value: 'PRESYNC', label: 'Add the tracking image when you click Send', description: 'Default. Never delays sending.' },
+                { value: 'CANCEL_RESEND', label: 'Cancel, add the tracking image, send again', description: 'Fallback when the default does not work.' },
+              ]}
+            />
             <Toggle
               label="Block my own views in Chrome"
               description="Stops your own browser from loading your tracking image."
@@ -419,30 +452,29 @@ function SettingsForm({ initial }: { initial: Settings }) {
             >
               Discard
             </button>
-            <button type="submit" className="btn btn-primary" disabled={save.isPending}>
+            <Button type="submit" variant="primary" loading={save.isPending}>
               Save
-            </button>
+            </Button>
           </span>
         </div>
       )}
 
-      <Dialog.Root open={blocker.state === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-line bg-surface p-5 shadow-(--shadow-lg)">
-            <Dialog.Title className="text-base font-semibold">Leave without saving?</Dialog.Title>
-            <Dialog.Description className="mt-1 text-sm text-muted">Your changes to the settings are not saved yet.</Dialog.Description>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" className="btn btn-quiet" onClick={() => blocker.reset?.()}>
-                Stay
-              </button>
-              <button type="button" className="btn btn-danger" onClick={() => blocker.proceed?.()}>
-                Leave
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <Modal
+        open={blocker.state === 'blocked'}
+        onOpenChange={(open) => !open && blocker.reset?.()}
+        title="Leave without saving?"
+        description="Your changes to the settings are not saved yet."
+        footer={
+          <>
+            <button type="button" className="btn btn-quiet" onClick={() => blocker.reset?.()}>
+              Stay
+            </button>
+            <button type="button" className="btn btn-danger" onClick={() => blocker.proceed?.()}>
+              Leave
+            </button>
+          </>
+        }
+      />
     </form>
   );
 }

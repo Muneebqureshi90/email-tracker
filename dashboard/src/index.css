@@ -141,6 +141,72 @@ html.theme-transition * {
   }
 }
 
+@keyframes mp-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The search field draws its own clear button, the same in both themes. */
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* react-day-picker themed with the design tokens (bug A7: no native date input). */
+.mp-calendar {
+  --rdp-accent-color: var(--mp-accent);
+  --rdp-accent-background-color: var(--mp-accent-soft);
+  --rdp-day-height: 2.25rem;
+  --rdp-day-width: 2.25rem;
+  --rdp-day_button-height: 2.125rem;
+  --rdp-day_button-width: 2.125rem;
+  --rdp-day_button-border-radius: var(--radius-md);
+  --rdp-selected-border: 2px solid transparent;
+  --rdp-today-color: var(--mp-accent);
+  --rdp-nav-height: 2.25rem;
+  --rdp-nav_button-height: 2rem;
+  --rdp-nav_button-width: 2rem;
+  --rdp-weekday-opacity: 1;
+  font-size: 0.875rem;
+}
+.mp-calendar .rdp-month_caption {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding-left: 0.5rem;
+}
+.mp-calendar .rdp-weekday {
+  color: var(--mp-muted);
+  font-size: 0.75rem;
+}
+.mp-calendar .rdp-chevron {
+  fill: var(--mp-muted);
+}
+.mp-calendar .rdp-button_previous,
+.mp-calendar .rdp-button_next {
+  border-radius: var(--radius-md);
+}
+.mp-calendar .rdp-button_previous:hover:not(:disabled),
+.mp-calendar .rdp-button_next:hover:not(:disabled),
+.mp-calendar .rdp-day_button:hover:not(:disabled) {
+  background-color: var(--mp-raised);
+}
+.mp-calendar .rdp-today:not(.rdp-outside) {
+  font-weight: 600;
+}
+.mp-calendar .rdp-selected {
+  font-size: inherit;
+}
+.mp-calendar .rdp-selected .rdp-day_button,
+.mp-calendar .rdp-selected .rdp-day_button:hover {
+  background-color: var(--mp-accent);
+  color: var(--mp-accent-fg);
+}
+
 @layer components {
   .card {
     @apply rounded-xl border border-line bg-surface shadow-(--shadow-sm);
@@ -181,9 +247,13 @@ html.theme-transition * {
   .nav-link.active {
     @apply bg-accent-soft text-accent;
   }
-  /* Narrow screens: tables scroll sideways in their own container. Wide screens: the container
-     does not clip, so the header sticks to the top of the content area, just below the top bar. */
+  /* Tables scroll sideways in their own container. A list whose header must stick below the top bar
+     (.table-wrap-sticky) does not clip on wide screens, so the header sticks to the top of the
+     content area; its columns are sized to fit there. */
   .table-wrap {
+    @apply overflow-x-auto;
+  }
+  .table-wrap-sticky {
     @apply overflow-x-auto lg:overflow-visible;
   }
   .table {
@@ -193,12 +263,76 @@ html.theme-transition * {
     @apply sticky top-0 z-10 border-b border-line bg-surface px-4 py-2.5 text-xs font-semibold tracking-wide whitespace-nowrap text-muted uppercase;
   }
   .table td {
-    @apply border-b border-line px-4 py-3 align-top;
+    @apply border-b border-line bg-surface px-4 py-3 align-top;
+  }
+  /* The first column stays in view while a wide table scrolls sideways. */
+  .table th:first-child,
+  .table td:first-child {
+    @apply sticky left-0;
+  }
+  .table td:first-child {
+    @apply z-[1];
+  }
+  .table th:first-child {
+    @apply z-[11];
   }
   .table tbody tr:hover td {
     @apply bg-raised;
   }
   .table tr:last-child td {
     @apply border-b-0;
+  }
+  .table-head-btn {
+    @apply -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 tracking-wide uppercase transition-colors hover:text-fg;
+  }
+
+  /* Custom controls (bug A7): no native select, number spinner or date input. */
+  .select-trigger {
+    @apply inline-flex min-h-9 w-full items-center gap-2 rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-sm text-fg transition-colors outline-none hover:border-muted/70 focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60 aria-expanded:border-accent;
+  }
+  .popover {
+    @apply rounded-lg border border-line bg-surface text-fg shadow-(--shadow-lg) outline-none animate-[mp-pop-in_120ms_ease-out];
+  }
+  .option {
+    @apply flex cursor-pointer items-center gap-2 px-3 py-2 text-sm select-none;
+  }
+  .option[data-active="true"] {
+    @apply bg-raised;
+  }
+  .stepper {
+    @apply inline-flex h-9 items-stretch overflow-hidden rounded-lg border border-line-strong bg-surface focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30;
+  }
+  .stepper-invalid {
+    @apply border-bad focus-within:border-bad focus-within:ring-bad/30;
+  }
+  .stepper-btn {
+    @apply inline-flex w-9 items-center justify-center text-muted transition-colors hover:bg-raised hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent;
+  }
+  .stepper-input {
+    @apply w-16 border-x border-line bg-transparent px-2 text-center text-sm text-fg outline-none;
+  }
+  .segmented {
+    @apply inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg border border-line bg-bg p-0.5;
+  }
+  .segmented-item {
+    @apply inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:text-fg aria-checked:bg-surface aria-checked:text-fg aria-checked:shadow-(--shadow-sm) aria-pressed:bg-surface aria-pressed:text-fg aria-pressed:shadow-(--shadow-sm);
+  }
+  .segmented-count {
+    @apply rounded-full bg-chip px-1.5 text-xs font-semibold text-muted tabular-nums;
+  }
+  .radio-dot {
+    @apply inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface transition-colors;
+  }
+  .radio-dot[data-checked="true"] {
+    @apply border-accent bg-accent after:h-1.5 after:w-1.5 after:rounded-full after:bg-accent-fg after:content-[''];
+  }
+  .skeleton {
+    @apply animate-pulse rounded bg-chip;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap;
+  }
+  .tooltip {
+    @apply z-[70] max-w-xs rounded-md bg-fg px-2.5 py-1.5 text-xs text-bg shadow-(--shadow-md) animate-[mp-fade-in_100ms_ease-out];
   }
 }

@@ -12,7 +12,7 @@ export function ContactsPage() {
   const q = params.get('q') ?? '';
   const page = Number(params.get('page') ?? '0') || 0;
   const [text, setText] = useState(q);
-  const contacts = useContacts(q, page);
+  const contacts = useContacts(q, { page, size: 25 });
 
   const search = (event: FormEvent) => {
     event.preventDefault();
