@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
-const TEAL = [15, 118, 110];
+// The dashboard's indigo accent (#4f46e5), so the app, the extension and its icons match.
+const INDIGO = [79, 70, 229];
 const WHITE = [255, 255, 255];
 const ENVELOPE = { left: 0.17, right: 0.83, top: 0.27, bottom: 0.73, stroke: 0.07 };
 const PULSE = [[0.24, 0.53], [0.39, 0.53], [0.46, 0.39], [0.56, 0.66], [0.63, 0.53], [0.76, 0.53]];
@@ -92,7 +93,7 @@ function drawIcon(size) {
       }
       const offset = (py * size + px) * 4;
       const whiteShare = inside === 0 ? 0 : white / inside;
-      for (let c = 0; c < 3; c++) rgba[offset + c] = Math.round(TEAL[c] * (1 - whiteShare) + WHITE[c] * whiteShare);
+      for (let c = 0; c < 3; c++) rgba[offset + c] = Math.round(INDIGO[c] * (1 - whiteShare) + WHITE[c] * whiteShare);
       rgba[offset + 3] = Math.round((255 * inside) / (samples * samples));
     }
   }
@@ -110,10 +111,10 @@ const NOTIFICATION_ICONS = {
     lines: [[[0.43, 0.57], [0.57, 0.43]]],
     capsules: [{ a: [0.33, 0.67], b: [0.43, 0.57], r: 0.1 }, { a: [0.57, 0.43], b: [0.67, 0.33], r: 0.1 }],
   },
-  'doc-view': { color: [15, 118, 110], lines: [DOC_OUTLINE, [[0.42, 0.44], [0.6, 0.44]], [[0.42, 0.54], [0.6, 0.54]], [[0.42, 0.64], [0.54, 0.64]]] },
-  'doc-read': { color: [15, 118, 110], lines: [DOC_OUTLINE, [[0.42, 0.52], [0.49, 0.6], [0.61, 0.45]]] },
+  'doc-view': { color: [79, 70, 229], lines: [DOC_OUTLINE, [[0.42, 0.44], [0.6, 0.44]], [[0.42, 0.54], [0.6, 0.54]], [[0.42, 0.64], [0.54, 0.64]]] },
+  'doc-read': { color: [79, 70, 229], lines: [DOC_OUTLINE, [[0.42, 0.52], [0.49, 0.6], [0.61, 0.45]]] },
   'doc-download': {
-    color: [15, 118, 110],
+    color: [79, 70, 229],
     lines: [[[0.5, 0.24], [0.5, 0.6]], [[0.37, 0.48], [0.5, 0.61], [0.63, 0.48]], [[0.3, 0.62], [0.3, 0.73], [0.7, 0.73], [0.7, 0.62]]],
   },
   'follow-up': { color: [178, 106, 0], rings: [{ c: [0.5, 0.5], r: 0.24 }], lines: [[[0.5, 0.36], [0.5, 0.5], [0.61, 0.57]]] },

@@ -50,27 +50,39 @@ async function notify(specs: NotificationSpec[]): Promise<void> {
   await store.write({ notificationTargets: targets });
 }
 
+/** Never waits longer than `ms`: a hanging network call must not stall the checks behind it. */
+function within<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([promise, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
+}
+
 async function probePublic(url: string): Promise<boolean> {
-  try {
-    const response = await fetch(url, {
-      method: 'HEAD',
-      cache: 'no-store',
-      credentials: 'omit',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(5000),
-    });
-    return response.type === 'opaqueredirect' || (response.status >= 200 && response.status < 500);
-  } catch {
-    return false;
-  }
+  const check = async () => {
+    try {
+      const response = await fetch(url, {
+        method: 'HEAD',
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.type === 'opaqueredirect' || (response.status >= 200 && response.status < 500);
+    } catch {
+      return false;
+    }
+  };
+  return within(check(), 6000, false);
 }
 
 let polling: Promise<void> | null = null;
+let pollingSince = 0;
 let lastAttemptAt = 0;
 let lastConfigAttemptAt = 0;
 
 /** One check: config when stale or changed, queued send updates, then the activity feed. */
 function tick(): Promise<void> {
+  // A check stuck for over a minute (a call that never settled) must not block every later check.
+  if (polling && Date.now() - pollingSince > 60_000) polling = null;
+  if (!polling) pollingSince = Date.now();
   polling ??= (async () => {
     try {
       const state = await store.read();
