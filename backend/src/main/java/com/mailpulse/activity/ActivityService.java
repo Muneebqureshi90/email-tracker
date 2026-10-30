@@ -7,6 +7,7 @@ import com.mailpulse.emails.EmailService;
 import com.mailpulse.emails.LinkRepository;
 import com.mailpulse.settings.Settings;
 import com.mailpulse.settings.SettingsService;
+import com.mailpulse.tracking.RepeatOpens;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -16,6 +17,11 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ActivityService {
+
+    /** Activity kinds that can be filtered on. */
+    public static final List<String> KINDS = List.of("OPEN", "CLICK", "ALERT");
+
+    record Slice(List<ActivityItem> items, boolean hasMore) {}
 
     private final ActivityRepository repository;
     private final ActivityStream stream;
@@ -41,7 +47,17 @@ public class ActivityService {
 
     /** Called inside the finalizer's transaction. Returns the new activity id. */
     public long record(String kind, UUID emailId, Long eventId, Instant now) {
-        return repository.insert(kind, emailId, eventId, now);
+        return repository.insert(kind, emailId, eventId, now, false);
+    }
+
+    /** An item that never notifies, for an open or click the owner restored after "That was me". */
+    public long recordSilently(String kind, UUID emailId, Long eventId, Instant now) {
+        return repository.insert(kind, emailId, eventId, now, true);
+    }
+
+    /** Removes the item of an event the owner marked as their own. */
+    public void removeForEvent(long eventId) {
+        repository.deleteForEvent(eventId);
     }
 
     /** An alert as an activity item (inside the caller's transaction). Returns the new activity id. */
@@ -55,11 +71,17 @@ public class ActivityService {
     }
 
     List<ActivityItem> after(long afterId, int limit) {
-        return items(repository.findAfter(afterId, limit));
+        return items(repository.findAfter(afterId, limit, List.of()).rows());
     }
 
-    List<ActivityItem> latest(int limit) {
-        return items(repository.findLatest(limit));
+    Slice after(long afterId, int limit, Collection<String> kinds) {
+        ActivityRepository.Slice slice = repository.findAfter(afterId, limit, kinds);
+        return new Slice(items(slice.rows()), slice.hasMore());
+    }
+
+    Slice latest(Long beforeId, int limit, Collection<String> kinds) {
+        ActivityRepository.Slice slice = repository.findLatest(beforeId, limit, kinds);
+        return new Slice(items(slice.rows()), slice.hasMore());
     }
 
     long lastId() {
@@ -80,14 +102,26 @@ public class ActivityService {
                         row.occurredAt() == null ? row.createdAt() : row.occurredAt(),
                         row.source(),
                         row.linkId() == null ? null : links.url(row.linkId()).orElse(null),
-                        row.emailNotify() && switch (row.kind()) {
-                            case "OPEN" -> current.notifyOpens();
-                            case "CLICK" -> current.notifyClicks();
-                            default -> current.notifyAlerts();
-                        },
+                        shouldNotify(row, current),
                         row.alertType(),
-                        row.alertText()))
+                        row.alertText(),
+                        row.openNumber(),
+                        row.accountEnc() == null ? null : addressBook.accountAddress(row.accountEnc()),
+                        row.gmailThreadId()))
                 .toList();
+    }
+
+    /** Muted emails and restored items never notify; opens follow the owner's repeat-open setting. */
+    static boolean shouldNotify(ActivityRepository.ActivityRow row, Settings settings) {
+        if (row.silent() || !row.emailNotify()) {
+            return false;
+        }
+        return switch (row.kind()) {
+            case "OPEN" -> settings.notifyOpens() && (row.openNumber() == null || RepeatOpens.notifies(
+                    settings.notifyOn(), row.openNumber(), row.occurredAt(), row.previousOpenAt()));
+            case "CLICK" -> settings.notifyClicks();
+            default -> settings.notifyAlerts();
+        };
     }
 
     /** "Jane Doe" or "Jane Doe +2". */

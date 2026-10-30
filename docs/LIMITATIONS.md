@@ -69,3 +69,15 @@ Draft from Step 0. Spike results will confirm or correct each item.
 - A new tracking domain and rewritten links can slightly affect spam filtering.
 - Tracking pixels may need recipient consent in some jurisdictions (for example under EU/UK
   ePrivacy rules). The owner is responsible for how they use MailPulse.
+
+## Live opens and repeat opens (v2)
+- An open is confirmed only after the self-view check (the hold, 30 s by default), so the ✓✓ and the notification
+  come after the hold plus the extension's next poll, not at the moment of the open.
+- Reading time cannot be measured for emails: Gmail's image proxy loads the pixel once per display, and nothing
+  tells how long the email stayed open. MailPulse does not try (only document links measure reading time).
+- Why an email can show "Opened 2 times" when the recipient opened it once: through Gmail's image proxy every
+  request looks the same (Google's network and user agent). A second load can be the recipient's Gmail showing the
+  email again, or the owner viewing the sent copy on a phone or in a browser without the extension. MailPulse cannot
+  tell these apart. Use "That was me" on the email page to remove an open or click that was yours (undo is possible).
+- Tip: in the Gmail app on your own phone, set "Ask before displaying external images" (Settings, your account,
+  Images), so opening your sent mail there no longer loads the pixel.

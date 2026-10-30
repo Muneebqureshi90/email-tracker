@@ -37,6 +37,9 @@ public class SettingsService {
         } catch (DateTimeException e) {
             throw ApiException.badRequest("timeZone must be an IANA time zone such as Asia/Karachi");
         }
+        if (settings.quietHoursStart().equals(settings.quietHoursEnd())) {
+            throw ApiException.badRequest("quietHoursStart and quietHoursEnd must differ");
+        }
         repository.save(settings, clock.instant());
         cache.set(settings);
         return settings;

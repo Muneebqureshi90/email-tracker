@@ -1,11 +1,13 @@
 package com.mailpulse.emails;
 
+import com.mailpulse.tracking.OwnerCorrectionService;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,10 +24,12 @@ class EmailController {
 
     private final EmailService commands;
     private final EmailQueries queries;
+    private final OwnerCorrectionService corrections;
 
-    EmailController(EmailService commands, EmailQueries queries) {
+    EmailController(EmailService commands, EmailQueries queries, OwnerCorrectionService corrections) {
         this.commands = commands;
         this.queries = queries;
+        this.corrections = corrections;
     }
 
     @PostMapping("/emails")
@@ -76,6 +80,20 @@ class EmailController {
 
     @GetMapping("/emails/{id}")
     EmailApi.EmailDetail detail(@PathVariable UUID id) {
+        return queries.detail(id);
+    }
+
+    /** "That was me": a counted open or click becomes IGNORED (OWNER) and the counters are recomputed. */
+    @PostMapping("/emails/{id}/events/{eventId}/mine")
+    EmailApi.EmailDetail markMine(@PathVariable UUID id, @PathVariable long eventId) {
+        corrections.markMine(id, eventId);
+        return queries.detail(id);
+    }
+
+    /** Undo: the event counts again, without a new notification. */
+    @DeleteMapping("/emails/{id}/events/{eventId}/mine")
+    EmailApi.EmailDetail undoMine(@PathVariable UUID id, @PathVariable long eventId) {
+        corrections.undoMine(id, eventId);
         return queries.detail(id);
     }
 

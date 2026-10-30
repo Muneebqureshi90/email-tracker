@@ -68,7 +68,12 @@ public final class EmailApi {
             Instant firstOpenedAt,
             Instant lastOpenedAt,
             Instant lastClickedAt,
-            boolean openStatusUnreliable) {}
+            boolean openStatusUnreliable,
+            boolean openedAgain,
+            List<Instant> recentOpens) {}
+
+    /** One counted open, for the timeline of every open. */
+    public record OpenView(long eventId, Instant at, String source) {}
 
     public record LinkView(UUID id, String url, boolean used, int clickCount, Instant firstClickedAt, Instant lastClickedAt) {}
 
@@ -94,7 +99,8 @@ public final class EmailApi {
             String gmailThreadId,
             Instant cancelledAt,
             List<LinkView> links,
-            List<EventView> events) {}
+            List<EventView> events,
+            List<OpenView> opens) {}
 
     public record Page<T>(List<T> items, int page, int size, long total) {}
 
@@ -105,7 +111,10 @@ public final class EmailApi {
             int clickCount,
             Instant lastOpenedAt,
             Instant lastClickedAt,
-            boolean openStatusUnreliable) {}
+            boolean openStatusUnreliable,
+            Instant firstOpenedAt,
+            List<Instant> recentOpens,
+            boolean openedAgain) {}
 
     public record MarksResponse(Map<String, Mark> marks) {}
 }

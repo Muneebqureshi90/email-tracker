@@ -51,7 +51,11 @@ public class ReportQueries {
             int clicks,
             List<Bucket> buckets,
             List<TopEmail> topEmails,
-            List<TopContact> topContacts) {}
+            List<TopContact> topContacts,
+            Totals previous) {}
+
+    /** The same numbers for the period of the same length just before (trend arrows). */
+    public record Totals(int sent, int openedEmails, double openRate, int opens, int clicks) {}
 
     private record Counted(UUID emailId, String type, Instant receivedAt) {}
 
@@ -111,8 +115,31 @@ public class ReportQueries {
         int clicks = counted.size() - opens;
         int sent = sentStats[0];
         double openRate = sent == 0 ? 0 : Math.round(1000.0 * sentStats[1] / sent) / 1000.0;
+        long days = endDate.toEpochDay() - startDate.toEpochDay();
         return new Report(period, startDate, endDate, zone.getId(), sent, sentStats[1], openRate, opens, clicks,
-                buckets(period, startDate, zone, counted), topEmails(counted), topContacts(from, to));
+                buckets(period, startDate, zone, counted), topEmails(counted), topContacts(from, to),
+                totals(startDate.minusDays(days).atStartOfDay(zone).toInstant(), from));
+    }
+
+    private Totals totals(Instant from, Instant to) {
+        int[] sentStats = jdbc.sql("""
+                SELECT count(*) AS sent, count(*) FILTER (WHERE open_count > 0 OR click_count > 0) AS opened
+                FROM tracked_email WHERE status IN ('SENT', 'SCHEDULED') AND sent_at >= :from AND sent_at < :to
+                """)
+                .param("from", Sql.ts(from))
+                .param("to", Sql.ts(to))
+                .query((rs, row) -> new int[] {rs.getInt("sent"), rs.getInt("opened")})
+                .single();
+        int[] events = jdbc.sql("""
+                SELECT count(*) FILTER (WHERE type = 'OPEN') AS opens, count(*) FILTER (WHERE type = 'CLICK') AS clicks
+                FROM tracking_event WHERE verdict = 'COUNTED' AND received_at >= :from AND received_at < :to
+                """)
+                .param("from", Sql.ts(from))
+                .param("to", Sql.ts(to))
+                .query((rs, row) -> new int[] {rs.getInt("opens"), rs.getInt("clicks")})
+                .single();
+        double rate = sentStats[0] == 0 ? 0 : Math.round(1000.0 * sentStats[1] / sentStats[0]) / 1000.0;
+        return new Totals(sentStats[0], sentStats[1], rate, events[0], events[1]);
     }
 
     private static List<Bucket> buckets(Period period, LocalDate start, ZoneId zone, List<Counted> counted) {
