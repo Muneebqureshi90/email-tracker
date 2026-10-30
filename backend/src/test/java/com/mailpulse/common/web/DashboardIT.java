@@ -2,6 +2,7 @@ package com.mailpulse.common.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.mailpulse.auth.SessionService;
 import com.mailpulse.support.IntegrationTest;
 import com.mailpulse.support.TestHttp;
 import java.util.List;
@@ -24,6 +25,17 @@ class DashboardIT extends IntegrationTest {
             assertThat(response.header("X-Content-Type-Options")).contains("nosniff");
         }
         assertThat(http.get(api("/assets/app-test.js")).status()).isEqualTo(200);
+    }
+
+    @Test
+    void aSessionCookieFromAnotherInstallDoesNotBlockThePages() {
+        // Browsers send 127.0.0.1 cookies to every port, so a cookie signed by an older install arrives here too.
+        String[] stale = {"Cookie", SessionService.COOKIE + "=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJvd25lciJ9.bad-signature"};
+        for (String path : List.of("/", "/login", "/emails", "/assets/app-test.js")) {
+            assertThat(http.get(api(path), stale).status()).as(path).isEqualTo(200);
+        }
+        assertThat(http.get(api("/api/auth/status"), stale).status()).isEqualTo(200);
+        assertThat(http.get(api("/api/contacts"), stale).status()).isEqualTo(401);
     }
 
     @Test

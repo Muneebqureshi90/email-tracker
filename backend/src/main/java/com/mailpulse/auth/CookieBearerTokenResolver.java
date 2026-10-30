@@ -6,7 +6,9 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 
 /**
  * Reads the session JWT from the cookie only. The Authorization header is left to the extension's
- * API-token filter. Login, setup and status ignore the cookie so an expired one cannot block them.
+ * API-token filter. Only API calls read the cookie: the dashboard's pages and files never need it,
+ * and login, setup and status ignore it, so an expired cookie, or one from another install (browsers
+ * send 127.0.0.1 cookies to every port), cannot block them.
  */
 class CookieBearerTokenResolver implements BearerTokenResolver {
 
@@ -14,7 +16,8 @@ class CookieBearerTokenResolver implements BearerTokenResolver {
 
     @Override
     public String resolve(HttpServletRequest request) {
-        if (COOKIE_FREE_PATHS.contains(request.getRequestURI())) {
+        String path = request.getRequestURI();
+        if (!path.startsWith("/api/") || COOKIE_FREE_PATHS.contains(path)) {
             return null;
         }
         return SessionService.token(request);
