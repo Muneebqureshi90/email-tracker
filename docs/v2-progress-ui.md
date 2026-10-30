@@ -20,6 +20,12 @@ Updated 2026-10-30 by the dashboard engineer. Contract: docs/v2-contract.md (the
   collapsed, natural card heights, sticky unsaved bar, warning on leave).
 - Settings → Notifications (`notifyOn`, quiet hours) and Documents (`notifyDocuments`,
   `docReadSeconds`) fields with validation.
+- Bug 7: no native select, number, date or radio input is left. Settings uses steppers, themed
+  selects (network addresses, follow-up hours, quiet-hours times in half-hour steps) and radio
+  groups (notify on, send mode); Reports uses the segmented Day/Week control and the date picker
+  (no future days); the email page's follow-up choice, the Emails account filter and the page-size
+  choice are themed selects; Emails and Alerts filters use the segmented control. Saving settings
+  shows a toast; quiet hours must start and end at different times (as the backend checks).
 - Building blocks (D-096 to D-098): Select (select-only combobox), NumberStepper, DatePicker
   (react-day-picker, own chunk), RadioGroup, Segmented control with counts, Tabs, Tooltip, Skeleton,
   Button with loading state, Badge, Modal and ConfirmDialog, toasts with actions, DataTable (sticky
@@ -40,8 +46,6 @@ Updated 2026-10-30 by the dashboard engineer. Contract: docs/v2-contract.md (the
   arrows, tabs, table states and sorting, the mark rule, toasts, confirm dialog).
 
 ## Not done (next, in priority order)
-1. Bug 7 on the pages: replace the remaining native selects, number inputs, the Reports date input
-   and the radio inputs with the new components.
 2. Page-size select and top placement on the long lists, the paged endpoints (email events, contact
    emails, document links and events), client-side paging on Tokens and Documents, DataTable on the
    lists, sorting and counts on Emails, Activity cursor paging ("Load older") grouped by day.

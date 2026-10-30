@@ -163,8 +163,40 @@ describe('charts and activity (bugs A3, A4, A5)', () => {
     vi.setSystemTime(new Date('2026-10-30T06:42:00Z'));
     mockApi({ 'GET /api/reports/daily': { body: { period: 'DAY', start: '2026-10-30', end: '2026-10-31', timeZone: 'Asia/Karachi', sent: 0, openedEmails: 0, openRate: 0, opens: 0, clicks: 0, buckets: [], topEmails: [], topContacts: [] } } });
     renderAt('/reports');
-    expect((await screen.findByLabelText<HTMLInputElement>('Date')).value).toBe('2026-10-30');
+    // A themed date picker (bug A7) that always names the day it shows (bug A3).
+    const picker = await screen.findByRole('button', { name: /^Date: .*30/ });
+    expect(picker.getAttribute('data-value')).toBe('2026-10-30');
     vi.useRealTimers();
+  });
+});
+
+describe('custom controls on the pages (bug A7)', () => {
+  it('leaves no native select, number or date input on Settings, Reports and the email page', async () => {
+    mockApi({
+      'GET /api/reports/daily': { body: { period: 'DAY', start: '2026-10-30', end: '2026-10-31', timeZone: 'Asia/Karachi', sent: 0, openedEmails: 0, openRate: 0, opens: 0, clicks: 0, buckets: [], topEmails: [], topContacts: [] } },
+    });
+    renderAt('/settings');
+    await userEvent.click(await screen.findByText('Advanced'));
+    expect(screen.getByRole('spinbutton', { name: /^Self-view hold/ })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Reader network addresses' })).toBeTruthy();
+    expect(screen.getByRole('radiogroup', { name: 'Notify me on' })).toBeTruthy();
+    expect(document.querySelectorAll('select, input[type="number"], input[type="date"], input[type="radio"]')).toHaveLength(0);
+  });
+
+  it('steps a number setting and picks a quiet-hours time from the list', async () => {
+    const calls = mockApi({ 'PUT /api/settings': (call) => ({ body: call.body }) });
+    renderAt('/settings');
+    const spike = await screen.findByRole('spinbutton', { name: /^Open spike/ });
+    await userEvent.click(within(spike.parentElement!).getByRole('button', { name: 'Increase' }));
+    await userEvent.click(screen.getByRole('switch', { name: /Quiet hours/ }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'From' }));
+    await userEvent.click(screen.getByRole('option', { name: '23:30' }));
+    await userEvent.click(screen.getByRole('radio', { name: /First open only/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(calls.find((call) => call.method === 'PUT')?.body).toMatchObject({ spikeOpens: 4, quietHoursEnabled: true, quietHoursStart: '23:30', notifyOn: 'FIRST' }),
+    );
+    expect(await screen.findByText('Settings saved')).toBeTruthy();
   });
 });
 

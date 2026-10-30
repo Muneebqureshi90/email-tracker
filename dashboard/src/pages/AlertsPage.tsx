@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router';
 import { useAlerts, useUpdateAlert } from '../api/queries';
 import type { AlertType, AlertView } from '../api/types';
+import { Segmented } from '../components/controls';
 import { Card, Empty, ErrorBox, PageHeader, Pagination, QueryState, TextLink } from '../components/ui';
 import { formatDateTime, relativeTime } from '../lib/format';
 import { useNow } from '../lib/now';
@@ -26,19 +27,15 @@ export function AlertsPage() {
         title="Alerts"
         description="Follow-up reminders, open spikes and revivals. Rules and times are under Settings → Alerts."
         actions={
-          <div role="group" aria-label="Show" className="flex overflow-hidden rounded-md border border-line">
-            {(['active', 'all'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={status === option}
-                onClick={() => setParams(option === 'all' ? { status: 'all' } : {})}
-                className={`px-3 py-2 text-sm font-medium ${status === option ? 'bg-accent text-accent-fg' : 'bg-surface hover:bg-raised'}`}
-              >
-                {option === 'active' ? 'Open' : 'All'}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Show"
+            value={status}
+            options={[
+              { value: 'active', label: 'Open' },
+              { value: 'all', label: 'All' },
+            ]}
+            onChange={(option) => setParams(option === 'all' ? { status: 'all' } : {})}
+          />
         }
       />
       {update.isError && (

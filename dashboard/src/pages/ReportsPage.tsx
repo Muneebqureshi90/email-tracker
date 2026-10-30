@@ -1,5 +1,7 @@
 import { useSearchParams } from 'react-router';
 import { useReport } from '../api/queries';
+import { Segmented } from '../components/controls';
+import { DatePicker } from '../components/DatePicker';
 import { LazyBucketChart } from '../components/LazyBucketChart';
 import { Card, Empty, PageHeader, QueryState, Stat, TextLink } from '../components/ui';
 import { count, formatPercent, todayInZone } from '../lib/format';
@@ -28,26 +30,19 @@ export function ReportsPage() {
         title="Reports"
         description="Daily and weekly numbers in your time zone (Settings). Only counted opens and clicks are included."
         actions={
-          <div className="flex flex-wrap items-end gap-2">
-            <div role="group" aria-label="Period" className="flex overflow-hidden rounded-md border border-line">
-              {(['daily', 'weekly'] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={period === option}
-                  onClick={() => set({ period: option })}
-                  className={`px-3 py-2 text-sm font-medium ${period === option ? 'bg-accent text-accent-fg' : 'bg-surface hover:bg-raised'}`}
-                >
-                  {option === 'daily' ? 'Day' : 'Week'}
-                </button>
-              ))}
-            </div>
-            <label>
-              <span className="sr-only">Date</span>
-              {/* Shows the chosen day, or today in the owner's zone, never an empty "mm/dd/yyyy" (bug A3). */}
-              <input className="input" type="date" value={date ?? todayInZone()} onChange={(event) => set({ date: event.target.value })} />
-            </label>
-          </div>
+          <>
+            <Segmented
+              label="Period"
+              value={period}
+              options={[
+                { value: 'daily', label: 'Day' },
+                { value: 'weekly', label: 'Week' },
+              ]}
+              onChange={(option) => set({ period: option })}
+            />
+            {/* Shows the chosen day, or today in the owner's zone, never an empty "mm/dd/yyyy" (bugs A3, A7). */}
+            <DatePicker label="Date" value={date ?? todayInZone()} max={todayInZone()} onChange={(day) => set({ date: day })} />
+          </>
         }
       />
       <QueryState query={report}>

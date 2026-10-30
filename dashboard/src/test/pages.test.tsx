@@ -236,7 +236,8 @@ describe('alerts and per-email extras (Phase 5)', () => {
     const calls = mockApi({ [`GET /api/emails/${id}`]: { body: detail }, [`PATCH /api/emails/${id}/preferences`]: { status: 204 } });
     renderAt(`/emails/${id}`);
     expect((await screen.findByRole('note')).textContent).toContain('Open status may be unreliable');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /Follow-up reminder/ }), '72');
+    await userEvent.click(screen.getByRole('combobox', { name: /Follow-up reminder/ }));
+    await userEvent.click(screen.getByRole('option', { name: '72 hours' }));
     await waitFor(() => expect(calls.find((call) => call.method === 'PATCH')?.body).toEqual({ followUpHours: 72 }));
   });
 });
