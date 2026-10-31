@@ -1,13 +1,13 @@
 import { RotateCcw } from 'lucide-react';
 import type { EmailSummary } from '../api/types';
 
-export type MarkState = 'none' | 'sent' | 'unreliable' | 'opened' | 'clicked';
+export type MarkState = 'none' | 'sent' | 'delivered' | 'unreliable' | 'opened' | 'clicked';
 
-type MarkInput = Pick<EmailSummary, 'status' | 'openCount' | 'clickCount' | 'openStatusUnreliable'>;
+type MarkInput = Pick<EmailSummary, 'status' | 'openCount' | 'clickCount' | 'openStatusUnreliable' | 'deliveredAt'>;
 
 /**
- * The display rule shared with the extension (contract "Marks"): Sent grey ✓, Opened green ✓✓,
- * Opened N× green ✓✓ + count, Clicked ✓✓ + link dot, Unreliable grey ✓ + "?", Not tracked no mark.
+ * The display rule shared with the extension (contract "Marks"): Sent grey ✓✓ (D-132), Delivered grey ✓✓,
+ * Opened green ✓✓, Opened N× green ✓✓ + count, Clicked ✓✓ + link dot, Unreliable grey ✓ + "?", Not tracked no mark.
  */
 export function markOf(email: MarkInput, tracked = true): { state: MarkState; label: string; count: number } {
   if (!tracked || email.status === 'DRAFT' || email.status === 'CANCELLED') return { state: 'none', label: 'Not tracked', count: 0 };
@@ -15,16 +15,18 @@ export function markOf(email: MarkInput, tracked = true): { state: MarkState; la
   const times = opens >= 2 ? `Opened ${opens} times` : 'Opened';
   if (email.clickCount > 0) return { state: 'clicked', label: `${times}, link clicked`, count: opens };
   if (opens > 0) return { state: 'opened', label: times, count: opens };
+  if (email.deliveredAt) return { state: 'delivered', label: 'Delivered', count: 0 };
   if (email.openStatusUnreliable) return { state: 'unreliable', label: 'Not opened yet (open status may be unreliable)', count: 0 };
-  return { state: 'sent', label: 'Sent, not opened yet', count: 0 };
+  return { state: 'sent', label: 'Sent', count: 0 };
 }
 
 export function StatusMark({ email, tracked = true, showLabel = false }: { email: MarkInput; tracked?: boolean; showLabel?: boolean }) {
   const mark = markOf(email, tracked);
   if (mark.state === 'none') return showLabel ? <span className="text-muted">Not tracked</span> : null;
-  const double = mark.state === 'opened' || mark.state === 'clicked';
+  const green = mark.state === 'opened' || mark.state === 'clicked';
+  const double = mark.state !== 'unreliable';
   return (
-    <span role="img" aria-label={mark.label} title={mark.label} className={`inline-flex items-center gap-1 whitespace-nowrap ${double ? 'text-good' : 'text-muted'}`}>
+    <span role="img" aria-label={mark.label} title={mark.label} className={`inline-flex items-center gap-1 whitespace-nowrap ${green ? 'text-good' : 'text-muted'}`}>
       <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
         <path
           d={double ? 'M1 8.6l3 3L10.6 5M7 11.6L13.6 5' : 'M3 8.6l3 3L13 4.6'}
@@ -38,7 +40,7 @@ export function StatusMark({ email, tracked = true, showLabel = false }: { email
       {mark.count >= 2 && <span className="text-xs font-semibold tabular-nums">{mark.count}</span>}
       {mark.state === 'clicked' && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
       {mark.state === 'unreliable' && <span className="text-xs font-semibold">?</span>}
-      {showLabel && <span className="ml-1 text-sm font-medium text-fg">{mark.count >= 2 ? `Opened ${mark.count}×` : mark.state === 'clicked' ? 'Clicked' : mark.state === 'opened' ? 'Opened' : mark.state === 'unreliable' ? 'Unreliable' : 'Sent'}</span>}
+      {showLabel && <span className="ml-1 text-sm font-medium text-fg">{mark.count >= 2 ? `Opened ${mark.count}×` : mark.state === 'clicked' ? 'Clicked' : mark.state === 'opened' ? 'Opened' : mark.state === 'delivered' ? 'Delivered' : mark.state === 'unreliable' ? 'Unreliable' : 'Sent'}</span>}
     </span>
   );
 }

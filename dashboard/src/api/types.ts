@@ -36,6 +36,8 @@ export interface EmailSummary {
   recentOpens?: string[];
   /** When the extension first saw a reply in the email's Gmail thread; null: no reply seen. */
   repliedAt?: string | null;
+  /** When the email reached the recipient's mailbox; null (or missing): not known to be delivered. */
+  deliveredAt?: string | null;
 }
 
 export interface OpenView {

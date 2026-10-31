@@ -63,7 +63,7 @@ describe('emails', () => {
     expect(await within(table).findByText('Quarterly plan')).toBeTruthy();
     // The contract display rule: two or more opens show the count ("Opened N×").
     expect(within(table).getByRole('img', { name: 'Opened 2 times' })).toBeTruthy();
-    expect(within(table).getByRole('img', { name: 'Sent, not opened yet' })).toBeTruthy();
+    expect(within(table).getByRole('img', { name: 'Sent' })).toBeTruthy();
 
     await userEvent.click(screen.getByRole('button', { name: 'Opened' }));
     await waitFor(() => expect(calls.at(-1)?.search.get('state')).toBe('opened'));

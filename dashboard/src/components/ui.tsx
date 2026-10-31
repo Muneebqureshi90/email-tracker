@@ -167,13 +167,15 @@ export function Toggle({
 }
 
 /** ✓ grey = sent, not opened; ✓✓ green = opened or clicked (same symbols as in Gmail). */
-export function OpenMark({ opened, unreliable = false }: { opened: boolean; unreliable?: boolean }) {
-  const title = opened ? 'Opened' : unreliable ? 'Not opened yet (open status may be unreliable)' : 'Sent, not opened yet';
+/** Green ✓✓ opened, grey ✓✓ delivered (no open yet), grey ✓ sent. */
+export function OpenMark({ opened, delivered = false, unreliable = false }: { opened: boolean; delivered?: boolean; unreliable?: boolean }) {
+  const title = opened ? 'Opened' : delivered ? 'Delivered' : unreliable ? 'Not opened yet (open status may be unreliable)' : 'Sent';
+  const double = opened || delivered;
   return (
     <svg viewBox="0 0 16 16" width="18" height="18" role="img" aria-label={title} className={opened ? 'text-good' : 'text-muted'}>
       <title>{title}</title>
       <path
-        d={opened ? 'M1 8.6l3 3L10.6 5M7 11.6L13.6 5' : 'M3 8.6l3 3L13 4.6'}
+        d={double ? 'M1 8.6l3 3L10.6 5M7 11.6L13.6 5' : 'M3 8.6l3 3L13 4.6'}
         fill="none"
         stroke="currentColor"
         strokeWidth="1.8"

@@ -42,7 +42,11 @@ function EmailView({ detail }: { detail: EmailDetail }) {
         actions={<TextLink to="/emails">Back to emails</TextLink>}
       />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Status" value={<span className="flex items-center gap-2"><OpenMark opened={opened} unreliable={summary.openStatusUnreliable} />{opened ? 'Opened' : 'Not opened'}</span>} />
+        <Stat
+          label="Status"
+          value={<span className="flex items-center gap-2"><OpenMark opened={opened} delivered={Boolean(summary.deliveredAt)} unreliable={summary.openStatusUnreliable} />{opened ? 'Opened' : 'Not opened'}</span>}
+          hint={!opened && summary.deliveredAt ? `Delivered ${formatDateTime(summary.deliveredAt)}` : undefined}
+        />
         <Stat label="Opens" value={summary.openCount} hint={summary.firstOpenedAt ? `first ${formatDateTime(summary.firstOpenedAt)}` : undefined} />
         <Stat label="Last opened" value={relativeTime(summary.lastOpenedAt, now)} />
         <Stat label="Clicks" value={summary.clickCount} hint={summary.lastClickedAt ? `last ${relativeTime(summary.lastClickedAt, now)}` : undefined} />
