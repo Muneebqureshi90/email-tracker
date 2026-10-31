@@ -19,6 +19,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks: [internal]
 
   backend:
@@ -46,6 +51,11 @@ services:
     ports:
       - "127.0.0.1:${MAILPULSE_PRIVATE_HOST_PORT:-8080}:8080"
       - "127.0.0.1:${MAILPULSE_PUBLIC_HOST_PORT:-8081}:8081"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks: [internal]
 
 volumes:

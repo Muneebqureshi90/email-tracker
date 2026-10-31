@@ -39,7 +39,9 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
   `check-public.ps1` (pixel 200, document routes reach MailPulse, everything else 404). `-BaseUrl http://127.0.0.1:8081`
   tests without Tailscale.
 - `.\scripts\autostart.ps1 -Install|-Remove` — Startup-folder shortcut; at sign-in starts Docker stack + Funnel.
-- `.\scripts\backup.ps1` — pg_dump into `backups\`; restore steps in docs/SETUP.md §8.
+- `.\scripts\backup.ps1 [-Keep N] [-CopyTo <folder>] [-Install|-Remove]` — pg_dump into `backups\`; `-Keep` keeps
+  the newest N dumps (omitted: nothing deleted), `-CopyTo` also copies the dump there (warns if missing),
+  `-Install`/`-Remove` a daily per-user scheduled task with the same options; restore steps in docs/SETUP.md §9.
 - Throwaway stack for manual checks: env file from `new-env.ps1 -EnvFile <scratch>` plus
   `MAILPULSE_PRIVATE_HOST_PORT=18080` / `MAILPULSE_PUBLIC_HOST_PORT=18081`, then `dev.ps1 -EnvFile ... -ProjectName mailpulse-check`.
 - Backend only: `cd backend; .\mvnw.cmd verify` (unit tests `*Test`, integration tests `*IT`).

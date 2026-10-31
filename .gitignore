@@ -32,3 +32,6 @@ spikes/extension/spike.config.json
 
 # Git worktrees (parallel branches)
 .worktrees/
+
+# TypeScript incremental build info
+*.tsbuildinfo

@@ -547,6 +547,9 @@ Alerts, Documents) map to the `kinds` parameter and live in the URL.
 of the account number, so the thread opens in the right account, and the hex thread ID from InboxSDK
 opens with `#all/`. Without a thread ID there is no link. It is a plain link the owner clicks; nothing
 is sent anywhere.
+Changed 2026-10-31: Gmail answered `/mail/u/<address>/` with "Temporary Error (404)" on the owner's PC.
+The dashboard now uses `https://mail.google.com/mail/?authuser=<address>#all/<threadId>`, the form the
+extension's notifications already use (`gmailThreadUrl` in extension/src/core/notify.ts).
 ## D-077 Documents are stored in PostgreSQL, encrypted — Accepted
 The file is a `bytea` in `document_file`, AES-256-GCM with the field key (associated data: the document id), so
 backups (`pg_dump`) include documents and nothing plain is ever on disk: uploads stay in memory (multipart threshold
@@ -599,3 +602,10 @@ page, info and beats, 10/min for the PDF and the download.
 Retention removes document views and downloads older than `retentionDays` (an email's links go with the email);
 documents and share links stay until the owner deletes them. A draft whose document link was opened is not a stale
 draft. "Delete all my data" truncates documents, links and their events with the emails.
+
+## D-131 Document links with pasted trailing characters — Accepted
+A `/d/{token}` link followed only by `/`, `.`, `)`, `,` or `%20` (a link pasted at the end of a sentence)
+gets a 301 to the clean `/d/{token}`. The target is built only from the matched 24-character token, so it
+cannot point anywhere else. Any other unmatched GET or HEAD under `/d/` gets the friendly "Link not found"
+page (still a 404). Every public-port response carries `X-Robots-Tag: noindex, nofollow`. Everything else
+on the public port stays an empty 404. Fix requested by the owner after the 2026-10-31 E2E check.

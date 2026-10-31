@@ -166,6 +166,23 @@ After a reboot or sign-in MailPulse should come back by itself:
 Remove it with `.\scripts\autostart.ps1 -Remove`. The containers also use `restart: unless-stopped`,
 so Docker restarts them after a crash.
 
+### After a power cut or restart
+Docker Desktop, the containers and the Funnel start only **after someone signs in to Windows**.
+Until then (for example after a power cut, or a Windows Update restart at night) the tracking
+address does not answer: opens and clicks in that time are **lost for good** and tracked links show
+an error. Free fixes:
+- **Sign in automatically:** Microsoft Sysinternals Autologon (free, from Microsoft's Sysinternals
+  site) → enter your Windows password → **Enable**. Windows then signs in by itself after every
+  boot. Trade-off: anyone who switches the PC on gets your desktop without a password, and the
+  password is stored (encrypted, but recoverable by an administrator) in the registry. Lock the
+  screen after sign-in (Windows + L still works) and keep the PC somewhere private. Turn it off
+  again with Autologon → **Disable**.
+- **Power back on by itself:** in the BIOS/UEFI setup (press F2, F10, F12 or Del while the PC
+  starts; the name differs per maker) set **Restore on AC power loss** (also called "AC Power
+  Recovery" or "After Power Loss") to **Power On** or **Last State**. Many laptops do not have it;
+  a laptop on its battery usually rides out short power cuts anyway.
+- **Never sleep on mains power:** section 3. A sleeping PC loses opens just like a switched-off one.
+
 ## 8. Install the Chrome extension
 1. Register a free InboxSDK App ID (a one-time form on InboxSDK's site; the SDK needs it to load
    without a warning bar): open https://register.inboxsdk.com/ and copy the App ID it shows.
@@ -212,6 +229,25 @@ Backup (MailPulse must be running):
 ```
 Copy backups somewhere outside the PC as well. Subjects, addresses and URLs inside a dump stay
 encrypted; you need the key from section 4 to read them.
+
+Options (all optional, combine freely):
+- `-Keep 14` — after a successful backup keep only the newest 14 dumps written by this script
+  (`mailpulse-YYYYMMDD-HHMMSS.dump`) in the backup folder and delete older ones. Without `-Keep`
+  nothing is ever deleted. Other files, and the `-CopyTo` folder, are never touched: clear that by hand.
+- `-CopyTo E:\MailPulse-backups` — also copy the new dump to a second drive or USB stick. If the
+  folder is missing (stick not plugged in) the script warns and the backup in `backups\` still counts.
+- `-OutDir <folder>` — write the dumps somewhere other than `backups\`.
+
+Daily backups with Windows Task Scheduler (current user, no administrator rights):
+```powershell
+.\scripts\backup.ps1 -Keep 14 -CopyTo E:\MailPulse-backups -Install            # every day at 03:00
+.\scripts\backup.ps1 -Keep 14 -CopyTo E:\MailPulse-backups -Install -At 13:00  # other time of day
+.\scripts\backup.ps1 -Remove                                                   # delete the task
+```
+`-Install` only registers the task "MailPulse backup" (no backup is taken right then); the task runs
+the script with the same `-Keep`, `-CopyTo` and `-OutDir` values. It runs only while you are signed
+in; a missed run starts as soon as possible afterwards. Check it in Task Scheduler →
+"MailPulse backup" → Last Run Result (0x0 = success). To change the options, run `-Install` again.
 
 Restore a dump (replaces the current data):
 ```powershell
