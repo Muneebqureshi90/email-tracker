@@ -3,10 +3,11 @@ import { formatWhen, relativeTime } from './time';
 
 /**
  * Status marks (docs/v2-contract.md, "Marks and hover card"; the dashboard uses the same rule):
- * sent grey ✓, opened green ✓✓, opened N× green ✓✓ with a count from 2 opens, clicked ✓✓ with a link
- * dot, unreliable grey ✓ with "?". Our own drawings (DECISIONS D-001).
+ * sent grey ✓✓ (D-132), delivered grey ✓✓ (deliveredAt set, no opens yet), opened green ✓✓, opened N× green ✓✓
+ * with a count from 2 opens, clicked ✓✓ with a link dot, unreliable grey ✓ with "?". `pending` is the single
+ * grey ✓ of the compose chip only (tracking off or still registering). Our own drawings (DECISIONS D-001).
  */
-export type MarkStatus = 'sent' | 'opened' | 'clicked' | 'unreliable';
+export type MarkStatus = 'pending' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'unreliable';
 
 export interface MarkView {
   status: MarkStatus;
@@ -21,12 +22,25 @@ function times(count: number): string {
 }
 
 export function markView(mark: Mark): MarkView {
+  // Older backends send no deliveredAt: treat it as null.
+  const delivered = typeof mark.deliveredAt === 'string' && mark.deliveredAt !== '';
   const status: MarkStatus =
-    mark.clickCount > 0 ? 'clicked' : mark.openCount > 0 ? 'opened' : mark.openStatusUnreliable ? 'unreliable' : 'sent';
+    mark.clickCount > 0
+      ? 'clicked'
+      : mark.openCount > 0
+        ? 'opened'
+        : // A recipient-side fetch proves delivery, so it wins over "open status may be unreliable" (as on the dashboard).
+          delivered
+          ? 'delivered'
+          : mark.openStatusUnreliable
+            ? 'unreliable'
+            : 'sent';
   const parts: string[] = [];
   if (mark.openCount > 0) parts.push(`Opened ${times(mark.openCount)}`);
   if (mark.clickCount > 0) parts.push(`${mark.clickCount} click${mark.clickCount === 1 ? '' : 's'}`);
-  if (parts.length === 0) {
+  if (status === 'delivered') {
+    parts.push('Delivered');
+  } else if (parts.length === 0) {
     parts.push('Sent, not opened yet');
     // Q8: every recipient uses a provider that blocks images by default.
     if (mark.openStatusUnreliable) parts.push('open status may be unreliable');
@@ -35,7 +49,10 @@ export function markView(mark: Mark): MarkView {
 }
 
 const SHAPES: Record<MarkStatus, string> = {
-  sent: '<path d="M3 8.6l3 3L13 4.6"/>',
+  pending: '<path d="M3 8.6l3 3L13 4.6"/>',
+  // Sent and delivered: the same double tick as opened, drawn grey by toneOf (D-132).
+  sent: '<path d="M1 8.6l3 3L10.6 5M7 11.6L13.6 5"/>',
+  delivered: '<path d="M1 8.6l3 3L10.6 5M7 11.6L13.6 5"/>',
   opened: '<path d="M1 8.6l3 3L10.6 5M7 11.6L13.6 5"/>',
   clicked: '<path d="M1 8.6l3 3L10.6 5M7 11.6L13.6 5"/><circle cx="14.2" cy="12.8" r="1.7" fill="currentColor" stroke="none"/>',
   unreliable:

@@ -206,6 +206,22 @@ describe('marks', () => {
     });
   });
 
+  it('show delivered as a grey double tick until the first open or click', () => {
+    const delivered: Mark = { ...unopened, deliveredAt: '2026-10-29T10:00:00Z' };
+    expect(markView(delivered)).toEqual({ status: 'delivered', count: null, label: 'Delivered' });
+    expect(markView({ ...unopened, deliveredAt: null }).status).toBe('sent');
+    expect(markView(unopened).status).toBe('sent'); // no deliveredAt field: an older backend
+    expect(markView({ ...delivered, openCount: 1 }).status).toBe('opened');
+    expect(markView({ ...delivered, clickCount: 1 }).status).toBe('clicked');
+    // A recipient-side fetch proves delivery, so it wins over "open status may be unreliable" (as on the dashboard).
+    expect(markView({ ...delivered, openStatusUnreliable: true }).status).toBe('delivered');
+    const html = markHtml(delivered, true);
+    expect(html).toContain('class="mp-mark mp-grey"');
+    expect(html).toContain('aria-label="MailPulse: Delivered"');
+    expect(html).toContain('<path d="M1 8.6l3 3L10.6 5M7 11.6L13.6 5"/>');
+    expect(countHtml(delivered)).toBeNull();
+  });
+
   it('render inline SVG markup from constants, a checked id and numbers only', () => {
     const html = markHtml(mark, true);
     expect(html).toContain(`data-mp-email="${EMAIL_ID}"`);

@@ -70,6 +70,8 @@ export interface Mark {
   lastOpenedAt: string | null;
   lastClickedAt: string | null;
   openStatusUnreliable: boolean;
+  /** When the email was seen delivered; null or missing (older backends) when not known. */
+  deliveredAt?: string | null;
   firstOpenedAt?: string | null;
   /** Up to 5 latest counted opens, newest first. */
   recentOpens?: string[];

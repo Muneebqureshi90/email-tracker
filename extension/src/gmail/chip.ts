@@ -40,7 +40,7 @@ const DESCRIPTIONS: Record<ChipPhase, string> = {
   offline: 'MailPulse is not reachable: this email will be sent without tracking.',
 };
 
-const TICKS: Record<ChipPhase, MarkStatus> = { on: 'opened', off: 'sent', connecting: 'sent', offline: 'unreliable' };
+const TICKS: Record<ChipPhase, MarkStatus> = { on: 'opened', off: 'pending', connecting: 'pending', offline: 'unreliable' };
 const CARET = '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function caret(doc: Document): Element {
