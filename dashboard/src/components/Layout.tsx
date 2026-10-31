@@ -14,6 +14,7 @@ import {
   Monitor,
   Moon,
   Settings as SettingsIcon,
+  SquareKanban,
   Sun,
   UserRound,
   Users,
@@ -45,6 +46,7 @@ const NAV: NavItem[] = [
   { to: '/alerts', label: 'Alerts', icon: Bell },
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/documents', label: 'Documents', icon: FileText },
+  { to: '/pipeline', label: 'Pipeline', icon: SquareKanban },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
   { to: '/tokens', label: 'Extension tokens', icon: KeyRound },
@@ -240,6 +242,16 @@ export function Layout() {
 
   return (
     <div className="flex h-full">
+      <a
+        href="#content"
+        className="skip-link"
+        onClick={(event) => {
+          event.preventDefault();
+          scrollRef.current?.focus();
+        }}
+      >
+        Skip to content
+      </a>
       <aside
         data-testid="sidebar"
         aria-label="Sidebar"
@@ -276,7 +288,8 @@ export function Layout() {
             </button>
             <div ref={setTitleSlot} data-testid="top-bar-title" className="min-w-0 flex-1" />
             <div ref={setActionsSlot} className="flex items-center gap-1" />
-            <div className="lg:hidden">
+            {/* Phones get the theme switch in the menu drawer (its footer) instead of the crowded top bar. */}
+            <div className="hidden sm:block lg:hidden">
               <ThemeSwitch />
             </div>
           </div>

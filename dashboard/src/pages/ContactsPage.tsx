@@ -1,8 +1,10 @@
-import { SearchX, Users } from 'lucide-react';
+import { Building2, SearchX, Users } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { companyName, filterCompanies, replyRate, useCompanies, type CompanySummary } from '../api/companies';
 import { useContact, useContactEmails, useContacts } from '../api/queries';
 import type { ContactSummary } from '../api/types';
-import { SearchField } from '../components/controls';
+import { SearchField, Tabs } from '../components/controls';
 import { DataTable, MAIN_COLUMN, type Column } from '../components/DataTable';
 import { EmailTable } from '../components/EmailTable';
 import { Avatar, RateBar } from '../components/marks';
@@ -47,6 +49,7 @@ export function ContactsPage() {
   const q = list.get('q');
   const contacts = useContacts(q, { page: list.page, size: list.size, sort: list.get('sort') || undefined, dir: list.get('dir') || undefined });
   const result = contacts.data;
+  const view: ContactsView = list.get('view') === 'companies' ? 'companies' : 'people';
 
   return (
     <>
@@ -54,6 +57,7 @@ export function ContactsPage() {
         title="Contacts"
         description="Everyone you emailed with tracking, and how often they opened."
         actions={
+          view === 'people' ? (
           <>
             <SearchField
               label="Search contacts"
@@ -69,8 +73,21 @@ export function ContactsPage() {
               </div>
             )}
           </>
+          ) : undefined
         }
       />
+      <Tabs
+        label="Contacts view"
+        value={view}
+        tabs={[
+          { value: 'people', label: 'People' },
+          { value: 'companies', label: 'Companies' },
+        ]}
+        onChange={(next) => list.update({ view: next === 'people' ? null : next }, { replace: true })}
+      >
+      {view === 'companies' ? (
+        <CompaniesPanel now={now} />
+      ) : (
       <Card>
         <DataTable
           label="Contacts"
@@ -124,7 +141,71 @@ export function ContactsPage() {
         />
         {result && <Pagination page={result.page} size={result.size} total={result.total} onPage={list.setPage} onSize={list.setSize} />}
       </Card>
+      )}
+      </Tabs>
     </>
+  );
+}
+
+type ContactsView = 'people' | 'companies';
+
+function companyColumns(now: number): Column<CompanySummary>[] {
+  return [
+    {
+      key: 'company',
+      header: 'Company',
+      className: MAIN_COLUMN,
+      cell: (company) => <span className={company.domain ? 'block truncate font-medium' : 'block truncate font-medium text-muted'}>{companyName(company)}</span>,
+    },
+    { key: 'contacts', header: 'Contacts', align: 'right', cell: (company) => company.contacts },
+    { key: 'emails', header: 'Emails', align: 'right', cell: (company) => company.emails },
+    { key: 'opened', header: 'Opened', align: 'right', cell: (company) => company.opened },
+    { key: 'replyRate', header: 'Reply rate', align: 'right', cell: (company) => <RateBar rate={replyRate(company)} /> },
+    { key: 'lastActivity', header: 'Last activity', className: 'whitespace-nowrap text-muted', cell: (company) => relativeTime(company.lastActivityAt, now) },
+  ];
+}
+
+function CompaniesPanel({ now }: { now: number }) {
+  const [text, setText] = useState('');
+  const companies = useCompanies(true);
+  const rows = companies.data ? filterCompanies(companies.data, text) : undefined;
+  return (
+    <Card>
+      <div className="p-4">
+        <SearchField label="Search companies" value={text} placeholder="Company domain" onSearch={setText} className="w-full sm:w-80" />
+      </div>
+      <DataTable
+        label="Companies"
+        columns={companyColumns(now)}
+        rows={rows}
+        rowKey={(company) => company.domain ?? '(personal)'}
+        error={companies.error}
+        onRetry={() => void companies.refetch()}
+        empty={
+          text ? (
+            <Empty title={`No companies match "${text}"`} icon={SearchX}>
+              Try another domain.
+            </Empty>
+          ) : (
+            <Empty title="No companies yet" icon={Building2}>
+              Companies appear after your first tracked email.
+            </Empty>
+          )
+        }
+        mobile={(list) => (
+          <ul className="divide-y divide-line" aria-label="Companies">
+            {list.map((company) => (
+              <li key={company.domain ?? '(personal)'} className="px-4 py-3 text-sm">
+                <span className="block truncate font-medium">{companyName(company)}</span>
+                <span className="block truncate text-xs text-muted">
+                  {count(company.contacts, 'contact')} · {count(company.emails, 'email')} · {company.opened} opened · {formatPercent(replyRate(company))} replied · {relativeTime(company.lastActivityAt, now)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      />
+    </Card>
   );
 }
 

@@ -5,6 +5,8 @@ export const ALERT_LABELS: Record<AlertType, { label: string; tone: string }> = 
   OPEN_SPIKE: { label: 'Hot', tone: 'text-good' },
   REVIVAL: { label: 'Opened again', tone: 'text-accent' },
   DOC_VIEWS: { label: 'Document viewed often', tone: 'text-good' },
+  NO_REPLY: { label: 'No reply yet', tone: 'text-warn' },
+  WEEKLY: { label: 'Weekly summary', tone: 'text-accent' },
 };
 
 export const ACTIVITY_LABELS: Record<ActivityKind, { label: string; tone: string }> = {
@@ -28,12 +30,15 @@ export const ACTIVITY_FILTERS = [
 export type ActivityFilter = (typeof ACTIVITY_FILTERS)[number]['value'];
 
 /**
- * The Gmail thread in the right account (D-101). Gmail accepts the account address in place of the
- * account number, and the hex thread ID from InboxSDK opens with #all/. Nothing is sent anywhere:
- * this is a plain link the owner clicks.
+ * The Gmail thread in the right account (D-101), in the same form as the extension's notifications:
+ * ?authuser=<address> picks the account (Gmail answers /mail/u/<address>/ with "Temporary Error (404)"),
+ * and the hex thread ID from InboxSDK opens with #all/. Nothing is sent anywhere: this is a plain link
+ * the owner clicks.
  */
 export function gmailThreadUrl(account: string | null | undefined, threadId: string | null | undefined): string | null {
   if (!threadId || !/^[0-9A-Za-z_-]{6,64}$/.test(threadId)) return null;
-  const user = account && /^[^\s/@]+@[^\s/@]+$/.test(account) ? encodeURIComponent(account).replace('%40', '@') : '0';
-  return `https://mail.google.com/mail/u/${user}/#all/${threadId}`;
+  if (account && /^[^\s/@]+@[^\s/@]+$/.test(account)) {
+    return `https://mail.google.com/mail/?authuser=${encodeURIComponent(account)}#all/${threadId}`;
+  }
+  return `https://mail.google.com/mail/u/0/#all/${threadId}`;
 }

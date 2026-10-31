@@ -21,6 +21,17 @@ describe('app shell', () => {
     expect(screen.getByTestId('sidebar').contains(scroller)).toBe(false);
   });
 
+  it('offers "Skip to content" as the first Tab stop and moves focus to the main content', async () => {
+    mockApi({ 'GET /api/emails': { body: page([]) } });
+    renderAt('/emails');
+    await screen.findByTestId('top-bar');
+    await userEvent.tab();
+    const skip = screen.getByRole('link', { name: 'Skip to content' });
+    expect(document.activeElement).toBe(skip);
+    await userEvent.keyboard('{Enter}');
+    expect(document.activeElement).toBe(screen.getByTestId('scroll-container'));
+  });
+
   it('opens the mobile drawer and closes it with Escape and on navigation', async () => {
     mockApi({ 'GET /api/emails': { body: page([]) }, 'GET /api/reports/daily': { body: null }, 'GET /api/reports/weekly': { body: null }, 'GET /api/activity': { body: { items: [], lastId: 0 } } });
     const router = renderAt('/emails');

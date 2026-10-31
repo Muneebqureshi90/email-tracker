@@ -56,6 +56,63 @@ describe('Emails list', () => {
   });
 });
 
+describe('Emails list replies', () => {
+  it('shows a Replied badge in the list and in the row of an email with a reply', async () => {
+    mockApi({
+      'GET /api/emails': {
+        body: { items: [email({ id: 'e-replied', subject: 'Offer letter', repliedAt: '2026-10-30T10:00:00Z' })], page: 0, size: 25, total: 1 },
+      },
+      'GET /api/emails/counts': { body: { all: 1, opened: 0, notOpened: 1, clicked: 0 } },
+      'GET /api/accounts': { body: ['me@gmail.com'] },
+    });
+    renderAt('/emails');
+    const replied = await screen.findByRole('list', { name: 'Replied emails' });
+    expect(within(replied).getByText('Replied')).toBeTruthy();
+    expect(within(replied).getByRole('link', { name: 'Offer letter' }).getAttribute('href')).toBe('/emails/e-replied');
+    const table = await screen.findByRole('table', { name: 'Emails' });
+    expect(within(table).getAllByText('Replied').length).toBeGreaterThan(0);
+  });
+
+  it('shows no Replied badge when no email has a reply', async () => {
+    mockApi({
+      'GET /api/emails': { body: { items: [email({ repliedAt: null })], page: 0, size: 25, total: 1 } },
+      'GET /api/emails/counts': { body: { all: 1, opened: 0, notOpened: 1, clicked: 0 } },
+      'GET /api/accounts': { body: ['me@gmail.com'] },
+    });
+    renderAt('/emails');
+    const table = await screen.findByRole('table', { name: 'Emails' });
+    expect(screen.queryByRole('list', { name: 'Replied emails' })).toBeNull();
+    expect(within(table).queryByText('Replied')).toBeNull();
+  });
+});
+
+describe('Email detail reply', () => {
+  it('shows when the reply came', async () => {
+    const summary = email({ id: 'e-replied', subject: 'Offer letter', repliedAt: '2026-10-30T10:00:00Z' });
+    mockApi({
+      'GET /api/emails/e-replied': {
+        body: {
+          summary,
+          trackOpens: true,
+          trackLinks: true,
+          trackingEnabled: true,
+          notifications: true,
+          followUpHours: null,
+          gmailMessageId: null,
+          gmailThreadId: null,
+          cancelledAt: null,
+          links: [],
+          events: [],
+          opens: [],
+        },
+      },
+    });
+    renderAt('/emails/e-replied');
+    const badge = await screen.findByText('Replied');
+    expect(badge.closest('[role="status"]')?.textContent).toMatch(/Replied.*\(/);
+  });
+});
+
 describe('Contacts', () => {
   it('lists contacts with avatars and open rates and sorts them', async () => {
     const contact = { email: 'jane@example.com', name: 'Jane Doe', emails: 4, openedEmails: 3, opens: 9, clicks: 1, firstSeenAt: '2026-10-01T09:00:00Z', lastEmailedAt: '2026-10-29T09:00:00Z', lastOpenedAt: '2026-10-29T10:00:00Z' };
@@ -138,7 +195,7 @@ describe('Activity', () => {
     expect(screen.getByText('Opened again')).toBeTruthy();
     expect(screen.getByText('3rd open · Gmail')).toBeTruthy();
     const gmail = screen.getByRole('link', { name: 'Open in Gmail: Email 3' });
-    expect(gmail.getAttribute('href')).toBe('https://mail.google.com/mail/u/me@gmail.com/#all/18a0b2c3d4e5f6a7');
+    expect(gmail.getAttribute('href')).toBe('https://mail.google.com/mail/?authuser=me%40gmail.com#all/18a0b2c3d4e5f6a7');
     expect(screen.getByRole('link', { name: /Resume\.pdf/ }).getAttribute('href')).toBe('/documents/d1');
 
     await userEvent.click(screen.getByRole('button', { name: 'Load older' }));

@@ -1,8 +1,17 @@
-import { Check, Copy, FileText, Link2, Upload } from 'lucide-react';
-import { useRef, useState, type FormEvent } from 'react';
+import { Check, Clock, Copy, FileText, Link2, Upload } from 'lucide-react';
+import { useId, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
-  useCreateLink,
+  EXPIRY_CHOICES,
+  expiresAtFor,
+  expiryText,
+  maxViewsOf,
+  maxViewsProblem,
+  useCreateSafeLink,
+  useDocumentPages,
+  type ExpiryChoice,
+} from '../api/documentInsights';
+import {
   useDeleteDocument,
   useDocument,
   useDocumentEvents,
@@ -18,7 +27,7 @@ import { SearchField, Tabs } from '../components/controls';
 import { DataTable, MAIN_COLUMN, type Column } from '../components/DataTable';
 import { ConfirmDialog, Modal } from '../components/dialogs';
 import { toast, toastError } from '../components/toast';
-import { Badge, Button, Card, Empty, ErrorBox, PageHeader, Pagination, QueryState, Stat, TextLink, Toggle } from '../components/ui';
+import { Badge, Button, Card, Empty, ErrorBox, LoadingBlock, PageHeader, Pagination, QueryState, Stat, TextLink, Toggle } from '../components/ui';
 import { REASONS, SOURCES, count, duration, fileSize, formatDateTime, formatShortDateTime, relativeTime } from '../lib/format';
 import { useNow } from '../lib/now';
 import { clampPage, paginate, useListParams } from '../lib/paging';
@@ -58,6 +67,7 @@ function PdfUpload({
   onUpload: (file: File, onProgress: (fraction: number) => void) => Promise<unknown>;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const labelId = useId();
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const problem = file ? pdfProblem(file) : null;
@@ -78,17 +88,28 @@ function PdfUpload({
   return (
     <form onSubmit={(event) => void submit(event)} className="space-y-3 p-4">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="min-w-0 flex-1 basis-60">
-          <span className="label">PDF file</span>
-          <input
-            ref={input}
-            type="file"
-            accept="application/pdf,.pdf"
-            className="input"
-            disabled={busy}
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          />
-        </label>
+        <div className="min-w-0 flex-1 basis-60">
+          <span id={labelId} className="label">
+            PDF file
+          </span>
+          {/* The native picker is visually hidden; the styled span is its visible face (bug: plain "Choose File"). */}
+          <label className="flex min-w-0 cursor-pointer items-center gap-3">
+            <input
+              ref={input}
+              type="file"
+              accept="application/pdf,.pdf"
+              className="peer sr-only"
+              aria-labelledby={labelId}
+              disabled={busy}
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+            <span className="btn btn-quiet shrink-0 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
+              <FileText size={16} aria-hidden="true" />
+              Choose PDF
+            </span>
+            <span className={`min-w-0 truncate text-sm ${file ? 'text-fg' : 'text-muted'}`}>{file ? file.name : 'No PDF chosen'}</span>
+          </label>
+        </div>
         <Button type="submit" variant="primary" loading={busy} disabled={!file || problem !== null}>
           <Upload size={16} aria-hidden="true" />
           {label}
@@ -285,6 +306,50 @@ function eventWhat(event: DocEventView): string {
 
 type DetailTab = 'links' | 'events';
 
+/** One bar per page with its reading time and readers; the most-read page is highlighted. */
+function PageTimes({ documentId }: { documentId: string }) {
+  const pages = useDocumentPages(documentId);
+  if (pages.data === undefined) {
+    return pages.error ? (
+      <div className="p-4">
+        <ErrorBox error={pages.error} onRetry={() => void pages.refetch()} />
+      </div>
+    ) : (
+      <LoadingBlock />
+    );
+  }
+  if (pages.data.length === 0) {
+    return (
+      <Empty title="No reading time yet" icon={Clock}>
+        When someone reads the PDF, the time spent on each page shows here.
+      </Empty>
+    );
+  }
+  const sorted = [...pages.data].sort((a, b) => a.page - b.page);
+  const most = Math.max(...sorted.map((entry) => entry.seconds));
+  const top = sorted.find((entry) => entry.seconds === most && most > 0)?.page ?? null;
+  return (
+    <ul className="space-y-3 p-4" aria-label="Time per page">
+      {sorted.map((entry) => (
+        <li key={entry.page} className="text-sm">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className={entry.page === top ? 'font-semibold' : ''}>
+              Page {entry.page} · {duration(entry.seconds)} · {count(entry.readers, 'reader')}
+            </span>
+            {entry.page === top && <Badge tone="accent">Most read</Badge>}
+          </span>
+          <span className="mt-1 block h-2 overflow-hidden rounded-full bg-chip" aria-hidden="true">
+            <span
+              className={`block h-full rounded-full ${entry.page === top ? 'bg-accent' : 'bg-accent-soft'}`}
+              style={{ width: `${most > 0 ? Math.max(2, Math.round((entry.seconds / most) * 100)) : 0}%` }}
+            />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function DocumentView({ detail }: { detail: DocumentDetail }) {
   const now = useNow();
   const navigate = useNavigate();
@@ -292,7 +357,10 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
   const rename = useRenameDocument();
   const replace = useReplaceDocument();
   const remove = useDeleteDocument();
-  const createLink = useCreateLink(summary.id);
+  const createLink = useCreateSafeLink(summary.id);
+  const [expiry, setExpiry] = useState<ExpiryChoice>('never');
+  const [maxViews, setMaxViews] = useState('');
+  const limitProblem = maxViewsProblem(maxViews);
   const updateLink = useUpdateLink();
   const [name, setName] = useState(summary.name);
   const [deleting, setDeleting] = useState(false);
@@ -336,13 +404,22 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
     });
   const submitLink = (event: FormEvent) => {
     event.preventDefault();
+    if (limitProblem) return;
     setCopiedId(null);
+    const expiresAt = expiresAtFor(expiry, Date.now());
     createLink.mutate(
-      { ...(label.trim() ? { label: label.trim() } : {}), allowDownload },
+      {
+        ...(label.trim() ? { label: label.trim() } : {}),
+        allowDownload,
+        ...(expiresAt ? { expiresAt } : {}),
+        ...(maxViews.trim() ? { maxViews: Number(maxViews) } : {}),
+      },
       {
         onSuccess: (link) => {
           setCreated(link);
           setLabel('');
+          setExpiry('never');
+          setMaxViews('');
         },
         onError: (error) => toastError('The link was not created', error),
       },
@@ -383,6 +460,22 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
     { key: 'downloads', header: 'Downloads', align: 'right', cell: (link) => (link.allowDownload ? link.downloads : '—') },
     { key: 'last', header: 'Last activity', className: 'whitespace-nowrap text-muted', cell: (link) => relativeTime(link.lastActivityAt, now) },
     {
+      key: 'limits',
+      header: 'Limits',
+      className: 'whitespace-nowrap text-xs text-muted',
+      cell: (link) => {
+        const ends = expiryText(link.expiresAt, now);
+        const limit = maxViewsOf(link);
+        if (!ends && limit === null) return '—';
+        return (
+          <>
+            {ends && <span className="block">{ends}</span>}
+            {limit !== null && <span className="block">{`${link.views} of ${limit} views`}</span>}
+          </>
+        );
+      },
+    },
+    {
       key: 'status',
       header: 'Status',
       className: 'whitespace-nowrap',
@@ -419,12 +512,17 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
         description={`${sizeLine(summary)} · version ${summary.version} · uploaded ${formatDateTime(summary.createdAt)}`}
         actions={<TextLink to="/documents">Back to documents</TextLink>}
       />
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Views" value={summary.views} />
         <Stat label="Reads" value={summary.reads} />
         <Stat label="Downloads" value={summary.downloads} />
         <Stat label="Last activity" value={relativeTime(summary.lastActivityAt, now)} hint={summary.lastActivityAt ? formatDateTime(summary.lastActivityAt) : undefined} />
       </div>
+      <p className="mb-6 text-xs text-muted">Bots, link previews and your own views are listed under All events but not counted.</p>
+
+      <Card title="Time per page" className="mb-6">
+        <PageTimes documentId={summary.id} />
+      </Card>
 
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
         <Card title="Share link">
@@ -434,7 +532,39 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
               <input className="input" value={label} maxLength={200} placeholder="For example: LinkedIn message to Jane" onChange={(event) => setLabel(event.target.value)} />
             </label>
             <Toggle label="Allow download" description="Off: the reader can only view the PDF in the browser." checked={allowDownload} onChange={setAllowDownload} />
-            <Button type="submit" variant="primary" loading={createLink.isPending}>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block">
+                <span className="label">Expires</span>
+                <select className="input" value={expiry} onChange={(event) => setExpiry(event.target.value as ExpiryChoice)}>
+                  {EXPIRY_CHOICES.map((choice) => (
+                    <option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="label">Max views (optional)</span>
+                <input
+                  className="input"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={1000}
+                  step={1}
+                  value={maxViews}
+                  placeholder="No limit"
+                  aria-invalid={limitProblem !== null}
+                  onChange={(event) => setMaxViews(event.target.value)}
+                />
+              </label>
+            </div>
+            {limitProblem && (
+              <p role="alert" className="text-sm text-bad">
+                {limitProblem}
+              </p>
+            )}
+            <Button type="submit" variant="primary" loading={createLink.isPending} disabled={limitProblem !== null}>
               <Link2 size={16} aria-hidden="true" />
               Create link
             </Button>
@@ -467,7 +597,7 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
           onChange={setTab}
           tabs={[
             { value: 'links', label: 'Links', count: links.data?.total },
-            { value: 'events', label: 'Views, reads and downloads', count: events.data?.total },
+            { value: 'events', label: 'All events', count: events.data?.total },
           ]}
         >
           {tab === 'links' ? (
@@ -498,7 +628,7 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
                 <Empty title="No views yet">Nobody has opened a link to this document yet.</Empty>
               ) : (
                 <div className="table-wrap">
-                  <table className="table" aria-label="Views, reads and downloads" aria-busy={events.data === undefined}>
+                  <table className="table" aria-label="All events" aria-busy={events.data === undefined}>
                     <thead>
                       <tr>
                         <th>When</th>

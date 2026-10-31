@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useActivity, useEmails, useReport } from '../api/queries';
+import { formatMinutes, recentDowntimes, useSystemStatus } from '../api/system';
 import { ActivityList } from '../components/ActivityList';
 import { LazyBucketChart } from '../components/LazyBucketChart';
 import { EmailTable } from '../components/EmailTable';
@@ -17,6 +19,7 @@ export function OverviewPage() {
   return (
     <>
       <PageHeader title="Overview" description="Today and this week, in your time zone. New opens appear here without reloading." />
+      <DowntimeBanner />
       <QueryState query={today}>
         {(report) => (
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -66,5 +69,42 @@ export function OverviewPage() {
         </QueryState>
       </Card>
     </>
+  );
+}
+
+const DISMISSED_KEY = 'mailpulse.downtimeBannerDismissed';
+
+/** Shown when MailPulse was not running (PC off or asleep) in the last 7 days; dismissed for this browser session. */
+function DowntimeBanner() {
+  const status = useSystemStatus();
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem(DISMISSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  if (dismissed || !status.data) return null;
+  const windows = recentDowntimes(status.data.downtimes, status.dataUpdatedAt, 7);
+  if (windows.length === 0) return null;
+  const total = windows.reduce((sum, window) => sum + window.minutes, 0);
+  const dismiss = () => {
+    try {
+      sessionStorage.setItem(DISMISSED_KEY, '1');
+    } catch {
+      // Without session storage the banner still hides until the page is reloaded.
+    }
+    setDismissed(true);
+  };
+  return (
+    <div role="status" className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+      <p>
+        MailPulse was off {windows.length === 1 ? 'once' : `${windows.length} times`} in the last 7 days ({formatMinutes(total)} in total). Opens
+        during that time were not recorded. <TextLink to="/account">Details</TextLink>
+      </p>
+      <button type="button" className="btn btn-quiet" onClick={dismiss}>
+        Dismiss
+      </button>
+    </div>
   );
 }

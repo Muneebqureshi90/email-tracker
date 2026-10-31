@@ -47,6 +47,12 @@ function EmailView({ detail }: { detail: EmailDetail }) {
         <Stat label="Last opened" value={relativeTime(summary.lastOpenedAt, now)} />
         <Stat label="Clicks" value={summary.clickCount} hint={summary.lastClickedAt ? `last ${relativeTime(summary.lastClickedAt, now)}` : undefined} />
       </div>
+      {summary.repliedAt && (
+        <p role="status" className="mb-6 text-sm">
+          <span className="mr-2 rounded-full border px-2 py-0.5 text-xs font-medium">Replied</span>
+          {formatDateTime(summary.repliedAt)} ({relativeTime(summary.repliedAt, now)})
+        </p>
+      )}
       {summary.openStatusUnreliable && !opened && (
         <p role="note" className="mb-6 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm">
           Open status may be unreliable: every recipient uses a mail provider that blocks images by default (for example

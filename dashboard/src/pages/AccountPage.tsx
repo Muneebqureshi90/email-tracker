@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useDeleteAllData } from '../api/queries';
+import { formatBytes, formatMinutes, useSystemStatus } from '../api/system';
 import { Card, ErrorBox, PageHeader } from '../components/ui';
 
 export const DELETE_CONFIRMATION = 'DELETE ALL MY DATA';
@@ -24,6 +25,7 @@ export function AccountPage() {
           </div>
         </Card>
         <DeleteCard />
+        <SystemCard />
       </div>
     </>
   );
@@ -123,6 +125,55 @@ function DeleteCard() {
           Delete all data
         </button>
       </form>
+    </Card>
+  );
+}
+
+const DATE_TIME = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+/** Storage use, the last heartbeat and the times MailPulse was not running (opens then were not recorded). */
+function SystemCard() {
+  const status = useSystemStatus();
+  return (
+    <Card title="System">
+      <div className="space-y-3 p-4 text-sm">
+        {status.isPending ? (
+          <p className="text-muted">Loading…</p>
+        ) : !status.data ? (
+          <p className="text-muted">System status is not available right now.</p>
+        ) : (
+          <>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+              <dt className="text-muted">Database size</dt>
+              <dd>{formatBytes(status.data.databaseBytes)}</dd>
+              <dt className="text-muted">Document storage</dt>
+              <dd>
+                {formatBytes(status.data.documentBytes)} ({status.data.documents} {status.data.documents === 1 ? 'document' : 'documents'})
+              </dd>
+              <dt className="text-muted">Tracked emails</dt>
+              <dd>{status.data.emails}</dd>
+              <dt className="text-muted">Last heartbeat</dt>
+              <dd>{status.data.lastHeartbeatAt ? DATE_TIME.format(new Date(status.data.lastHeartbeatAt)) : 'None yet'}</dd>
+            </dl>
+            <h3 className="font-medium">Downtime in the last 30 days</h3>
+            {status.data.downtimes.length === 0 ? (
+              <p className="text-muted">None: MailPulse was running the whole time.</p>
+            ) : (
+              <ul className="space-y-1">
+                {status.data.downtimes.map((window) => (
+                  <li key={window.from} className="flex flex-wrap justify-between gap-2">
+                    <span>
+                      {DATE_TIME.format(new Date(window.from))} – {DATE_TIME.format(new Date(window.to))}
+                    </span>
+                    <span className="text-muted">{formatMinutes(window.minutes)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-muted">Opens and clicks while MailPulse is off (PC off or asleep) are not recorded.</p>
+          </>
+        )}
+      </div>
     </Card>
   );
 }

@@ -23,6 +23,7 @@
   --color-bad: var(--mp-bad);
   --color-bad-fg: var(--mp-bad-fg);
   --color-chip: var(--mp-chip);
+  --color-switch-off: var(--mp-switch-off);
   --color-overlay: var(--mp-overlay);
   --font-sans: "Inter Variable", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --radius-sm: 6px;
@@ -50,6 +51,8 @@
   --mp-bad: #b91c1c;
   --mp-bad-fg: #ffffff;
   --mp-chip: #eef0f3;
+  /* Off switch track: at least 3:1 against --mp-surface and --mp-bg (WCAG 1.4.11). */
+  --mp-switch-off: #7c8696;
   --mp-chart-2: #0891b2;
   --mp-overlay: rgb(15 23 42 / 0.45);
   --mp-scroll: #c3c9d2;
@@ -73,6 +76,7 @@
   --mp-bad: #f87171;
   --mp-bad-fg: #0b0d12;
   --mp-chip: #1e2330;
+  --mp-switch-off: #5f6878;
   --mp-chart-2: #22d3ee;
   --mp-overlay: rgb(0 0 0 / 0.6);
   --mp-scroll: #3a4150;
@@ -208,6 +212,10 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 @layer components {
+  /* "Skip to content": the first Tab stop, off screen until it has focus. */
+  .skip-link {
+    @apply fixed top-2 left-2 z-[60] -translate-y-[200%] rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm font-medium text-fg shadow-(--shadow-md) focus:translate-y-0;
+  }
   .card {
     @apply rounded-xl border border-line bg-surface shadow-(--shadow-sm);
   }
@@ -312,7 +320,8 @@ input[type="search"]::-webkit-search-cancel-button {
     @apply w-16 border-x border-line bg-transparent px-2 text-center text-sm text-fg outline-none;
   }
   .segmented {
-    @apply inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg border border-line bg-bg p-0.5;
+    /* Wraps onto a second row on narrow screens so every option stays visible and reachable. */
+    @apply inline-flex max-w-full flex-wrap gap-0.5 rounded-lg border border-line bg-bg p-0.5;
   }
   .segmented-item {
     @apply inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:text-fg aria-checked:bg-surface aria-checked:text-fg aria-checked:shadow-(--shadow-sm) aria-pressed:bg-surface aria-pressed:text-fg aria-pressed:shadow-(--shadow-sm);

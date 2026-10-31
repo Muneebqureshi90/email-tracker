@@ -1,3 +1,4 @@
+import { Reply } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { EmailSummary } from '../api/types';
@@ -6,6 +7,16 @@ import type { SortDir } from '../lib/paging';
 import { DataTable, MAIN_COLUMN, type Column } from './DataTable';
 import { Avatar, OpenedAgainChip, StatusMark } from './marks';
 import { Empty } from './ui';
+
+/** The extension saw a reply in the email's Gmail thread. */
+function RepliedChip() {
+  return (
+    <span className="chip text-good">
+      <Reply size={12} aria-hidden="true" />
+      Replied
+    </span>
+  );
+}
 
 function columns(now: number): Column<EmailSummary>[] {
   return [
@@ -25,6 +36,7 @@ function columns(now: number): Column<EmailSummary>[] {
               <span className="flex min-w-0 items-center gap-2 text-xs text-muted">
                 <span className="truncate">{recipientsText(email.recipients)}</span>
                 {email.openedAgain && <OpenedAgainChip />}
+                {email.repliedAt && <RepliedChip />}
               </span>
             </div>
           </div>

@@ -34,6 +34,8 @@ export interface EmailSummary {
   openedAgain?: boolean;
   /** v2: up to 5 latest counted open times, newest first. */
   recentOpens?: string[];
+  /** When the extension first saw a reply in the email's Gmail thread; null: no reply seen. */
+  repliedAt?: string | null;
 }
 
 export interface OpenView {
@@ -126,7 +128,7 @@ export interface NotificationPage {
   lastReadId: number;
 }
 
-export type AlertType = 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL' | 'DOC_VIEWS';
+export type AlertType = 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL' | 'DOC_VIEWS' | 'NO_REPLY' | 'WEEKLY';
 export type AlertStatus = 'NEW' | 'SEEN' | 'DISMISSED' | 'SNOOZED';
 
 export interface AlertView {
@@ -136,7 +138,8 @@ export interface AlertView {
   status: AlertStatus;
   createdAt: string;
   snoozedUntil: string | null;
-  emailId: string;
+  /** Null for alerts about a document link or the WEEKLY summary. */
+  emailId: string | null;
   subject: string | null;
   recipients: string;
 }

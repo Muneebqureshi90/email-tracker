@@ -47,13 +47,20 @@ export function activityDetail(item: ActivityItem): string {
 
 /** The subject (or document name) and who it was, for the first and second line. */
 function lines(item: ActivityItem): { primary: string; who: string } {
+  if (isWeeklySummary(item)) return { primary: 'Last week', who: 'All emails' };
   if (isDocumentItem(item)) {
     return { primary: item.documentName ?? 'Document', who: item.recipients || (item.linkLabel ? `Share link: ${item.linkLabel}` : 'Share link') };
   }
   return { primary: item.subject || '(no subject)', who: item.recipients || 'Recipient unknown' };
 }
 
+/** The weekly summary alert belongs to no email or document: it opens Reports. */
+function isWeeklySummary(item: ActivityItem): boolean {
+  return item.kind === 'ALERT' && item.alertType === 'WEEKLY';
+}
+
 function targetOf(item: ActivityItem): string {
+  if (isWeeklySummary(item)) return '/reports';
   if (isDocumentItem(item) && item.documentId) return `/documents/${encodeURIComponent(item.documentId)}`;
   return item.emailId ? `/emails/${item.emailId}` : '/activity';
 }

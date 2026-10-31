@@ -11,6 +11,17 @@ import { useListParams } from '../lib/paging';
 
 type Change = { status: AlertView['status']; snoozeHours?: number };
 
+type KindLabel = { label: string; tone: string };
+
+/** Kinds newer than the shared labels, and a neutral label for any kind this page does not know yet. */
+const EXTRA_LABELS: Readonly<Record<string, KindLabel | undefined>> = { NO_REPLY: { label: 'No reply yet', tone: 'text-warn' } };
+const KNOWN_LABELS: Readonly<Record<string, KindLabel | undefined>> = ALERT_LABELS;
+const UNKNOWN_LABEL: KindLabel = { label: 'Alert', tone: 'text-muted' };
+
+function kindLabel(type: string): KindLabel {
+  return KNOWN_LABELS[type] ?? EXTRA_LABELS[type] ?? UNKNOWN_LABEL;
+}
+
 const DONE: Record<AlertView['status'], string> = { NEW: 'Alert reopened', SEEN: 'Marked as seen', SNOOZED: 'Snoozed for a day', DISMISSED: 'Alert dismissed' };
 
 export function AlertsPage() {
@@ -34,7 +45,7 @@ export function AlertsPage() {
     <>
       <PageHeader
         title="Alerts"
-        description="Follow-up reminders, open spikes, revivals and often-viewed documents. Rules and times are under Settings → Alerts."
+        description="Follow-up reminders (not opened, or opened often without a reply), open spikes, revivals and often-viewed documents. Rules and times are under Settings → Alerts."
         actions={
           <Segmented
             label="Show"
@@ -56,8 +67,8 @@ export function AlertsPage() {
           </div>
         ) : result.total === 0 ? (
           <Empty title={status === 'active' ? 'No open alerts' : 'No alerts yet'} icon={BellOff}>
-            Alerts appear when an email is not opened in time, is opened many times, is opened again after a long time, or a
-            document is viewed often.
+            Alerts appear when an email is not opened in time, is opened several times without a reply, is opened many times, is
+            opened again after a long time, or a document is viewed often.
           </Empty>
         ) : (
           <>
@@ -76,7 +87,7 @@ export function AlertsPage() {
 }
 
 function AlertRow({ alert, now, busy, onChange }: { alert: AlertView; now: number; busy: boolean; onChange: (change: Change) => void }) {
-  const kind = ALERT_LABELS[alert.type];
+  const kind = kindLabel(alert.type);
   const closed = alert.status === 'DISMISSED' || alert.status === 'SNOOZED';
   return (
     <li className={`flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm ${alert.status === 'NEW' ? '' : 'opacity-80'}`}>
@@ -88,10 +99,17 @@ function AlertRow({ alert, now, busy, onChange }: { alert: AlertView; now: numbe
           {alert.status === 'DISMISSED' && <Badge>Dismissed</Badge>}
         </p>
         <p className="mt-0.5">{alert.text}</p>
-        <p className="mt-0.5 truncate text-xs text-muted">
-          <TextLink to={`/emails/${alert.emailId}`}>{alert.subject || '(no subject)'}</TextLink> · {alert.recipients || 'Recipient unknown'} ·{' '}
-          {relativeTime(alert.createdAt, now)}
-        </p>
+        {/* A weekly summary belongs to no email (emailId null): it links to Reports instead. */}
+        {alert.type === 'WEEKLY' || !alert.emailId ? (
+          <p className="mt-0.5 truncate text-xs text-muted">
+            <TextLink to="/reports">See reports</TextLink> · {relativeTime(alert.createdAt, now)}
+          </p>
+        ) : (
+          <p className="mt-0.5 truncate text-xs text-muted">
+            <TextLink to={`/emails/${alert.emailId}`}>{alert.subject || '(no subject)'}</TextLink> · {alert.recipients || 'Recipient unknown'} ·{' '}
+            {relativeTime(alert.createdAt, now)}
+          </p>
+        )}
       </div>
       {!closed && (
         <div className="flex flex-wrap gap-2">

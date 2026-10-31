@@ -3,7 +3,7 @@ import { useAccounts, useEmailCounts, useEmails } from '../api/queries';
 import type { EmailCounts } from '../api/types';
 import { SearchField, Segmented, Select } from '../components/controls';
 import { EmailTable } from '../components/EmailTable';
-import { Card, Empty, PageHeader, Pagination } from '../components/ui';
+import { Card, Empty, PageHeader, Pagination, TextLink } from '../components/ui';
 import { useNow } from '../lib/now';
 import { useListParams } from '../lib/paging';
 
@@ -58,7 +58,7 @@ export function EmailsPage() {
               placeholder="Subject, name or address"
               onSearch={(text) => list.update({ q: text }, { replace: true })}
               searching={Boolean(q) && emails.isFetching}
-              className="w-full sm:w-80"
+              className="w-full shrink-0 sm:w-80 xl:w-96"
             />
             {(accounts.data?.length ?? 0) > 1 && (
               <Select
@@ -73,6 +73,18 @@ export function EmailsPage() {
           </>
         }
       />
+      {result && result.items.some((email) => email.repliedAt) && (
+        <ul aria-label="Replied emails" className="mb-3 flex flex-wrap gap-2 text-sm">
+          {result.items
+            .filter((email) => email.repliedAt)
+            .map((email) => (
+              <li key={email.id} className="flex items-center gap-1">
+                <span className="rounded-full border px-2 py-0.5 text-xs font-medium">Replied</span>
+                <TextLink to={`/emails/${email.id}`}>{email.subject ?? '(no subject)'}</TextLink>
+              </li>
+            ))}
+        </ul>
+      )}
       <Card>
         <EmailTable
           emails={result?.items}

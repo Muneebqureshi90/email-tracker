@@ -10,6 +10,7 @@ import { DocumentDetailPage, DocumentsPage } from './pages/DocumentsPage';
 import { EmailDetailPage } from './pages/EmailDetailPage';
 import { EmailsPage } from './pages/EmailsPage';
 import { OverviewPage } from './pages/OverviewPage';
+import { PipelinePage } from './pages/PipelinePage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TokensPage } from './pages/TokensPage';
@@ -37,6 +38,7 @@ export const routes: RouteObject[] = [
       { path: 'contacts/:address', element: <ContactDetailPage /> },
       { path: 'documents', element: <DocumentsPage /> },
       { path: 'documents/:id', element: <DocumentDetailPage /> },
+      { path: 'pipeline', element: <PipelinePage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'tokens', element: <TokensPage /> },
