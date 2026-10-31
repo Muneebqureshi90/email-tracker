@@ -5,7 +5,7 @@ import type { Ask } from './bridge';
 import { HoverCard } from './card';
 import { GmailEnv } from './env';
 import { messageIcon } from './message-views';
-import { countIcon, tickIcon } from './rows';
+import { countIcon, placeSenderMark, tickIcon } from './rows';
 import { DARK_CLASS, luminance, watchGmailTheme } from './theme';
 
 const EMAIL_ID = '7b0f3c52-1d9e-4f1a-9c41-2b9d6f0a1e11';
@@ -62,6 +62,34 @@ describe('Gmail marks', () => {
     expect(countIcon(MARK)!.iconHtml).toContain('>3</span>');
     expect(countIcon({ ...MARK, openCount: 1 })).toBeNull();
     expect(tickIcon(null)).toBeNull();
+  });
+
+  it('put the mark in the sender column of thread rows, once, and remove it again', () => {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.className = 'yX xY';
+    const sender = document.createElement('div');
+    sender.className = 'yW';
+    sender.append(Object.assign(document.createElement('span'), { textContent: 'me' }));
+    cell.append(sender);
+    row.append(cell);
+
+    expect(placeSenderMark(row, MARK)).toBe(true);
+    expect(placeSenderMark(row, MARK)).toBe(true);
+    const marks = cell.querySelectorAll('.mp-sender-mark');
+    expect(marks).toHaveLength(1);
+    expect(cell.firstElementChild).toBe(marks[0]);
+    expect(sender.textContent).toBe('me');
+    expect(marks[0]!.className).toContain('mp-green');
+    expect(marks[0]!.getAttribute('data-mp-email')).toBe(EMAIL_ID);
+    expect(marks[0]!.querySelector('svg.mp-tick')!.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    expect(marks[0]!.querySelector('.mp-count')!.textContent).toBe('3');
+
+    expect(placeSenderMark(row, { ...MARK, openCount: 0, state: 'SENT' })).toBe(true);
+    expect(cell.querySelector('.mp-sender-mark')!.className).toContain('mp-grey');
+    expect(placeSenderMark(row, null)).toBe(true);
+    expect(cell.querySelector('.mp-sender-mark')).toBeNull();
+    expect(placeSenderMark(document.createElement('tr'), MARK)).toBe(false);
   });
 
   it('show the same ✓✓ with the count in the open-email view (A6)', () => {

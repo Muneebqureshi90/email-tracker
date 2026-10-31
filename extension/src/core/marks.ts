@@ -46,15 +46,22 @@ const SHAPES: Record<MarkStatus, string> = {
 /** 16 px inline SVG drawn in currentColor, so CSS picks the Gmail light or dark colour. */
 export function markSvg(status: MarkStatus): string {
   return (
-    '<svg class="mp-tick" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" ' +
+    // xmlns: DOMParser (tickElement) needs it to make a real SVG; without it nothing is drawn.
+    '<svg xmlns="http://www.w3.org/2000/svg" class="mp-tick" width="16" height="16" viewBox="0 0 16 16" ' +
+    'aria-hidden="true" focusable="false" fill="none" ' +
     `stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${SHAPES[status]}</svg>`
   );
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-function toneOf(status: MarkStatus): string {
+export function toneOf(status: MarkStatus): string {
   return status === 'opened' || status === 'clicked' ? 'mp-green' : 'mp-grey';
+}
+
+/** The email ID for data-mp-email (the hover card reads it), or '' when it is not a UUID. */
+export function markEmailId(mark: Mark): string {
+  return UUID.test(mark.emailId) ? mark.emailId : '';
 }
 
 /**
@@ -63,7 +70,7 @@ function toneOf(status: MarkStatus): string {
  */
 export function markHtml(mark: Mark, withCount: boolean): string {
   const view = markView(mark);
-  const id = UUID.test(mark.emailId) ? mark.emailId : '';
+  const id = markEmailId(mark);
   const count = withCount && view.count !== null ? `<span class="mp-count">${view.count}</span>` : '';
   return (
     `<span class="mp-mark ${toneOf(view.status)}" data-mp-email="${id}" tabindex="0" role="img" ` +
@@ -75,7 +82,7 @@ export function markHtml(mark: Mark, withCount: boolean): string {
 export function countHtml(mark: Mark): string | null {
   const view = markView(mark);
   if (view.count === null) return null;
-  const id = UUID.test(mark.emailId) ? mark.emailId : '';
+  const id = markEmailId(mark);
   return `<span class="mp-mark mp-count-slot ${toneOf(view.status)}" data-mp-email="${id}" aria-hidden="true">${view.count}</span>`;
 }
 

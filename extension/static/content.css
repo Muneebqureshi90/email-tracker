@@ -63,6 +63,33 @@
   color: var(--mp-green);
 }
 
+/*
+ * Thread rows: the mark at the end of the sender column, between "me" and the subject, outside Gmail's
+ * hover buttons. Gmail styles the inside of its list cells, so size and visibility are forced here.
+ */
+.mp-sender-mark {
+  display: inline-flex !important;
+  /* float for a block cell; order and the auto margin for a flex cell (Gmail ignores the float then). */
+  float: right;
+  order: 1;
+  flex: none;
+  align-self: flex-start;
+  height: 20px !important;
+  margin: 0 8px 0 auto;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.mp-sender-mark .mp-tick {
+  display: block !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  stroke: currentColor !important;
+}
+
 .mp-mark:focus-visible {
   outline: 2px solid var(--mp-accent);
   outline-offset: 1px;
