@@ -9,6 +9,7 @@ import { problemsOf } from '../ui/problems';
 
 function titleOf(item: ActivityItem): string {
   if (item.kind.startsWith('DOC_')) return item.documentName || 'Document';
+  if (item.kind === 'ALERT' && item.alertType === 'WEEKLY') return 'Weekly summary';
   return item.subject || '(no subject)';
 }
 
@@ -20,6 +21,7 @@ function detailOf(item: ActivityItem): string {
 }
 
 function pathOf(item: ActivityItem): string {
+  if (item.kind === 'ALERT' && item.alertType === 'WEEKLY') return '/reports';
   if (item.emailId) return `/emails/${item.emailId}`;
   if (item.documentId) return `/documents/${item.documentId}`;
   return '/activity';

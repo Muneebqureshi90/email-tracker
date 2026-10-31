@@ -31,6 +31,8 @@ export type Request =
   | { type: 'mp:card'; emailId: string }
   | { type: 'mp:documents' }
   | { type: 'mp:documentLink'; documentId: string; emailId: string }
+  /** A recipient answered a tracked email (seen in an open Gmail thread): reported once. */
+  | { type: 'mp:reply'; emailId: string; repliedAt: string }
   /** A visible Gmail tab asks for a quick activity check (live ticks, brief Part B1). */
   | { type: 'mp:tick' };
 
@@ -81,6 +83,7 @@ export interface ResponseMap {
   'mp:card': EmailCard | null;
   'mp:documents': DocumentSummary[] | null;
   'mp:documentLink': DocLinkView | null;
+  'mp:reply': boolean;
   'mp:tick': boolean;
 }
 
@@ -104,6 +107,7 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<RequestType>([
   'mp:card',
   'mp:documents',
   'mp:documentLink',
+  'mp:reply',
   'mp:tick',
 ]);
 

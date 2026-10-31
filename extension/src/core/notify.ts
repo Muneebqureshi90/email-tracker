@@ -12,6 +12,8 @@ export interface NotificationTarget {
   account: string | null;
   threadId: string | null;
   documentId: string | null;
+  /** A dashboard page instead of an email or document: the weekly summary opens Reports. */
+  page?: 'reports';
 }
 
 /** One desktop notification. All fields are plain text (chrome.notifications never renders HTML). */
@@ -73,6 +75,9 @@ function hostOf(url: string | null): string | null {
 }
 
 function targetOf(item: ActivityItem): NotificationTarget {
+  if (item.kind === 'ALERT' && item.alertType === 'WEEKLY') {
+    return { emailId: null, account: null, threadId: null, documentId: null, page: 'reports' };
+  }
   const threadId = item.gmailThreadId && GMAIL_ID.test(item.gmailThreadId) ? item.gmailThreadId : null;
   return { emailId: item.emailId, account: item.account ?? null, threadId, documentId: item.documentId ?? null };
 }
@@ -92,6 +97,10 @@ function alertTitle(item: ActivityItem): { title: string; icon: NotificationIcon
       return { title: `Hot: ${subjectOf(item)}`, icon: 'alert' };
     case 'DOC_VIEWS':
       return { title: `Hot document: ${documentOf(item)}`, icon: 'alert' };
+    case 'NO_REPLY':
+      return { title: `No reply yet: ${subjectOf(item)}`, icon: 'follow-up' };
+    case 'WEEKLY':
+      return { title: 'MailPulse weekly summary', icon: 'alert' };
     default:
       return { title: `Revived: ${subjectOf(item)}`, icon: 'alert' };
   }
@@ -206,6 +215,7 @@ export function gmailThreadUrl(account: string, threadId: string): string {
 
 /** The MailPulse page for a notification without a Gmail thread. */
 export function dashboardPath(target: NotificationTarget): string {
+  if (target.page === 'reports') return '/reports';
   if (target.emailId) return `/emails/${target.emailId}`;
   if (target.documentId) return `/documents/${target.documentId}`;
   return '/activity';

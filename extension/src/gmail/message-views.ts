@@ -2,6 +2,7 @@ import type { MessageAttachmentIconDescriptor, MessageView } from '@inboxsdk/cor
 import type { Mark } from '../core/api-types';
 import { markHtml } from '../core/marks';
 import { findPixels, uniqueTokens } from '../core/pixel';
+import { findReply, type ThreadMessage } from '../core/replies';
 import type { Ask } from './bridge';
 import type { GmailEnv } from './env';
 import { Live } from './live';
@@ -20,6 +21,8 @@ export function messageIcon(mark: Mark): MessageAttachmentIconDescriptor {
  */
 export class MessageViews {
   private readonly lastReport = new Map<string, number>();
+  /** Email ids whose thread was already checked for a reply in this tab. */
+  private readonly replyChecked = new Set<string>();
   private readonly marked = new Map<MessageView, { messageId: string; icon: Live<MessageAttachmentIconDescriptor> | null }>();
 
   constructor(
@@ -75,6 +78,7 @@ export class MessageViews {
     const marks = await this.ask({ type: 'mp:marks', account: this.env.account, by: 'message', ids: [entry.messageId] });
     const mark = marks?.[entry.messageId];
     if (!mark || view.destroyed) return;
+    void this.checkReply(view, mark.emailId).catch(() => undefined);
     const descriptor = messageIcon(mark);
     if (entry.icon) {
       entry.icon.set(descriptor);
@@ -82,5 +86,27 @@ export class MessageViews {
       entry.icon = new Live(descriptor);
       view.addAttachmentIcon(entry.icon.stream);
     }
+  }
+
+  /** Reply detection: only sender addresses and dates of the thread's messages are read. */
+  private async checkReply(view: MessageView, emailId: string): Promise<void> {
+    if (this.replyChecked.has(emailId) || view.destroyed) return;
+    const sentAt = Date.parse(view.getDateString());
+    if (!Number.isFinite(sentAt)) return;
+    const messages: ThreadMessage[] = view
+      .getThreadView()
+      .getMessageViewsAll()
+      .filter((message) => message.isLoaded())
+      .map((message) => ({ sender: message.getSender().emailAddress, at: Date.parse(message.getDateString()) }));
+    const account = this.env.account;
+    if (!messages.some((message) => message.sender.trim().toLowerCase() !== account && message.at > sentAt)) return;
+    this.replyChecked.add(emailId);
+    const card = await this.ask({ type: 'mp:card', emailId });
+    const repliedAt = card ? findReply(account, card.recipients.map((recipient) => recipient.email), sentAt, messages) : null;
+    if (repliedAt === null) {
+      this.replyChecked.delete(emailId);
+      return;
+    }
+    await this.ask({ type: 'mp:reply', emailId, repliedAt: new Date(repliedAt).toISOString() });
   }
 }

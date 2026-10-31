@@ -271,3 +271,32 @@ describe('message handlers', () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe('reply reports', () => {
+  const REPLIED_AT = '2026-10-31T10:00:00.000Z';
+
+  it('posts a reply once and remembers it', async () => {
+    const { handlers, calls, store } = setup(() => new Response(null, { status: 204 }));
+    expect(await handlers['mp:reply']({ type: 'mp:reply', emailId: EMAIL_ID, repliedAt: REPLIED_AT })).toBe(true);
+    expect(await handlers['mp:reply']({ type: 'mp:reply', emailId: EMAIL_ID, repliedAt: REPLIED_AT })).toBe(true);
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([`POST /api/emails/${EMAIL_ID}/reply`]);
+    expect(JSON.parse(calls[0]!.init.body as string)).toEqual({ repliedAt: REPLIED_AT });
+    expect(store.state.repliesReported).toEqual([EMAIL_ID]);
+  });
+
+  it('ignores unknown emails and queues server errors', async () => {
+    const unknown = setup(() => json({ title: 'Not Found' }, 404));
+    expect(await unknown.handlers['mp:reply']({ type: 'mp:reply', emailId: EMAIL_ID, repliedAt: REPLIED_AT })).toBe(false);
+    expect(unknown.store.state.queue).toHaveLength(0);
+    const failing = setup(() => json({ title: 'Oops' }, 500));
+    await failing.handlers['mp:reply']({ type: 'mp:reply', emailId: EMAIL_ID, repliedAt: REPLIED_AT });
+    expect(failing.store.state.queue.map((item) => `${item.method} ${item.path}`)).toEqual([`POST /api/emails/${EMAIL_ID}/reply`]);
+  });
+
+  it('rejects bad ids and dates without calling the backend', async () => {
+    const { handlers, calls } = setup(() => json({}));
+    expect(await handlers['mp:reply']({ type: 'mp:reply', emailId: 'nope', repliedAt: REPLIED_AT })).toBe(false);
+    expect(await handlers['mp:reply']({ type: 'mp:reply', emailId: EMAIL_ID, repliedAt: 'soon' })).toBe(false);
+    expect(calls).toHaveLength(0);
+  });
+});

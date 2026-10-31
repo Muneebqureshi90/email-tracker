@@ -130,6 +130,18 @@ describe('notifications', () => {
     expect(spike).toMatchObject({ title: 'Hot: Quarterly plan', icon: 'alert' });
   });
 
+  it('show the weekly summary as one notification that opens Reports', () => {
+    const text = 'Last week: 12 sent, 8 opened, 3 replied, 1 interview';
+    const weekly = item(7, { kind: 'ALERT', alertType: 'WEEKLY', alertText: text, emailId: null, documentId: null, subject: null, recipients: '', source: null });
+    const specs = notificationsFor([weekly], options);
+    expect(specs).toHaveLength(1);
+    expect(specs[0]).toMatchObject({ id: 'mp:item:7', title: 'MailPulse weekly summary', message: text, icon: 'alert', buttons: [] });
+    expect(specs[0]!.target).toEqual({ emailId: null, account: null, threadId: null, documentId: null, page: 'reports' });
+    expect(dashboardPath(specs[0]!.target)).toBe('/reports');
+    const [bare] = notificationsFor([{ ...weekly, alertText: null }], options);
+    expect(bare).toMatchObject({ title: 'MailPulse weekly summary', message: '', buttons: [] });
+  });
+
   it('turn more than three into one summary without buttons', () => {
     const grouped = notificationsFor(
       [item(1), item(2, { emailId: OTHER_ID }), item(3, { kind: 'CLICK' }), item(4, { kind: 'ALERT', alertType: 'REVIVAL' }), item(5, { kind: 'CLICK', subject: null })],

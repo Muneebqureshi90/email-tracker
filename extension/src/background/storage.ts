@@ -24,6 +24,8 @@ export interface StoredState {
   queue: QueuedCall[];
   /** Click targets and buttons of the notifications on screen, by notification id (the worker may restart). */
   notificationTargets: Record<string, { target: NotificationTarget; buttons: NotificationButton[] }>;
+  /** Email ids whose reply was already reported (bounded, oldest dropped first). */
+  repliesReported: string[];
 }
 
 export const DEFAULT_STATE: StoredState = {
@@ -42,6 +44,7 @@ export const DEFAULT_STATE: StoredState = {
   lastPollAt: 0,
   queue: [],
   notificationTargets: {},
+  repliesReported: [],
 };
 
 export interface StateStore {

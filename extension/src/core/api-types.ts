@@ -82,7 +82,7 @@ export interface MarksResponse {
 }
 
 export type ActivityKind = 'OPEN' | 'CLICK' | 'ALERT' | 'DOC_VIEW' | 'DOC_READ' | 'DOC_DOWNLOAD';
-export type AlertType = 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL' | 'DOC_VIEWS';
+export type AlertType = 'FOLLOW_UP' | 'OPEN_SPIKE' | 'REVIVAL' | 'DOC_VIEWS' | 'NO_REPLY' | 'WEEKLY';
 
 export interface ActivityItem {
   id: number;

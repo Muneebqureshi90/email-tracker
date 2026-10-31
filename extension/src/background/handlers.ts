@@ -12,6 +12,7 @@ import type {
 import type { Broadcast, Request, RequestOf, RequestType, ResponseMap, Status } from '../core/messages';
 import { TOKEN_PATTERN } from '../core/pixel';
 import { enqueue } from '../core/queue';
+import { rememberReported } from '../core/replies';
 import type { ApiClient, ApiResult } from './api';
 import type { StateStore } from './storage';
 
@@ -192,6 +193,23 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       const result = await deps.api.call<DocLinkView>('POST', `/api/documents/${documentId}/links`, { emailId });
       await noteResult(deps, result);
       return result.ok ? result.data : null;
+    },
+    'mp:reply': async ({ emailId, repliedAt }) => {
+      if (!UUID.test(emailId) || !Number.isFinite(Date.parse(repliedAt))) return false;
+      if ((await deps.store.read()).repliesReported.includes(emailId)) return true;
+      const path = `/api/emails/${emailId}/reply`;
+      const body = { repliedAt };
+      const result = await deps.api.call('POST', path, body);
+      const queue = !result.ok && result.retryable;
+      const settled = result.ok || queue || result.status === 404 || (!result.ok && result.connection === 'ok');
+      if (!settled) return false;
+      await deps.exclusive(async () => {
+        const state = await deps.store.read();
+        const patch: Partial<typeof state> = { repliesReported: rememberReported(state.repliesReported, emailId) };
+        if (queue) patch.queue = enqueue(state.queue, { method: 'POST', path, body }, deps.now(), deps.newId());
+        await deps.store.write(patch);
+      });
+      return result.ok;
     },
     'mp:tick': async () => {
       await deps.poll();
