@@ -609,3 +609,10 @@ gets a 301 to the clean `/d/{token}`. The target is built only from the matched 
 cannot point anywhere else. Any other unmatched GET or HEAD under `/d/` gets the friendly "Link not found"
 page (still a 404). Every public-port response carries `X-Robots-Tag: noindex, nofollow`. Everything else
 on the public port stays an empty 404. Fix requested by the owner after the 2026-10-31 E2E check.
+
+## D-132 Sent emails show a grey double tick — Accepted
+Gmail gives the sender no delivery signal, so a sent email often stayed on a single tick until the first open,
+which looked like a failure to the owner. Since 2026-10-31 a sent email shows a grey double tick, the same
+drawing as Delivered (deliveredAt set: a recipient-side fetch before any open); their labels still say "Sent" and
+"Delivered". Opened and clicked stay green, Unreliable keeps its single tick with "?", and the compose chip keeps
+a single grey tick for "Tracking off" and while it registers. Owner's choice.

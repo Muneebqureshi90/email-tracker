@@ -68,7 +68,8 @@ Display rule (dashboard and extension use the same):
 
 | Status | Mark |
 |---|---|
-| Sent | grey ✓ |
+| Sent | grey ✓✓ (D-132) |
+| Delivered (no opens, `deliveredAt` set) | grey ✓✓ |
 | Opened | green ✓✓ |
 | Opened N× (N ≥ 2) | green ✓✓ + count |
 | Clicked | ✓✓ + link dot |
