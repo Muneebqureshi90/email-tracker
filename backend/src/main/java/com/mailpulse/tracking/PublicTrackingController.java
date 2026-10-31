@@ -5,10 +5,12 @@ import com.mailpulse.common.RateLimiter;
 import com.mailpulse.common.net.ClientAddress;
 import com.mailpulse.emails.LinkRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Optional;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -22,7 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Pixel and click routes on the public port (the document routes are in the documents package). The pixel
  * always answers with the same GIF, known token or not, and never waits for the database. The click route
- * redirects only to the URL stored at registration; nothing in the request can change the target.
+ * redirects only to the URL stored at registration; nothing in the request can change the target. Over the rate
+ * limits both still answer normally (fail open for real recipients); the event is just not recorded.
  */
 @RestController
 class PublicTrackingController {
@@ -73,15 +76,14 @@ class PublicTrackingController {
         if (!RandomTokens.isTrackingToken(token)) {
             return notFound();
         }
-        Optional<InetAddress> client = clients.resolve(request);
-        if (!withinLimits(client)) {
-            return plain(HttpStatus.TOO_MANY_REQUESTS, "Too many requests");
-        }
         Optional<LinkRepository.LinkTarget> target = links.findTarget(token);
         if (target.isEmpty()) {
             return notFound();
         }
-        queue.offer(rawEvent(EventType.CLICK, token, request, client));
+        Optional<InetAddress> client = clients.resolve(request);
+        if (withinLimits(client)) {
+            queue.offer(rawEvent(EventType.CLICK, token, request, client));
+        }
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, target.get().url())
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
@@ -90,7 +92,16 @@ class PublicTrackingController {
     }
 
     private boolean withinLimits(Optional<InetAddress> client) {
-        return perClient.tryAcquire(client.map(InetAddress::getHostAddress).orElse("unknown")) && overall.tryAcquire("all");
+        return perClient.tryAcquire(client.map(PublicTrackingController::clientKey).orElse("unknown"))
+                && overall.tryAcquire("all");
+    }
+
+    /** IPv4 keeps the full address; IPv6 is keyed by its /64, so one subscriber cannot rotate inside its block. */
+    private static String clientKey(InetAddress address) {
+        if (address instanceof Inet6Address) {
+            return HexFormat.of().formatHex(address.getAddress(), 0, 8) + "/64";
+        }
+        return address.getHostAddress();
     }
 
     private RawEvent rawEvent(EventType type, String token, HttpServletRequest request, Optional<InetAddress> client) {

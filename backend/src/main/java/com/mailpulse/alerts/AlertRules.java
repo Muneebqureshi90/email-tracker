@@ -11,6 +11,10 @@ final class AlertRules {
     static final Duration FOLLOW_UP_LATEST = Duration.ofDays(7);
     /** Counted views of one document link that raise DOC_VIEWS (once per link). */
     static final int DOC_VIEWS = 3;
+    /** Counted opens that make an unanswered email worth a follow-up (NO_REPLY, once per email). */
+    static final int NO_REPLY_OPENS = 3;
+    /** Time after sending before NO_REPLY may fire. */
+    static final Duration NO_REPLY_AFTER = Duration.ofDays(2);
 
     private AlertRules() {}
 
@@ -20,6 +24,15 @@ final class AlertRules {
             return false;
         }
         Instant due = sentAt.plus(Duration.ofHours(followUpHours));
+        return !now.isBefore(due) && now.isBefore(due.plus(FOLLOW_UP_LATEST));
+    }
+
+    /** Opened at least NO_REPLY_OPENS times, no reply, and NO_REPLY_AFTER has passed since sending (at most FOLLOW_UP_LATEST ago). */
+    static boolean noReplyDue(Instant sentAt, int opens, Instant repliedAt, Instant now) {
+        if (sentAt == null || repliedAt != null || opens < NO_REPLY_OPENS) {
+            return false;
+        }
+        Instant due = sentAt.plus(NO_REPLY_AFTER);
         return !now.isBefore(due) && now.isBefore(due.plus(FOLLOW_UP_LATEST));
     }
 

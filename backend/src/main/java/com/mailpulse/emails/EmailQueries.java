@@ -226,7 +226,8 @@ public class EmailQueries {
                         row.lastClickedAt(),
                         row.openStatusUnreliable(),
                         RepeatOpens.openedAgain(opens.getOrDefault(row.id(), List.of())),
-                        recent(opens.getOrDefault(row.id(), List.of()))))
+                        recent(opens.getOrDefault(row.id(), List.of())),
+                        row.repliedAt()))
                 .toList();
     }
 

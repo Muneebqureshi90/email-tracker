@@ -21,6 +21,8 @@ class AlertRepository {
 
     record FollowUpCandidate(UUID emailId, Instant sentAt, int hours, int opens, int clicks) {}
 
+    record NoReplyCandidate(UUID emailId, Instant sentAt, int opens) {}
+
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final String SELECT = """
             SELECT a.id, a.type, a.tracked_email_id, a.created_at, a.status, a.snoozed_until, a.details ->> 'text' AS text,
@@ -69,6 +71,13 @@ class AlertRepository {
                 .single();
     }
 
+    boolean weeklyExists(String week) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM alert WHERE type = 'WEEKLY' AND details ->> 'week' = :week)")
+                .param("week", week)
+                .query(Boolean.class)
+                .single();
+    }
+
     int countedOpensBetween(UUID emailId, Instant from, Instant to) {
         return jdbc.sql("""
                 SELECT count(*) FROM tracking_event
@@ -81,12 +90,13 @@ class AlertRepository {
                 .single();
     }
 
-    /** Sent, still unopened emails whose follow-up time has passed and that have no follow-up alert yet. */
+    /** Sent, still unopened and unanswered emails whose follow-up time has passed and that have no follow-up alert yet. */
     List<FollowUpCandidate> followUpCandidates(Instant now, int defaultHours) {
         return jdbc.sql("""
                 SELECT te.id, te.sent_at, COALESCE(te.follow_up_hours, :defaultHours) AS hours, te.open_count, te.click_count
                 FROM tracked_email te
                 WHERE te.status = 'SENT' AND te.tracking_enabled AND te.open_count = 0 AND te.click_count = 0
+                  AND te.replied_at IS NULL
                   AND te.sent_at <= CAST(:now AS timestamptz) - make_interval(hours => COALESCE(te.follow_up_hours, :defaultHours))
                   AND NOT EXISTS (SELECT 1 FROM alert a WHERE a.tracked_email_id = te.id AND a.type = 'FOLLOW_UP')
                 """)
@@ -94,6 +104,25 @@ class AlertRepository {
                 .param("defaultHours", defaultHours)
                 .query((rs, row) -> new FollowUpCandidate(
                         Sql.uuid(rs, "id"), Sql.instant(rs, "sent_at"), rs.getInt("hours"), rs.getInt("open_count"), rs.getInt("click_count")))
+                .list();
+    }
+
+    /**
+     * Sent emails with at least `minOpens` counted opens, no reply, sent between `sentFrom` and `sentTo`, and no
+     * NO_REPLY alert yet.
+     */
+    List<NoReplyCandidate> noReplyCandidates(int minOpens, Instant sentFrom, Instant sentTo) {
+        return jdbc.sql("""
+                SELECT te.id, te.sent_at, te.open_count
+                FROM tracked_email te
+                WHERE te.status = 'SENT' AND te.tracking_enabled AND te.open_count >= :minOpens AND te.replied_at IS NULL
+                  AND te.sent_at > :sentFrom AND te.sent_at <= :sentTo
+                  AND NOT EXISTS (SELECT 1 FROM alert a WHERE a.tracked_email_id = te.id AND a.type = 'NO_REPLY')
+                """)
+                .param("minOpens", minOpens)
+                .param("sentFrom", Sql.ts(sentFrom))
+                .param("sentTo", Sql.ts(sentTo))
+                .query((rs, row) -> new NoReplyCandidate(Sql.uuid(rs, "id"), Sql.instant(rs, "sent_at"), rs.getInt("open_count")))
                 .list();
     }
 

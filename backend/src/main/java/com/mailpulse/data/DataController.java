@@ -58,8 +58,9 @@ class DataController {
             throw ApiException.badRequest("Type " + CONFIRMATION + " to confirm");
         }
         owner.verifyLogin(body.password());
-        jdbc.sql("TRUNCATE activity, alert, document_event, document_view, document_link, document_file, document, tracking_event,"
-                        + " self_view, tracked_link, tracking_token, recipient, tracked_email, contact, gmail_account")
+        jdbc.sql("TRUNCATE activity, alert, document_page_time, document_event, document_view, document_link, document_file,"
+                        + " document, tracking_event, self_view, tracked_link, tracking_token, recipient, job_application,"
+                        + " tracked_email, contact, gmail_account")
                 .update();
         return ResponseEntity.noContent().build();
     }

@@ -43,7 +43,8 @@ class DocumentRepository {
             long views,
             long reads,
             long downloads,
-            Instant lastActivityAt) {}
+            Instant lastActivityAt,
+            Integer maxViews) {}
 
     /** A link as the public routes see it, with its document and (for an email link) the email's send state. */
     record PublicLink(
@@ -59,7 +60,9 @@ class DocumentRepository {
             UUID emailId,
             EmailStatus emailStatus,
             Instant sentAt,
-            boolean trackingEnabled) {}
+            boolean trackingEnabled,
+            Integer maxViews,
+            long countedViews) {}
 
     private static final String COUNTS = """
             count(e.id) FILTER (WHERE e.type = 'DOC_VIEW') AS views,
@@ -74,7 +77,7 @@ class DocumentRepository {
             + " LEFT JOIN document_event e ON e.link_id = l.id AND e.verdict = 'COUNTED'";
 
     private static final String LINKS = "SELECT l.id, l.document_id, d.name_enc AS document_name_enc, l.token, l.tracked_email_id,"
-            + " te.subject_enc, l.label_enc, l.allow_download, l.expires_at, l.revoked_at, l.created_at, "
+            + " te.subject_enc, l.label_enc, l.allow_download, l.expires_at, l.revoked_at, l.created_at, l.max_views, "
             + COUNTS
             + " FROM document_link l JOIN document d ON d.id = l.document_id"
             + " LEFT JOIN tracked_email te ON te.id = l.tracked_email_id"
@@ -208,11 +211,13 @@ class DocumentRepository {
     }
 
     void insertLink(UUID id, UUID documentId, String token, UUID emailId, byte[] labelEnc, boolean allowDownload, Instant expiresAt,
-            Instant now) {
+            Integer maxViews, Instant now) {
         jdbc.sql("""
-                INSERT INTO document_link (id, document_id, token, tracked_email_id, label_enc, allow_download, expires_at, created_at)
-                VALUES (:id, :document, :token, :email, :label, :download, :expires, :now)
+                INSERT INTO document_link (id, document_id, token, tracked_email_id, label_enc, allow_download, expires_at, max_views,
+                    created_at)
+                VALUES (:id, :document, :token, :email, :label, :download, :expires, :maxViews, :now)
                 """)
+                .param("maxViews", maxViews)
                 .param("id", id)
                 .param("document", documentId)
                 .param("token", token)
@@ -267,7 +272,9 @@ class DocumentRepository {
     Optional<PublicLink> findByToken(String token) {
         return jdbc.sql("""
                 SELECT l.id, l.document_id, l.token, d.name_enc, d.size_bytes, d.page_count, l.allow_download, l.expires_at,
-                       l.revoked_at, l.tracked_email_id, te.status, te.sent_at, te.tracking_enabled
+                       l.revoked_at, l.tracked_email_id, te.status, te.sent_at, te.tracking_enabled, l.max_views,
+                       (SELECT count(*) FROM document_view v WHERE v.link_id = l.id AND v.counted AND v.merged_into IS NULL)
+                           AS counted_views
                 FROM document_link l
                 JOIN document d ON d.id = l.document_id
                 LEFT JOIN tracked_email te ON te.id = l.tracked_email_id
@@ -287,7 +294,9 @@ class DocumentRepository {
                         Sql.uuid(rs, "tracked_email_id"),
                         rs.getString("status") == null ? null : EmailStatus.valueOf(rs.getString("status")),
                         Sql.instant(rs, "sent_at"),
-                        rs.getObject("tracking_enabled") == null || rs.getBoolean("tracking_enabled")))
+                        rs.getObject("tracking_enabled") == null || rs.getBoolean("tracking_enabled"),
+                        Sql.nullableInt(rs, "max_views"),
+                        rs.getLong("counted_views")))
                 .optional();
     }
 
@@ -322,6 +331,7 @@ class DocumentRepository {
                 rs.getLong("views"),
                 rs.getLong("reads"),
                 rs.getLong("downloads"),
-                Sql.instant(rs, "last_activity_at"));
+                Sql.instant(rs, "last_activity_at"),
+                Sql.nullableInt(rs, "max_views"));
     }
 }

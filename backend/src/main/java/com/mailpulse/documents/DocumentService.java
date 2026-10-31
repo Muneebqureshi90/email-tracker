@@ -101,6 +101,12 @@ public class DocumentService {
         if (body.expiresAt() != null && !body.expiresAt().isAfter(now)) {
             throw ApiException.badRequest("expiresAt must be in the future");
         }
+        if (body.expiresAt() != null && body.expiresAt().isAfter(now.plusSeconds(365L * 24 * 60 * 60))) {
+            throw ApiException.badRequest("expiresAt must be at most one year ahead");
+        }
+        if (body.maxViews() != null && (body.maxViews() < 1 || body.maxViews() > 1000)) {
+            throw ApiException.badRequest("maxViews must be between 1 and 1000");
+        }
         if (body.emailId() != null) {
             if (!documents.lockEmail(body.emailId())) {
                 throw ApiException.notFound("Email not found");
@@ -112,7 +118,7 @@ public class DocumentService {
         }
         UUID id = UUID.randomUUID();
         documents.insertLink(id, documentId, RandomTokens.trackingToken(), body.emailId(), cipher.encrypt(label, LABEL_COLUMN),
-                body.allowDownload() == null || body.allowDownload(), body.expiresAt(), now);
+                body.allowDownload() == null || body.allowDownload(), body.expiresAt(), body.maxViews(), now);
         return new LinkResult(queries.link(id), true);
     }
 

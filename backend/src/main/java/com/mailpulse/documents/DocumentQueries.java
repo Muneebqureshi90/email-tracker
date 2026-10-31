@@ -59,6 +59,12 @@ public class DocumentQueries {
                 summary, links(documents.links(id, DETAIL_ROWS, 0)), eventViews(events.forDocument(id, DETAIL_ROWS, 0)));
     }
 
+    /** Seconds and readers per page over the document's counted views, by page (GET /api/documents/{id}/pages). */
+    public List<DocumentApi.PageTime> pages(UUID id) {
+        summary(id);
+        return events.pageTimes(id);
+    }
+
     public EmailApi.Page<DocumentApi.DocLinkView> links(UUID id, int page, int size) {
         Paging.check(page, size);
         summary(id);
@@ -160,7 +166,8 @@ public class DocumentQueries {
                         row.views(),
                         row.reads(),
                         row.downloads(),
-                        row.lastActivityAt()))
+                        row.lastActivityAt(),
+                        row.maxViews()))
                 .toList();
     }
 

@@ -137,6 +137,43 @@ class DocumentEventRepository {
                 .update();
     }
 
+    /** Counted views of a link (the owner's own views are never counted). */
+    long countedViews(UUID linkId) {
+        return jdbc.sql("SELECT count(*) FROM document_view WHERE link_id = :link AND counted AND merged_into IS NULL")
+                .param("link", linkId)
+                .query(Long.class)
+                .single();
+    }
+
+    /** Adds visible time to one page of a view (document_page_time, V10). */
+    void addPageTime(long viewId, int page, long acceptedMs) {
+        jdbc.sql("""
+                INSERT INTO document_page_time (view_id, page, visible_ms) VALUES (:view, :page, :ms)
+                ON CONFLICT (view_id, page) DO UPDATE SET visible_ms = document_page_time.visible_ms + EXCLUDED.visible_ms
+                """)
+                .param("view", viewId)
+                .param("page", page)
+                .param("ms", acceptedMs)
+                .update();
+    }
+
+    /** Visible seconds and readers (counted views) per page over all links of a document, by page. */
+    List<DocumentApi.PageTime> pageTimes(UUID documentId) {
+        return jdbc.sql("""
+                SELECT p.page, sum(p.visible_ms) AS ms, count(DISTINCT p.view_id) AS readers
+                FROM document_page_time p
+                JOIN document_view v ON v.id = p.view_id
+                JOIN document_link l ON l.id = v.link_id
+                WHERE l.document_id = :document AND v.counted AND v.merged_into IS NULL
+                GROUP BY p.page
+                ORDER BY p.page
+                """)
+                .param("document", documentId)
+                .query((rs, row) -> new DocumentApi.PageTime(
+                        rs.getInt("page"), Math.round(rs.getLong("ms") / 1000.0), rs.getLong("readers")))
+                .list();
+    }
+
     void markRead(long viewId, Instant now) {
         jdbc.sql("UPDATE document_view SET read_at = :now WHERE id = :id").param("now", Sql.ts(now)).param("id", viewId).update();
     }

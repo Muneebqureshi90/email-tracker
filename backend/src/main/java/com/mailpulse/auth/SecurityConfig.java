@@ -88,10 +88,10 @@ class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, DashboardController.ROUTES).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/index.html", "/assets/**", "/favicon.svg").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/index.html", "/assets/**", "/favicon.svg", "/favicon.ico").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/status", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/setup", "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/emails", "/api/emails/*/links", "/api/self-views",
+                        .requestMatchers(HttpMethod.POST, "/api/emails", "/api/emails/*/links", "/api/emails/*/reply", "/api/self-views",
                                 "/api/documents/*/links")
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)
                         .requestMatchers(HttpMethod.PATCH, "/api/emails/*", "/api/emails/*/preferences")
@@ -100,6 +100,8 @@ class SecurityConfig {
                                 "/api/config", "/api/documents")
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)
                         .requestMatchers("/api/**").hasRole(Roles.OWNER)
+                        // After every /api rule; the patterns themselves exclude /api, /actuator, the API docs and files.
+                        .requestMatchers(HttpMethod.GET, DashboardController.OTHER_PAGES).permitAll()
                         .anyRequest().denyAll());
         return http.build();
     }

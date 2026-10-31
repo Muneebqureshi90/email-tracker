@@ -44,7 +44,8 @@ public final class DocumentApi {
             long views,
             long reads,
             long downloads,
-            Instant lastActivityAt) {}
+            Instant lastActivityAt,
+            Integer maxViews) {}
 
     /**
      * One view, read or download. {@code readSeconds} and {@code pagesViewed} (how many different pages) belong to
@@ -66,9 +67,12 @@ public final class DocumentApi {
     public record DocumentDetail(DocumentSummary summary, List<DocLinkView> links, List<DocEventView> events) {}
 
     /** {@code allowDownload} defaults to true; {@code emailId} is required with the extension token. */
-    public record NewLink(@Size(max = 200) String label, UUID emailId, Instant expiresAt, Boolean allowDownload) {}
+    public record NewLink(@Size(max = 200) String label, UUID emailId, Instant expiresAt, Boolean allowDownload, Integer maxViews) {}
 
     public record Rename(@NotBlank @Size(max = 500) String name) {}
+
+    /** Visible time on one page over the document's counted views, and how many of those views spent time there. */
+    public record PageTime(int page, long seconds, long readers) {}
 
     /** What the Gmail hover card shows for each document link of an email. */
     public record CardDocument(String name, long views, long reads, long downloads) {}

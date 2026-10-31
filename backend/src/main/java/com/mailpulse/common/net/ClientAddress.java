@@ -4,6 +4,10 @@ import com.mailpulse.common.MailPulseProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -19,19 +23,47 @@ public class ClientAddress {
     }
 
     /**
-     * The peer address, or the first X-Forwarded-For entry when the peer is a trusted proxy.
-     * Empty when unknown, for example a trusted proxy that sent no X-Forwarded-For header.
+     * The peer address or, when the peer is a trusted proxy, the nearest X-Forwarded-For entry that is
+     * not a trusted proxy itself. The entries are read from right to left because only the ones added
+     * by trusted proxies can be believed; anything further left may have been sent by the visitor.
+     * Falls back to the peer when the header is missing, every entry is trusted or the walk reaches a
+     * value that is not an IP literal. Empty only when the peer address itself is unknown.
      */
     public Optional<InetAddress> resolve(HttpServletRequest request) {
         Optional<InetAddress> peer = literal(request.getRemoteAddr());
-        if (peer.isEmpty() || trustedProxies.stream().noneMatch(range -> range.contains(peer.get()))) {
+        if (peer.isEmpty() || !trusted(peer.get())) {
             return peer;
         }
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded == null || forwarded.isBlank()) {
-            return Optional.empty();
+        List<String> entries = forwardedEntries(request);
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            Optional<InetAddress> hop = literal(entries.get(i));
+            if (hop.isEmpty()) {
+                return peer;
+            }
+            if (!trusted(hop.get())) {
+                return hop;
+            }
         }
-        return literal(forwarded.split(",", 2)[0]);
+        return peer;
+    }
+
+    private boolean trusted(InetAddress address) {
+        return trustedProxies.stream().anyMatch(range -> range.contains(address));
+    }
+
+    /** Every X-Forwarded-For entry in order, across repeated header lines. */
+    private static List<String> forwardedEntries(HttpServletRequest request) {
+        Enumeration<String> headers = request.getHeaders("X-Forwarded-For");
+        if (headers == null) {
+            return List.of();
+        }
+        List<String> entries = new ArrayList<>();
+        for (String header : Collections.list(headers)) {
+            if (header != null) {
+                entries.addAll(Arrays.asList(header.split(",", -1)));
+            }
+        }
+        return entries;
     }
 
     /** IPv4 truncated to /24 and IPv6 to /48, for example "203.0.113.0/24". */

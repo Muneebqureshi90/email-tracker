@@ -39,7 +39,8 @@ public class EmailRepository {
             int clickCount,
             Instant firstOpenedAt,
             Instant lastOpenedAt,
-            Instant lastClickedAt) {}
+            Instant lastClickedAt,
+            Instant repliedAt) {}
 
     /** Filters for the email list. Null fields are not applied. */
     public record ListFilter(String state, UUID accountId, Instant from, Instant to, UUID contactId) {
@@ -183,6 +184,14 @@ public class EmailRepository {
                 .update();
     }
 
+    /** Keeps the earliest reply time: a later report of the same reply changes nothing. */
+    public void markReplied(UUID id, Instant at) {
+        jdbc.sql("UPDATE tracked_email SET replied_at = LEAST(COALESCE(replied_at, :at), :at) WHERE id = :id")
+                .param("at", Sql.ts(at))
+                .param("id", id)
+                .update();
+    }
+
     public void countClick(UUID id, Instant at) {
         jdbc.sql("""
                 UPDATE tracked_email SET click_count = click_count + 1,
@@ -307,6 +316,7 @@ public class EmailRepository {
                 rs.getInt("click_count"),
                 Sql.instant(rs, "first_opened_at"),
                 Sql.instant(rs, "last_opened_at"),
-                Sql.instant(rs, "last_clicked_at"));
+                Sql.instant(rs, "last_clicked_at"),
+                Sql.instant(rs, "replied_at"));
     }
 }

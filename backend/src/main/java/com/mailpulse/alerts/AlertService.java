@@ -8,11 +8,13 @@ import com.mailpulse.documents.DocumentService;
 import com.mailpulse.emails.AddressBook;
 import com.mailpulse.emails.EmailApi;
 import com.mailpulse.emails.EmailService;
+import com.mailpulse.reports.WeeklySummary;
 import com.mailpulse.settings.Settings;
 import com.mailpulse.settings.SettingsService;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,7 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Raises follow-up, open-spike and revival alerts (PLAN §4.7) and DOC_VIEWS for document links. Every alert is
+ * Raises follow-up, open-spike and revival alerts (PLAN §4.7), NO_REPLY for often-opened unanswered emails and
+ * DOC_VIEWS for document links. Every alert is
  * also an activity item, so it reaches desktop notifications (if the email is not muted) and the live dashboard.
  */
 @Service
@@ -59,6 +62,7 @@ public class AlertService {
     private final FieldCipher cipher;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    private final WeeklySummary weeklySummary;
 
     AlertService(
             AlertRepository repository,
@@ -67,7 +71,8 @@ public class AlertService {
             AddressBook addressBook,
             FieldCipher cipher,
             TransactionTemplate transactions,
-            Clock clock) {
+            Clock clock,
+            WeeklySummary weeklySummary) {
         this.repository = repository;
         this.activity = activity;
         this.settings = settings;
@@ -75,6 +80,7 @@ public class AlertService {
         this.cipher = cipher;
         this.transactions = transactions;
         this.clock = clock;
+        this.weeklySummary = weeklySummary;
     }
 
     /**
@@ -113,7 +119,10 @@ public class AlertService {
                 details("views", countedViews, "Document viewed " + countedViews + " times")));
     }
 
-    /** Due follow-ups and finished snoozes. Runs every five minutes (maintenance Jobs); tests call it directly. */
+    /**
+     * Due follow-ups (unopened, or opened often without a reply) and finished snoozes. Runs every five minutes
+     * (maintenance Jobs); tests call it directly.
+     */
     public int runScheduled() {
         Instant now = clock.instant();
         Settings current = settings.current();
@@ -125,6 +134,15 @@ public class AlertService {
                             "Not opened " + candidate.hours() + " hours after sending")));
                 }
             }
+            Instant sentTo = now.minus(AlertRules.NO_REPLY_AFTER);
+            for (AlertRepository.NoReplyCandidate candidate : repository.noReplyCandidates(
+                    AlertRules.NO_REPLY_OPENS, sentTo.minus(AlertRules.FOLLOW_UP_LATEST), sentTo)) {
+                if (AlertRules.noReplyDue(candidate.sentAt(), candidate.opens(), null, now)) {
+                    ids.add(raise(AlertType.NO_REPLY, candidate.emailId(), null, now, details("opens", candidate.opens(),
+                            "Opened " + candidate.opens() + " times, no reply yet: a good time to follow up")));
+                }
+            }
+            weekly(now).ifPresent(ids::add);
             for (UUID id : repository.reopenSnoozed(now)) {
                 repository.find(id).ifPresent(alert -> ids.add(activity.recordAlert(alert.emailId(), id, now)));
             }
@@ -163,6 +181,23 @@ public class AlertService {
         }
         repository.updateStatus(id, status, until);
         return views(List.of(repository.find(id).orElseThrow())).getFirst();
+    }
+
+    /**
+     * WEEKLY: from Monday 09:00 (owner's time zone) one summary of the previous week, unless every number is 0.
+     * details.week (this Monday) keeps it to one per week.
+     */
+    private Optional<Long> weekly(Instant now) {
+        LocalDate monday = weeklySummary.thisMonday();
+        if (now.isBefore(monday.atTime(9, 0).atZone(weeklySummary.zone()).toInstant())
+                || repository.weeklyExists(monday.toString())) {
+            return Optional.empty();
+        }
+        WeeklySummary.Week week = weeklySummary.lastWeek();
+        if (week.empty()) {
+            return Optional.empty();
+        }
+        return Optional.of(raise(AlertType.WEEKLY, null, null, now, details("week", monday.toString(), week.text())));
     }
 
     private long raise(AlertType type, UUID emailId, UUID documentLinkId, Instant now, Map<String, Object> details) {

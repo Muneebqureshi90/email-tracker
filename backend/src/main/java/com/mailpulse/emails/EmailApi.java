@@ -71,7 +71,11 @@ public final class EmailApi {
             Instant lastClickedAt,
             boolean openStatusUnreliable,
             boolean openedAgain,
-            List<Instant> recentOpens) {}
+            List<Instant> recentOpens,
+            Instant repliedAt) {}
+
+    /** The extension saw a reply in the email's Gmail thread at this time. */
+    public record ReplyRequest(@NotNull Instant repliedAt) {}
 
     /** One counted open, for the timeline of every open. */
     public record OpenView(long eventId, Instant at, String source) {}

@@ -73,6 +73,11 @@ class DocumentController {
         commands.delete(id);
     }
 
+    @GetMapping("/documents/{id}/pages")
+    List<DocumentApi.PageTime> pages(@PathVariable UUID id) {
+        return queries.pages(id);
+    }
+
     @GetMapping("/documents/{id}/links")
     EmailApi.Page<DocumentApi.DocLinkView> links(
             @PathVariable UUID id, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size) {

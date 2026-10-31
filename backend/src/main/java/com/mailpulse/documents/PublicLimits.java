@@ -2,14 +2,17 @@ package com.mailpulse.documents;
 
 import com.mailpulse.common.RateLimiter;
 import com.mailpulse.common.net.ClientAddress;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
- * Rate limits of the public document routes: per address for everything under /d/, per link and network (the
+ * Rate limits of the public document routes: per client (the IPv4 address, or the IPv6 /64, so one subscriber
+ * cannot rotate addresses inside its block) for everything under /d/, per link and network (the
  * address truncated to /24 or /48) for the viewer page, its info and beats, a tighter one for the PDF and the
  * download, and one overall cap.
  */
@@ -44,7 +47,15 @@ class PublicLimits {
     }
 
     private static String address(Optional<InetAddress> client) {
-        return client.map(InetAddress::getHostAddress).orElse("unknown");
+        return client.map(PublicLimits::clientKey).orElse("unknown");
+    }
+
+    /** IPv4 keeps the full address; IPv6 is keyed by its /64, the block a single subscriber usually gets. */
+    static String clientKey(InetAddress address) {
+        if (address instanceof Inet6Address) {
+            return HexFormat.of().formatHex(address.getAddress(), 0, 8) + "/64";
+        }
+        return address.getHostAddress();
     }
 
     private static String network(Optional<InetAddress> client) {

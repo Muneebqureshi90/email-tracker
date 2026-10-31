@@ -14,7 +14,7 @@ class DashboardIT extends IntegrationTest {
 
     @Test
     void appRoutesServeTheSinglePageAppWithStrictHeaders() {
-        for (String path : List.of("/", "/login", "/emails", "/emails/" + UUID.randomUUID(), "/contacts/jane@example.com", "/documents", "/documents/" + UUID.randomUUID(), "/settings")) {
+        for (String path : List.of("/", "/login", "/emails", "/emails/" + UUID.randomUUID(), "/contacts/jane@example.com", "/documents", "/documents/" + UUID.randomUUID(), "/pipeline", "/settings")) {
             TestHttp.Response response = http.get(api(path));
             assertThat(response.status()).as(path).isEqualTo(200);
             assertThat(response.text()).as(path).contains("mailpulse-dashboard-test");
@@ -39,8 +39,22 @@ class DashboardIT extends IntegrationTest {
     }
 
     @Test
+    void unknownPagesServeTheAppSoItShowsItsOwnPageNotFound() {
+        for (String path : List.of("/no-such-page", "/settings/x", "/a/b/c")) {
+            TestHttp.Response response = http.get(api(path));
+            assertThat(response.status()).as(path).isEqualTo(200);
+            assertThat(response.text()).as(path).contains("mailpulse-dashboard-test");
+        }
+        assertThat(http.get(api("/favicon.ico")).status()).isNotEqualTo(401);
+    }
+
+    @Test
     void everythingElseStaysClosed() {
-        assertThat(http.get(api("/not-a-page")).status()).isIn(401, 403);
+        assertThat(http.get(api("/api/does-not-exist")).status()).isEqualTo(401);
+        assertThat(http.get(api("/actuator/env")).status()).isEqualTo(401);
+        assertThat(http.get(api("/v3/api-docs")).status()).isIn(401, 403);
+        assertThat(http.get(api("/no-such-file.js")).status()).isIn(401, 403);
+        assertThat(http.get(pub("/no-such-page")).status()).isEqualTo(404);
         assertThat(http.get(api("/api/contacts")).status()).isEqualTo(401);
         assertThat(http.post(api("/emails"), "{}").status()).isIn(401, 403);
         assertThat(http.get(pub("/emails")).status()).isEqualTo(404);

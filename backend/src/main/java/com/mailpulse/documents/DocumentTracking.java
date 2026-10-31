@@ -96,8 +96,18 @@ public class DocumentTracking {
 
     /** OK, or GONE when the owner revoked the link or its expiry time has come. */
     static Status status(DocumentRepository.PublicLink link, Instant now) {
+        return closed(link, now) || limitReached(link) ? Status.GONE : Status.OK;
+    }
+
+    /** Revoked by the owner or past its expiry time. */
+    private static boolean closed(DocumentRepository.PublicLink link, Instant now) {
         boolean expired = link.expiresAt() != null && !now.isBefore(link.expiresAt());
-        return link.revokedAt() != null || expired ? Status.GONE : Status.OK;
+        return link.revokedAt() != null || expired;
+    }
+
+    /** The link has its maxViews counted views; the owner's own views never count. */
+    private static boolean limitReached(DocumentRepository.PublicLink link) {
+        return link.maxViews() != null && link.countedViews() >= link.maxViews();
     }
 
     DocumentApi.LinkInfo info(DocumentRepository.PublicLink link) {
@@ -122,11 +132,15 @@ public class DocumentTracking {
             return Status.NOT_FOUND;
         }
         DocumentRepository.PublicLink link = found.get();
-        if (status(link, request.at()) != Status.OK) {
+        // Views that already started keep beating after the view limit is reached; only new views get GONE.
+        if (closed(link, request.at())) {
             return Status.GONE;
         }
         Settings current = settings.current();
         List<Long> created = transactions.execute(tx -> recordBeat(link, valid, request, current));
+        if (created == null) {
+            return Status.GONE;
+        }
         publish(created);
         return Status.OK;
     }
@@ -207,6 +221,9 @@ public class DocumentTracking {
                 own = events.view(events.insertView(link.id(), beat.viewId(), viewId, origin.sourceKey(), recent.get().counted(), now))
                         .orElseThrow();
             } else {
+                if (link.maxViews() != null && events.countedViews(link.id()) >= link.maxViews()) {
+                    return null; // a new view of a link that has its maxViews counted views: GONE
+                }
                 Optional<Reason> reason = decide(link, request, origin, false, current);
                 viewId = events.insertView(link.id(), beat.viewId(), null, origin.sourceKey(), reason.isEmpty(), now);
                 own = events.view(viewId).orElseThrow();
@@ -221,6 +238,9 @@ public class DocumentTracking {
         long accepted = acceptedMs(own.firstBeatAt(), own.ownMs(), beat.visibleMs(), now);
         events.addTime(own.id(), viewId, accepted, pages(beat.pagesViewed()), beat.pageCount(), now);
         DocumentEventRepository.ViewRow view = events.view(viewId).orElseThrow();
+        if (view.counted() && accepted > 0) {
+            events.addPageTime(viewId, beat.page(), accepted);
+        }
         if (view.counted() && view.readAt() == null && view.visibleMs() >= current.docReadSeconds() * 1000L) {
             events.markRead(viewId, now);
             long readId = events.insertEvent(newEvent(link, viewId, DocKinds.READ, request, origin, Optional.empty(), events.viewSeq(viewId)));

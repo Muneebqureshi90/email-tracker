@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
  * Small static pages for recipients when a document link cannot be shown: never a stack trace, no internals and
  * nothing about the document. The only style is inline and allowed by its hash, so the CSP stays strict.
  */
-final class FriendlyPages {
+public final class FriendlyPages {
 
     private static final String STYLE = ":root{color-scheme:light dark;font-family:system-ui,-apple-system,\"Segoe UI\","
             + "Roboto,sans-serif}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f7f9;"
@@ -28,7 +28,8 @@ final class FriendlyPages {
 
     private FriendlyPages() {}
 
-    static ResponseEntity<byte[]> notFound() {
+    /** Also used by PortRoutingFilter for /d/ paths that do not match any document route. */
+    public static ResponseEntity<byte[]> notFound() {
         return page(HttpStatus.NOT_FOUND, "Link not found", "This link is not valid. Ask the sender for a new one.", null);
     }
 
