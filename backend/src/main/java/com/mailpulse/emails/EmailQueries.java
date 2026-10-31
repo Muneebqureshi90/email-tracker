@@ -191,9 +191,10 @@ public class EmailQueries {
         List<EmailRepository.EmailRow> rows = emails.latestByGmailIds(accountId.get(), column, ids);
         Map<UUID, List<Instant>> opens = latestOpens(rows);
         Map<UUID, Integer> documentViews = documents.viewsByEmail(rows.stream().map(EmailRepository.EmailRow::id).toList());
+        Map<UUID, Instant> delivered = events.firstDelivered(rows.stream().map(EmailRepository.EmailRow::id).toList());
         Map<String, EmailApi.Mark> marks = rows.stream()
                 .collect(Collectors.toMap(key, row -> mark(row, opens.getOrDefault(row.id(), List.of()),
-                        documentViews.getOrDefault(row.id(), 0))));
+                        documentViews.getOrDefault(row.id(), 0), delivered.get(row.id()))));
         return new EmailApi.MarksResponse(marks);
     }
 
@@ -210,6 +211,7 @@ public class EmailQueries {
         Map<UUID, List<EmailApi.Recipient>> recipients =
                 addressBook.recipientsOf(rows.stream().map(EmailRepository.EmailRow::id).toList());
         Map<UUID, List<Instant>> opens = latestOpens(rows);
+        Map<UUID, Instant> delivered = events.firstDelivered(rows.stream().map(EmailRepository.EmailRow::id).toList());
         return rows.stream()
                 .map(row -> new EmailApi.EmailSummary(
                         row.id(),
@@ -227,7 +229,8 @@ public class EmailQueries {
                         row.openStatusUnreliable(),
                         RepeatOpens.openedAgain(opens.getOrDefault(row.id(), List.of())),
                         recent(opens.getOrDefault(row.id(), List.of())),
-                        row.repliedAt()))
+                        row.repliedAt(),
+                        delivered.get(row.id())))
                 .toList();
     }
 
@@ -249,7 +252,7 @@ public class EmailQueries {
                 || (r.name() != null && r.name().toLowerCase(Locale.ROOT).contains(needle)));
     }
 
-    private static EmailApi.Mark mark(EmailRepository.EmailRow row, List<Instant> opens, int documentViews) {
+    private static EmailApi.Mark mark(EmailRepository.EmailRow row, List<Instant> opens, int documentViews, Instant deliveredAt) {
         boolean engaged = row.openCount() > 0 || row.clickCount() > 0;
         return new EmailApi.Mark(
                 row.id(),
@@ -262,6 +265,7 @@ public class EmailQueries {
                 row.firstOpenedAt(),
                 recent(opens),
                 RepeatOpens.openedAgain(opens),
-                documentViews);
+                documentViews,
+                deliveredAt);
     }
 }

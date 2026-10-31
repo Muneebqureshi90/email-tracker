@@ -172,6 +172,28 @@ public class TrackingEventRepository {
         return result;
     }
 
+    /**
+     * Delivery time per email: the first pixel or click event from the recipient side, counted or not.
+     * Pending events and events before sending, inside the send grace or from the owner do not count.
+     */
+    public Map<UUID, Instant> firstDelivered(Collection<UUID> emailIds) {
+        Map<UUID, Instant> result = new LinkedHashMap<>();
+        if (emailIds.isEmpty()) {
+            return result;
+        }
+        jdbc.sql("""
+                SELECT tracked_email_id, MIN(received_at) AS delivered_at FROM tracking_event
+                WHERE tracked_email_id IN (:ids) AND verdict IN ('COUNTED', 'IGNORED')
+                  AND (reason IS NULL OR reason NOT IN ('SELF', 'SELF_VIEW', 'SEND_GRACE', 'BEFORE_SEND', 'OWNER'))
+                GROUP BY tracked_email_id
+                """)
+                .param("ids", emailIds)
+                .query(rs -> {
+                    result.put(Sql.uuid(rs, "tracked_email_id"), Sql.instant(rs, "delivered_at"));
+                });
+        return result;
+    }
+
     /** Every counted open of an email, oldest first. */
     public List<EmailApi.OpenView> countedOpens(UUID emailId) {
         return jdbc.sql("""

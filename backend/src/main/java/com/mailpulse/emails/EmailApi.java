@@ -72,7 +72,8 @@ public final class EmailApi {
             boolean openStatusUnreliable,
             boolean openedAgain,
             List<Instant> recentOpens,
-            Instant repliedAt) {}
+            Instant repliedAt,
+            Instant deliveredAt) {}
 
     /** The extension saw a reply in the email's Gmail thread at this time. */
     public record ReplyRequest(@NotNull Instant repliedAt) {}
@@ -130,7 +131,8 @@ public final class EmailApi {
             Instant firstOpenedAt,
             List<Instant> recentOpens,
             boolean openedAgain,
-            int documentViews) {}
+            int documentViews,
+            Instant deliveredAt) {}
 
     public record MarksResponse(Map<String, Mark> marks) {}
 }
