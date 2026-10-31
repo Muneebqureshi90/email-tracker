@@ -13,12 +13,12 @@ public class DashboardController {
     /** The app's routes, also opened up in SecurityConfig. Keep in sync with the mapping below. */
     public static final String[] ROUTES = {
         "/", "/login", "/emails", "/emails/{id}", "/activity", "/contacts", "/contacts/{address}", "/reports",
-        "/alerts", "/settings", "/tokens", "/account"
+        "/alerts", "/documents", "/documents/{id}", "/settings", "/tokens", "/account"
     };
 
     @GetMapping({
         "/", "/login", "/emails", "/emails/{id}", "/activity", "/contacts", "/contacts/{address}", "/reports",
-        "/alerts", "/settings", "/tokens", "/account"
+        "/alerts", "/documents", "/documents/{id}", "/settings", "/tokens", "/account"
     })
     String app() {
         return "forward:/index.html";

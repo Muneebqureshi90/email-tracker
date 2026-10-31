@@ -14,7 +14,7 @@ class DashboardIT extends IntegrationTest {
 
     @Test
     void appRoutesServeTheSinglePageAppWithStrictHeaders() {
-        for (String path : List.of("/", "/login", "/emails", "/emails/" + UUID.randomUUID(), "/contacts/jane@example.com", "/settings")) {
+        for (String path : List.of("/", "/login", "/emails", "/emails/" + UUID.randomUUID(), "/contacts/jane@example.com", "/documents", "/documents/" + UUID.randomUUID(), "/settings")) {
             TestHttp.Response response = http.get(api(path));
             assertThat(response.status()).as(path).isEqualTo(200);
             assertThat(response.text()).as(path).contains("mailpulse-dashboard-test");

@@ -6,6 +6,7 @@ import { ActivityPage } from './pages/ActivityPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { AuthPage } from './pages/AuthPage';
 import { ContactDetailPage, ContactsPage } from './pages/ContactsPage';
+import { DocumentDetailPage, DocumentsPage } from './pages/DocumentsPage';
 import { EmailDetailPage } from './pages/EmailDetailPage';
 import { EmailsPage } from './pages/EmailsPage';
 import { OverviewPage } from './pages/OverviewPage';
@@ -34,6 +35,8 @@ export const routes: RouteObject[] = [
       { path: 'alerts', element: <AlertsPage /> },
       { path: 'contacts', element: <ContactsPage /> },
       { path: 'contacts/:address', element: <ContactDetailPage /> },
+      { path: 'documents', element: <DocumentsPage /> },
+      { path: 'documents/:id', element: <DocumentDetailPage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'tokens', element: <TokensPage /> },
