@@ -3,6 +3,7 @@
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { Heartbeat, type BeatPayload } from './beat';
+import { fitScale, isUnreadablePdf } from './fit';
 import { formatSize, isLinkInfo, tokenFromPath, type LinkInfo } from './link';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -59,11 +60,11 @@ class Viewer {
     return this.pdf.numPages;
   }
 
-  /** Scale that fits the first page's width into the reading area, times the zoom. */
+  /** Scale that fits the first page's width into the reading area (at most the reading width), times the zoom. */
   private scale(): number {
     const available = Math.max(200, docEl.clientWidth - 32);
     const width = this.firstPage.getViewport({ scale: 1 }).width;
-    return Math.min(available / width, 4) * this.zoom;
+    return fitScale(available, width) * this.zoom;
   }
 
   mount(): void {
@@ -217,6 +218,7 @@ async function loadInfo(token: string): Promise<InfoResult> {
 
 const NOT_FOUND = 'This link is not valid. Ask the sender for a new one.';
 const TRY_LATER = 'This document could not be opened right now. Try again in a few minutes.';
+const CANNOT_DISPLAY = 'This document can’t be displayed.';
 
 async function start(): Promise<void> {
   const token = tokenFromPath(location.pathname);
@@ -257,8 +259,15 @@ async function start(): Promise<void> {
       wasmUrl: `${ASSETS}wasm/`,
     }).promise;
     firstPage = await pdf.getPage(1);
-  } catch {
-    showStatus(TRY_LATER);
+  } catch (error) {
+    if (isUnreadablePdf(error)) {
+      // A broken file stays broken: no retry advice and no download of a file that cannot be opened.
+      downloadEl.hidden = true;
+      downloadEl.removeAttribute('href');
+      showStatus(CANNOT_DISPLAY);
+    } else {
+      showStatus(TRY_LATER);
+    }
     return;
   }
 
