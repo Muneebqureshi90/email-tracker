@@ -5,14 +5,15 @@ import { ActivityList } from '../components/ActivityList';
 import { LazyBucketChart } from '../components/LazyBucketChart';
 import { EmailTable } from '../components/EmailTable';
 import { Card, Empty, PageHeader, QueryState, Stat, TextLink } from '../components/ui';
-import { count, formatPercent } from '../lib/format';
+import { formatPercent } from '../lib/format';
 import { useNow } from '../lib/now';
 
 export function OverviewPage() {
   const now = useNow();
   const today = useReport('daily', undefined);
   const week = useReport('weekly', undefined);
-  const activity = useActivity(10);
+  // The list scrolls, so it can hold more than fits on screen.
+  const activity = useActivity(30);
   // The API pages in 25, 50 or 100; Overview shows the newest five.
   const recent = useEmails({ page: 0, size: 25 });
 
@@ -30,15 +31,18 @@ export function OverviewPage() {
           </div>
         )}
       </QueryState>
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid items-start gap-6 lg:grid-cols-5">
         <Card title="This week" className="lg:col-span-3">
           <QueryState query={week}>
             {(report) => (
               <>
-                <p className="px-4 pt-3 text-sm text-muted">
-                  {report.sent} sent · {formatPercent(report.openRate)} opened · {count(report.opens, 'open')} · {count(report.clicks, 'click')}
-                </p>
-                <LazyBucketChart buckets={report.buckets} period="WEEK" height={200} />
+                <dl className="grid grid-cols-2 gap-2 px-4 pt-4 sm:grid-cols-4">
+                  <WeekFigure label="Sent" value={String(report.sent)} />
+                  <WeekFigure label="Opened" value={formatPercent(report.openRate)} />
+                  <WeekFigure label="Opens" value={String(report.opens)} dot="bg-accent" />
+                  <WeekFigure label="Clicks" value={String(report.clicks)} dot="bg-(--mp-chart-2)" />
+                </dl>
+                <LazyBucketChart buckets={report.buckets} period="WEEK" height={260} />
               </>
             )}
           </QueryState>
@@ -49,7 +53,10 @@ export function OverviewPage() {
               page.items.length === 0 ? (
                 <Empty title="No opens or clicks yet">They appear here within about a minute of happening.</Empty>
               ) : (
-                <ActivityList items={page.items} now={now} />
+                // Focusable so the list can be scrolled with the keyboard.
+                <div className="max-h-[26.5rem] overflow-y-auto overscroll-contain" tabIndex={0} role="region" aria-label="Latest activity, scrollable">
+                  <ActivityList items={page.items} now={now} />
+                </div>
               )
             }
           </QueryState>
@@ -69,6 +76,19 @@ export function OverviewPage() {
         </QueryState>
       </Card>
     </>
+  );
+}
+
+/** One of the week's totals above the chart; the dot ties it to the chart's colour. */
+function WeekFigure({ label, value, dot }: { label: string; value: string; dot?: string }) {
+  return (
+    <div className="rounded-lg bg-raised px-3 py-2">
+      <dt className="flex items-center gap-1.5 text-xs font-medium text-muted">
+        {dot && <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />}
+        {label}
+      </dt>
+      <dd className="mt-0.5 text-lg font-semibold tabular-nums">{value}</dd>
+    </div>
   );
 }
 

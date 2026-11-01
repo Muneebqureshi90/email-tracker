@@ -1,4 +1,5 @@
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useId } from 'react';
+import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { Bucket } from '../api/types';
 import { count, formatDate, weekdayOf } from '../lib/format';
 
@@ -36,6 +37,11 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: readonl
   );
 }
 
+/** Value above a bar; empty for zero so quiet days stay clean. */
+function barValue(value: unknown): string {
+  return typeof value === 'number' && value > 0 ? String(value) : '';
+}
+
 /** Opens and clicks per hour (daily report) or per day (weekly report, every weekday labelled; bug A4). */
 export function BucketChart({ buckets, period, height = 256 }: { buckets: Bucket[]; period: 'DAY' | 'WEEK'; height?: number }) {
   const data: Row[] = buckets.map((bucket) => {
@@ -43,13 +49,25 @@ export function BucketChart({ buckets, period, height = 256 }: { buckets: Bucket
     const hour = Number(bucket.label.slice(0, 2));
     return { ...bucket, label: bucket.label.slice(0, 2), full: `${bucket.label.slice(0, 2)}:00–${String((hour + 1) % 24).padStart(2, '0')}:00` };
   });
+  // SVG ids from useId contain characters url(#…) does not accept.
+  const gradient = `mp-bars-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const ticks = integerTicks(Math.max(0, ...data.map((row) => Math.max(row.opens, row.clicks))));
   return (
     <figure className="p-4">
       <div style={{ height }} aria-hidden="true" data-testid="bucket-chart">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -20 }} barGap={2}>
-            <CartesianGrid stroke="var(--mp-line)" vertical={false} />
+          <BarChart data={data} margin={{ top: 20, right: 8, bottom: 0, left: -20 }} barGap={4} barCategoryGap="22%">
+            <defs>
+              <linearGradient id={`${gradient}-opens`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--mp-accent)" stopOpacity={1} />
+                <stop offset="100%" stopColor="var(--mp-accent)" stopOpacity={0.45} />
+              </linearGradient>
+              <linearGradient id={`${gradient}-clicks`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--mp-chart-2)" stopOpacity={1} />
+                <stop offset="100%" stopColor="var(--mp-chart-2)" stopOpacity={0.45} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="var(--mp-line)" strokeDasharray="3 4" vertical={false} />
             <XAxis dataKey="label" stroke="var(--mp-muted)" fontSize={12} tickLine={false} axisLine={false} interval={period === 'WEEK' ? 0 : 'preserveStartEnd'} />
             <YAxis
               allowDecimals={false}
@@ -68,9 +86,13 @@ export function BucketChart({ buckets, period, height = 256 }: { buckets: Bucket
               wrapperStyle={{ outline: 'none', zIndex: 20 }}
               isAnimationActive={false}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
-            <Bar dataKey="opens" name="Opens" fill="var(--mp-accent)" radius={[6, 6, 2, 2]} maxBarSize={28} isAnimationActive={false} />
-            <Bar dataKey="clicks" name="Clicks" fill="var(--mp-chart-2)" radius={[6, 6, 2, 2]} maxBarSize={28} isAnimationActive={false} />
+            <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+            <Bar dataKey="opens" name="Opens" fill={`url(#${gradient}-opens)`} radius={[6, 6, 2, 2]} maxBarSize={36} isAnimationActive={false}>
+              <LabelList dataKey="opens" position="top" formatter={barValue} fill="var(--mp-fg)" fontSize={11} fontWeight={600} />
+            </Bar>
+            <Bar dataKey="clicks" name="Clicks" fill={`url(#${gradient}-clicks)`} radius={[6, 6, 2, 2]} maxBarSize={36} isAnimationActive={false}>
+              <LabelList dataKey="clicks" position="top" formatter={barValue} fill="var(--mp-fg)" fontSize={11} fontWeight={600} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
