@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { Bucket } from '../api/types';
 import { count, formatDate, weekdayOf } from '../lib/format';
 
@@ -52,8 +52,10 @@ export function BucketChart({ buckets, period, height = 256 }: { buckets: Bucket
   // SVG ids from useId contain characters url(#…) does not accept.
   const gradient = `mp-bars-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const ticks = integerTicks(Math.max(0, ...data.map((row) => Math.max(row.opens, row.clicks))));
+  // Without clicks the Clicks bar would still reserve an empty slot and push every Opens bar off centre.
+  const hasClicks = data.some((row) => row.clicks > 0);
   return (
-    <figure className="p-4">
+    <figure className="p-3 sm:p-4">
       <div style={{ height }} aria-hidden="true" data-testid="bucket-chart">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 20, right: 8, bottom: 0, left: -20 }} barGap={4} barCategoryGap="22%">
@@ -80,22 +82,35 @@ export function BucketChart({ buckets, period, height = 256 }: { buckets: Bucket
               width={40}
             />
             <Tooltip
-              cursor={{ fill: 'var(--mp-raised)' }}
+              cursor={{ fill: 'var(--mp-raised)', radius: 8 }}
               content={<ChartTooltip />}
-              allowEscapeViewBox={{ x: false, y: true }}
+              position={{ y: 0 }}
+              allowEscapeViewBox={{ x: false, y: false }}
               wrapperStyle={{ outline: 'none', zIndex: 20 }}
               isAnimationActive={false}
             />
-            <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
             <Bar dataKey="opens" name="Opens" fill={`url(#${gradient}-opens)`} radius={[6, 6, 2, 2]} maxBarSize={36} isAnimationActive={false}>
               <LabelList dataKey="opens" position="top" formatter={barValue} fill="var(--mp-fg)" fontSize={11} fontWeight={600} />
             </Bar>
-            <Bar dataKey="clicks" name="Clicks" fill={`url(#${gradient}-clicks)`} radius={[6, 6, 2, 2]} maxBarSize={36} isAnimationActive={false}>
-              <LabelList dataKey="clicks" position="top" formatter={barValue} fill="var(--mp-fg)" fontSize={11} fontWeight={600} />
-            </Bar>
+            {hasClicks && (
+              <Bar dataKey="clicks" name="Clicks" fill={`url(#${gradient}-clicks)`} radius={[6, 6, 2, 2]} maxBarSize={36} isAnimationActive={false}>
+                <LabelList dataKey="clicks" position="top" formatter={barValue} fill="var(--mp-fg)" fontSize={11} fontWeight={600} />
+              </Bar>
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
+      {/* The legend lives outside the chart so it always lists both series and wraps on small screens. */}
+      <p className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted" aria-hidden="true">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-accent" />
+          Opens
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-(--mp-chart-2)" />
+          Clicks{hasClicks ? '' : ' (none yet)'}
+        </span>
+      </p>
       {/* A table cannot be shrunk by sr-only itself (it would still make the page scroll), so it sits in a div. */}
       <div className="sr-only">
         <table>
