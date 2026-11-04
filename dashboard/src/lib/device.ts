@@ -80,3 +80,30 @@ function appOf(ua: string): string | null {
   }
   return null;
 }
+
+/** Samsung model codes by prefix; the family is all a code like "SM-S911B" tells a reader. */
+const SAMSUNG: readonly (readonly [RegExp, string])[] = [
+  [/^SM-S/, 'Galaxy S series'],
+  [/^SM-A/, 'Galaxy A series'],
+  [/^SM-M/, 'Galaxy M series'],
+  [/^SM-F/, 'Galaxy Z Fold/Flip'],
+  [/^SM-N/, 'Galaxy Note'],
+  [/^SM-[TXP]/, 'Galaxy Tab'],
+];
+
+/**
+ * The phone model a Chrome-based Android browser sends in Sec-CH-UA-Model (D-135), in words: "SM-S911B" becomes
+ * "Samsung Galaxy S series (SM-S911B)". Codes that already name the phone ("Pixel 8 Pro") stay as they are.
+ */
+export function describeModel(code: string | null | undefined): string | null {
+  const model = code?.trim();
+  if (!model) return null;
+  if (/^SM-/i.test(model)) {
+    const family = SAMSUNG.find(([pattern]) => pattern.test(model.toUpperCase()))?.[1];
+    return `Samsung ${family ?? 'Galaxy'} (${model})`;
+  }
+  if (/^CPH\d/i.test(model)) return `OPPO or OnePlus (${model})`;
+  if (/^RMX\d/i.test(model)) return `realme (${model})`;
+  if (/^V2\d{3}/i.test(model)) return `vivo (${model})`;
+  return model;
+}

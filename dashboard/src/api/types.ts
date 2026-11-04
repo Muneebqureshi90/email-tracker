@@ -71,6 +71,8 @@ export interface EventView {
   source: string;
   linkId: string | null;
   userAgent: string | null;
+  /** Phone model a Chrome-based Android browser sends once asked, for example "SM-S911B" (D-135); usually absent. */
+  deviceModel?: string | null;
   ipPrefix: string | null;
   /** Approximate place of the network (D-133); null for mail proxies and unknown networks. */
   location: IpLocation | null;
@@ -318,6 +320,8 @@ export interface DocEventView {
   reason: string | null;
   source: string;
   userAgent: string | null;
+  /** Phone model sent by a Chrome-based Android browser (D-135); usually absent. */
+  deviceModel?: string | null;
   ipPrefix: string | null;
   readSeconds: number | null;
   pagesViewed: number | null;

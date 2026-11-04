@@ -28,6 +28,7 @@ import { DataTable, MAIN_COLUMN, type Column } from '../components/DataTable';
 import { ConfirmDialog, Modal } from '../components/dialogs';
 import { toast, toastError } from '../components/toast';
 import { Badge, Button, Card, Empty, ErrorBox, LoadingBlock, PageHeader, Pagination, QueryState, Stat, TextLink, Toggle } from '../components/ui';
+import { describeModel } from '../lib/device';
 import { REASONS, SOURCES, count, duration, fileSize, formatDateTime, formatShortDateTime, relativeTime } from '../lib/format';
 import { useNow } from '../lib/now';
 import { clampPage, paginate, useListParams } from '../lib/paging';
@@ -302,6 +303,12 @@ function eventWhat(event: DocEventView): string {
   const parts = [event.readSeconds !== null ? duration(event.readSeconds) : null, event.pagesViewed !== null ? count(event.pagesViewed, 'page') : null];
   const details = parts.filter((part) => part !== null).join(', ');
   return details ? `Read: ${details}` : 'Read';
+}
+
+/** The model a Chrome-based Android browser reported (D-135); other browsers send none, so nothing shows. */
+function DeviceModel({ code }: { code: string | null | undefined }) {
+  const model = describeModel(code);
+  return model ? <span className="block">Device: {model}</span> : null;
 }
 
 type DetailTab = 'links' | 'events';
@@ -652,6 +659,7 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
                           <td>{linkNames.get(event.linkId) ?? 'Link'}</td>
                           <td className="max-w-xs text-xs break-words text-muted">
                             {SOURCES[event.source] ?? event.source}
+                            <DeviceModel code={event.deviceModel} />
                             {event.userAgent && <span className="block">{event.userAgent}</span>}
                             {event.ipPrefix && <span className="block">Network {event.ipPrefix}</span>}
                           </td>

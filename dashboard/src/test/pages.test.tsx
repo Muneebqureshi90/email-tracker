@@ -169,6 +169,20 @@ describe('email detail', () => {
     expect(within(table).getAllByText('Unknown').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('shows the phone model a Chrome-based Android browser sends (D-135)', async () => {
+    const withModel: EmailDetail = {
+      ...detail,
+      events: [
+        { id: 7, type: 'CLICK', receivedAt: '2026-10-29T11:05:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36', deviceModel: 'SM-S911B', ipPrefix: '203.0.113.0/24', location: null },
+      ],
+    };
+    mockApi({ [`GET /api/emails/${withModel.summary.id}`]: { body: withModel } });
+    renderAt(`/emails/${withModel.summary.id}`);
+    const table = await screen.findByRole('table');
+    const phone = within(table).getByText('Samsung Galaxy S series (SM-S911B)').closest('tr')!;
+    expect(within(phone).getByText('Mobile')).toBeTruthy();
+  });
+
   it('explains every request and mutes notifications', async () => {
     const calls = mockApi({
       [`GET /api/emails/${detail.summary.id}`]: { body: detail },

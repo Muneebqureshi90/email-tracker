@@ -4,7 +4,7 @@ import type { EmailDetail, EventView } from '../api/types';
 import { Select } from '../components/controls';
 import { Card, Empty, ErrorBox, OpenMark, PageHeader, QueryState, Stat, TextLink, Toggle } from '../components/ui';
 import { REASONS, SOURCES, count, formatDateTime, formatDateTimeSeconds, relativeTime } from '../lib/format';
-import { describeDevice } from '../lib/device';
+import { describeDevice, describeModel } from '../lib/device';
 import { MAIL_PROXY_SOURCES, formatCoordinate, isServerNetwork, placeName } from '../lib/location';
 import { useNow } from '../lib/now';
 
@@ -191,7 +191,8 @@ function EmailView({ detail }: { detail: EmailDetail }) {
             cannot reveal anyone&apos;s live position. Gmail, Outlook, Yahoo and Apple Mail load images through their own servers, so their
             opens hide the reader&apos;s location and device; link clicks and other mail apps show them. Device and system come from the
             browser&apos;s user agent, which browsers shorten: Windows 11 reports as Windows 10, Chrome on Android hides its version, and
-            iPads can look like Macs.{' '}
+            iPads can look like Macs. Chrome-based browsers on Android also send the phone model once MailPulse asks; iPhones never
+            do.{' '}
             <a href="https://db-ip.com" target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
               IP Geolocation by DB-IP
             </a>
@@ -202,7 +203,10 @@ function EmailView({ detail }: { detail: EmailDetail }) {
   );
 }
 
-/** Device (Mobile, Tablet, Desktop) and system with the browser or app, from the user agent (D-134). */
+/**
+ * Device (Mobile, Tablet, Desktop) and system with the browser or app, from the user agent (D-134), plus the
+ * phone model when a Chrome-based Android browser sent it (D-135).
+ */
 function DeviceCells({ event }: { event: EventView }) {
   if (MAIL_PROXY_SOURCES.has(event.source)) {
     return (
@@ -213,9 +217,13 @@ function DeviceCells({ event }: { event: EventView }) {
     );
   }
   const device = describeDevice(event.userAgent);
+  const model = describeModel(event.deviceModel);
   return (
     <>
-      <td className={device?.kind ? 'whitespace-nowrap' : 'text-muted'}>{device?.kind ?? 'Unknown'}</td>
+      <td className="min-w-28">
+        <span className={device?.kind ? 'whitespace-nowrap' : 'text-muted'}>{device?.kind ?? 'Unknown'}</span>
+        {model && <span className="block text-xs text-muted">{model}</span>}
+      </td>
       <td className="min-w-32">
         <span className={device?.system ? undefined : 'text-muted'}>{device?.system ?? 'Unknown'}</span>
         {device?.app && <span className="block text-xs text-muted">{device.app}</span>}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeDevice } from '../lib/device';
+import { describeDevice, describeModel } from '../lib/device';
 
 const cases: [string, string, ReturnType<typeof describeDevice>][] = [
   [
@@ -94,5 +94,33 @@ describe('device from the user agent', () => {
   it('says nothing without a user agent', () => {
     expect(describeDevice(null)).toBeNull();
     expect(describeDevice('')).toBeNull();
+  });
+});
+
+const models: [string, string][] = [
+  ['SM-S911B', 'Samsung Galaxy S series (SM-S911B)'],
+  ['SM-A546E', 'Samsung Galaxy A series (SM-A546E)'],
+  ['SM-M346B', 'Samsung Galaxy M series (SM-M346B)'],
+  ['SM-F946B', 'Samsung Galaxy Z Fold/Flip (SM-F946B)'],
+  ['SM-N986B', 'Samsung Galaxy Note (SM-N986B)'],
+  ['SM-X710', 'Samsung Galaxy Tab (SM-X710)'],
+  ['SM-G991B', 'Samsung Galaxy (SM-G991B)'],
+  ['CPH2581', 'OPPO or OnePlus (CPH2581)'],
+  ['RMX3830', 'realme (RMX3830)'],
+  ['V2250', 'vivo (V2250)'],
+  ['Pixel 8 Pro', 'Pixel 8 Pro'],
+  ['Infinix X6816', 'Infinix X6816'],
+];
+
+describe('phone model from Sec-CH-UA-Model', () => {
+  it.each(models)('reads %s', (code, expected) => {
+    expect(describeModel(code)).toBe(expected);
+  });
+
+  it('says nothing without a model', () => {
+    expect(describeModel(null)).toBeNull();
+    expect(describeModel(undefined)).toBeNull();
+    expect(describeModel('')).toBeNull();
+    expect(describeModel('   ')).toBeNull();
   });
 });
