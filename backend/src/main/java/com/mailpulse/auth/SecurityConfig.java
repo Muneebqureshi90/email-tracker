@@ -90,7 +90,7 @@ class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, DashboardController.ROUTES).permitAll()
                         .requestMatchers(HttpMethod.GET, "/index.html", "/assets/**", "/favicon.svg", "/favicon.ico").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/status", "/actuator/health").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/setup", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/setup", "/api/auth/login", "/api/auth/reset/request", "/api/auth/reset").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/emails", "/api/emails/*/links", "/api/emails/*/reply", "/api/self-views",
                                 "/api/documents/*/links")
                         .hasAnyRole(Roles.OWNER, Roles.EXTENSION)

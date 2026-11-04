@@ -12,7 +12,7 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
  */
 class CookieBearerTokenResolver implements BearerTokenResolver {
 
-    private static final Set<String> COOKIE_FREE_PATHS = Set.of("/api/auth/status", "/api/auth/login", "/api/auth/setup");
+    private static final Set<String> COOKIE_FREE_PATHS = Set.of("/api/auth/status", "/api/auth/login", "/api/auth/setup", "/api/auth/reset/request", "/api/auth/reset");
 
     @Override
     public String resolve(HttpServletRequest request) {

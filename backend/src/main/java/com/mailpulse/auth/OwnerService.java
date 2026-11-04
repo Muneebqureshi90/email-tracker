@@ -52,6 +52,52 @@ public class OwnerService {
         log.warn("MailPulse first-run setup code: {} (enter it in the dashboard to choose your password)", code);
     }
 
+    /** How long a password reset code from the log stays valid. */
+    static final Duration RESET_CODE_TTL = Duration.ofMinutes(15);
+    /** Wrong reset codes before the code is thrown away (a new one must be requested). */
+    static final int MAX_RESET_ATTEMPTS = 5;
+
+    private record ResetCode(String code, Instant expiresAt, int attemptsLeft) {}
+
+    private final AtomicReference<ResetCode> resetCode = new AtomicReference<>();
+
+    /**
+     * Forgot password: like the setup code, the reset code goes only to the backend log, so only
+     * someone who can read the log on this PC can choose a new password.
+     */
+    public void requestPasswordReset() {
+        if (!repository.exists()) {
+            throw ApiException.conflict("Setup is not complete");
+        }
+        String code = RandomTokens.setupCode();
+        resetCode.set(new ResetCode(code, clock.instant().plus(RESET_CODE_TTL), MAX_RESET_ATTEMPTS));
+        log.warn("MailPulse password reset code: {} (valid 15 minutes; enter it on the dashboard's Forgot password page)", code);
+    }
+
+    /** For tests and the reset script only; the code is never returned by the API. */
+    public Optional<String> pendingResetCode() {
+        return Optional.ofNullable(resetCode.get()).map(ResetCode::code);
+    }
+
+    /** A new password with a valid reset code; also lifts a lockout and ends every older session. */
+    public synchronized void resetPassword(String code, String newPassword) {
+        ResetCode expected = resetCode.get();
+        if (expected == null || clock.instant().isAfter(expected.expiresAt())) {
+            resetCode.set(null);
+            throw ApiException.forbidden("Invalid or expired reset code. Request a new one.");
+        }
+        if (code == null || !constantTimeEquals(normalize(code), normalize(expected.code()))) {
+            int left = expected.attemptsLeft() - 1;
+            resetCode.set(left > 0 ? new ResetCode(expected.code(), expected.expiresAt(), left) : null);
+            throw ApiException.forbidden("Invalid or expired reset code. Request a new one.");
+        }
+        checkPasswordPolicy(newPassword);
+        Instant now = clock.instant().truncatedTo(ChronoUnit.SECONDS);
+        repository.updatePassword(passwordEncoder.encode(newPassword), now);
+        passwordChangedAt = now;
+        resetCode.set(null);
+    }
+
     public boolean setupRequired() {
         return !repository.exists();
     }

@@ -76,6 +76,26 @@ class AuthLifecycleIT extends IntegrationTest {
         assertThat(http.post(api("/api/auth/login"), Map.of("password", NEW_PASSWORD)).status()).isEqualTo(429);
         clock.advance(Duration.ofMinutes(16));
         assertThat(http.post(api("/api/auth/login"), Map.of("password", NEW_PASSWORD)).status()).isEqualTo(204);
+
+        // Forgot password: a code from the log, wrong codes are counted, expiry, then a new password.
+        clock.advance(Duration.ofMinutes(2));
+        String reset = "a forgotten-password reset 2026";
+        assertThat(http.post(api("/api/auth/reset"), Map.of("resetCode", "WRONG-CODE1", "password", reset)).status()).isEqualTo(403);
+        assertThat(http.post(api("/api/auth/reset/request"), null).status()).isEqualTo(202);
+        String resetCode = owner.pendingResetCode().orElseThrow();
+        assertThat(http.post(api("/api/auth/reset"), Map.of("resetCode", resetCode, "password", "short")).status()).isEqualTo(400);
+        clock.advance(Duration.ofMinutes(16));
+        assertThat(http.post(api("/api/auth/reset"), Map.of("resetCode", resetCode, "password", reset)).status())
+                .as("codes expire after 15 minutes").isEqualTo(403);
+        assertThat(http.post(api("/api/auth/reset/request"), null).status()).isEqualTo(202);
+        String fresh = owner.pendingResetCode().orElseThrow();
+        TestHttp.Response done = http.post(api("/api/auth/reset"), Map.of("resetCode", fresh.toLowerCase(), "password", reset));
+        assertThat(done.status()).isEqualTo(204);
+        assertThat(http.get(api("/api/settings"), cookie(done.cookie(SessionService.COOKIE))).status()).isEqualTo(200);
+        assertThat(owner.pendingResetCode()).as("a code works once").isEmpty();
+        clock.advance(Duration.ofMinutes(2));
+        assertThat(http.post(api("/api/auth/login"), Map.of("password", NEW_PASSWORD)).status()).isEqualTo(401);
+        assertThat(http.post(api("/api/auth/login"), Map.of("password", reset)).status()).isEqualTo(204);
     }
 
     private static String[] cookie(String value) {

@@ -29,6 +29,8 @@ class AuthController {
 
     record LoginRequest(@NotBlank @Size(max = 200) String password) {}
 
+    record ResetRequest(@NotBlank @Size(max = 20) String resetCode, @NotBlank @Size(max = 200) String password) {}
+
     record PasswordChangeRequest(
             @NotBlank @Size(max = 200) String currentPassword, @NotBlank @Size(max = 200) String newPassword) {}
 
@@ -58,6 +60,22 @@ class AuthController {
     ResponseEntity<Void> login(@Valid @RequestBody LoginRequest body) {
         limit("login");
         owner.verifyLogin(body.password());
+        return withCookie(ResponseEntity.noContent(), sessions.issue());
+    }
+
+    /** Forgot password, step 1: a one-time code is written to the backend log (never returned here). */
+    @PostMapping("/reset/request")
+    ResponseEntity<Void> requestReset() {
+        limit("reset-request");
+        owner.requestPasswordReset();
+        return ResponseEntity.accepted().build();
+    }
+
+    /** Forgot password, step 2: the code from the log plus the new password; signs in. */
+    @PostMapping("/reset")
+    ResponseEntity<Void> reset(@Valid @RequestBody ResetRequest body) {
+        limit("reset");
+        owner.resetPassword(body.resetCode(), body.password());
         return withCookie(ResponseEntity.noContent(), sessions.issue());
     }
 

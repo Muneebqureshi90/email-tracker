@@ -46,6 +46,26 @@ describe('sign-in', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('Wrong password');
   });
 
+  it('resets a forgotten password with a code from the log', async () => {
+    const calls = mockApi({
+      'GET /api/auth/status': { body: { setupRequired: false, authenticated: false } },
+      'POST /api/auth/reset/request': { status: 202 },
+      'POST /api/auth/reset': { status: 204 },
+    });
+    renderAt('/login');
+    await userEvent.click(await screen.findByRole('button', { name: 'Forgot password?' }));
+    expect(screen.getByRole('heading', { name: 'Reset your password' })).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Write a code to the log' }));
+    expect((await screen.findByRole('status')).textContent).toContain('A new code is in the log');
+    await userEvent.type(screen.getByLabelText('Reset code'), 'ABCDE-12345');
+    await userEvent.type(screen.getByLabelText('New password'), 'a brand new passphrase');
+    await userEvent.type(screen.getByLabelText('Repeat the password'), 'a brand new passphrase');
+    await userEvent.click(screen.getByRole('button', { name: 'Set new password and sign in' }));
+    await waitFor(() => expect(calls.some((call) => call.path === '/api/auth/reset')).toBe(true));
+    const sent = calls.find((call) => call.path === '/api/auth/reset');
+    expect(sent?.body).toEqual({ resetCode: 'ABCDE-12345', password: 'a brand new passphrase' });
+  });
+
   it('sends signed-out visitors to the sign-in page', async () => {
     mockApi({ 'GET /api/auth/status': { body: { setupRequired: false, authenticated: false } } });
     const router = renderAt('/emails');
