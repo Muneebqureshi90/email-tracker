@@ -8,6 +8,7 @@ import com.mailpulse.emails.EmailRepository;
 import com.mailpulse.emails.LinkRepository;
 import com.mailpulse.settings.Settings;
 import com.mailpulse.settings.SettingsService;
+import com.mailpulse.tracking.EventLocations;
 import com.mailpulse.tracking.TrackingEventRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -54,6 +55,7 @@ class ExportService {
     private final DocumentQueries documents;
     private final SettingsService settings;
     private final Clock clock;
+    private final EventLocations locations;
 
     ExportService(
             EmailRepository emails,
@@ -63,7 +65,8 @@ class ExportService {
             ContactQueries contacts,
             DocumentQueries documents,
             SettingsService settings,
-            Clock clock) {
+            Clock clock,
+            EventLocations locations) {
         this.emails = emails;
         this.emailQueries = emailQueries;
         this.links = links;
@@ -72,6 +75,7 @@ class ExportService {
         this.documents = documents;
         this.settings = settings;
         this.clock = clock;
+        this.locations = locations;
     }
 
     Export export() {
@@ -93,7 +97,7 @@ class ExportService {
                     row.gmailThreadId(),
                     row.cancelledAt(),
                     linksByEmail.getOrDefault(row.id(), List.of()),
-                    eventsByEmail.getOrDefault(row.id(), List.of())));
+                    locations.addTo(eventsByEmail.getOrDefault(row.id(), List.of()))));
         }
         return new Export(
                 FORMAT,

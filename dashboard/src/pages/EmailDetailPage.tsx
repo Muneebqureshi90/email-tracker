@@ -3,7 +3,8 @@ import { useEmail, useUpdatePreferences } from '../api/queries';
 import type { EmailDetail, EventView } from '../api/types';
 import { Select } from '../components/controls';
 import { Card, Empty, ErrorBox, OpenMark, PageHeader, QueryState, Stat, TextLink, Toggle } from '../components/ui';
-import { REASONS, SOURCES, count, formatDateTime, relativeTime } from '../lib/format';
+import { REASONS, SOURCES, count, formatDateTime, formatDateTimeSeconds, relativeTime } from '../lib/format';
+import { MAIL_PROXY_SOURCES, formatCoordinate, isServerNetwork, placeName } from '../lib/location';
 import { useNow } from '../lib/now';
 
 function hostOf(url: string | undefined): string {
@@ -149,19 +150,27 @@ function EmailView({ detail }: { detail: EmailDetail }) {
                   <th>What</th>
                   <th>Result</th>
                   <th>Seen through</th>
+                  <th>Location</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
                   <th>Details</th>
                 </tr>
               </thead>
               <tbody>
                 {detail.events.map((event) => (
                   <tr key={event.id}>
-                    <td className="whitespace-nowrap">{formatDateTime(event.receivedAt)}</td>
+                    <td className="whitespace-nowrap">{formatDateTimeSeconds(event.receivedAt)}</td>
                     <td>{event.type === 'OPEN' ? 'Open' : `Click${hostOf(event.linkId ? linkUrls.get(event.linkId) : undefined)}`}</td>
                     <td>
                       <span className={`font-semibold ${VERDICT_TONE[event.verdict]}`}>{event.verdict === 'COUNTED' ? 'Counted' : event.verdict === 'PENDING' ? 'Waiting (self-view hold)' : 'Not counted'}</span>
                       {event.reason && <span className="block text-xs text-muted">{REASONS[event.reason] ?? event.reason}</span>}
                     </td>
                     <td>{SOURCES[event.source] ?? event.source}</td>
+                    <td className="min-w-40">
+                      <LocationCell event={event} />
+                    </td>
+                    <td className="whitespace-nowrap tabular-nums">{formatCoordinate(event.location?.latitude)}</td>
+                    <td className="whitespace-nowrap tabular-nums">{formatCoordinate(event.location?.longitude)}</td>
                     <td className="max-w-xs text-xs break-words text-muted">
                       {event.userAgent ?? 'No user agent'}
                       {event.ipPrefix && <span className="block">Network {event.ipPrefix}</span>}
@@ -172,7 +181,42 @@ function EmailView({ detail }: { detail: EmailDetail }) {
             </table>
           </div>
         )}
+        {detail.events.length > 0 && (
+          <p className="border-t border-line px-4 py-3 text-xs text-muted">
+            Location is approximate (city level): MailPulse looks up the network address on this PC in the free DB-IP Lite database. An email
+            cannot reveal anyone&apos;s live position. Gmail, Outlook, Yahoo and Apple Mail load images through their own servers, so their
+            opens hide the reader&apos;s location; link clicks and other mail apps show it.{' '}
+            <a href="https://db-ip.com" target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
+              IP Geolocation by DB-IP
+            </a>
+          </p>
+        )}
       </Card>
+    </>
+  );
+}
+
+function LocationCell({ event }: { event: EventView }) {
+  if (MAIL_PROXY_SOURCES.has(event.source)) {
+    return (
+      <>
+        <span>Hidden by {SOURCES[event.source] ?? 'the mail service'}</span>
+        <span className="block text-xs text-muted">Its servers loaded the image, not the reader</span>
+      </>
+    );
+  }
+  if (!event.ipPrefix) return <span className="text-muted">No network address stored</span>;
+  const place = event.location ? placeName(event.location) : null;
+  const owner = event.location?.networkOwner ?? null;
+  return (
+    <>
+      <span className={place ? undefined : 'text-muted'}>{place ?? 'Unknown'}</span>
+      {owner && (
+        <span className="block text-xs text-muted">
+          Network: {owner}
+          {isServerNetwork(owner) && ' (a mail or cloud server, probably not the reader)'}
+        </span>
+      )}
     </>
   );
 }

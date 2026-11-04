@@ -1,5 +1,6 @@
 package com.mailpulse.emails;
 
+import com.mailpulse.common.geo.IpLocation;
 import com.mailpulse.documents.DocumentApi;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -83,6 +84,7 @@ public final class EmailApi {
 
     public record LinkView(UUID id, String url, boolean used, int clickCount, Instant firstClickedAt, Instant lastClickedAt) {}
 
+    /** @param location approximate place of the network (D-133); null for mail proxies and unknown networks */
     public record EventView(
             long id,
             String type,
@@ -92,7 +94,13 @@ public final class EmailApi {
             String source,
             UUID linkId,
             String userAgent,
-            String ipPrefix) {}
+            String ipPrefix,
+            IpLocation location) {
+
+        public EventView withLocation(IpLocation place) {
+            return new EventView(id, type, receivedAt, verdict, reason, source, linkId, userAgent, ipPrefix, place);
+        }
+    }
 
     /**
      * @param documentLinks the email's document links ("Insert tracked file"), oldest first

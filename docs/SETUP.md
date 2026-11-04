@@ -114,6 +114,9 @@ Needs Java 25 and Docker Desktop running.
    these values. Then use `http://127.0.0.1:8090` for the dashboard and as the extension's Backend URL.
    `dev.ps1` first builds the dashboard (`dashboard\dist`, needs Node.js) and puts it into the
    backend image, so Docker itself never needs Node.
+   It also runs `.\scripts\geo-db.ps1`, which downloads the free DB-IP Lite databases (about 70 MB,
+   once a month) into `data\geo` for the approximate location of link clicks and direct opens (D-133).
+   Lookups run on this PC. Offline, `dev.ps1` warns and MailPulse runs with location off.
 4. First run only: read the one-time setup code from the backend log, then open the dashboard at
    http://127.0.0.1:8080, enter the code and choose your password (at least 12 characters):
    ```powershell

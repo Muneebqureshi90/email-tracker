@@ -47,7 +47,11 @@ services:
       MAILPULSE_BIND_ADDRESS: 0.0.0.0
       # Requests reach the container from Docker's gateway; trust X-Forwarded-For only from there.
       MAILPULSE_TRUSTED_PROXIES: 127.0.0.1/32,::1/128,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8
+      MAILPULSE_GEO_DIR: /geo
       TZ: UTC
+    volumes:
+      # DB-IP Lite files from scripts\geo-db.ps1 (D-133), read-only. Without them IP location stays off.
+      - ../data/geo:/geo:ro
     ports:
       - "127.0.0.1:${MAILPULSE_PRIVATE_HOST_PORT:-8080}:8080"
       - "127.0.0.1:${MAILPULSE_PUBLIC_HOST_PORT:-8081}:8081"

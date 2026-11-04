@@ -113,10 +113,43 @@ describe('email detail', () => {
     cancelledAt: null,
     links: [],
     events: [
-      { id: 2, type: 'OPEN', receivedAt: '2026-10-29T10:00:00Z', verdict: 'COUNTED', reason: null, source: 'GMAIL_PROXY', linkId: null, userAgent: 'GoogleImageProxy', ipPrefix: null },
-      { id: 1, type: 'OPEN', receivedAt: '2026-10-29T09:00:07Z', verdict: 'IGNORED', reason: 'SEND_GRACE', source: 'GMAIL_PROXY', linkId: null, userAgent: '<b>not html</b>', ipPrefix: '203.0.113.0' },
+      { id: 2, type: 'OPEN', receivedAt: '2026-10-29T10:00:00Z', verdict: 'COUNTED', reason: null, source: 'GMAIL_PROXY', linkId: null, userAgent: 'GoogleImageProxy', ipPrefix: null, location: null },
+      { id: 1, type: 'OPEN', receivedAt: '2026-10-29T09:00:07Z', verdict: 'IGNORED', reason: 'SEND_GRACE', source: 'GMAIL_PROXY', linkId: null, userAgent: '<b>not html</b>', ipPrefix: '203.0.113.0', location: null },
     ],
   };
+
+  const lahore = { city: 'Lahore', region: 'Punjab', country: 'Pakistan', countryCode: 'PK', latitude: 31.5497, longitude: 74.3436, networkOwner: 'Example Telecom' };
+  const located: EmailDetail = {
+    ...detail,
+    events: [
+      { id: 6, type: 'CLICK', receivedAt: '2026-10-29T11:00:42Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0', ipPrefix: '203.0.113.0/24', location: lahore },
+      { id: 5, type: 'OPEN', receivedAt: '2026-10-29T10:45:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Chrome/42.0 Edge/12.246', ipPrefix: '66.249.90.0/24', location: { city: 'Mountain View', region: 'California', country: 'United States', countryCode: 'US', latitude: 37.4056, longitude: -122.0775, networkOwner: 'Google LLC' } },
+      { id: 4, type: 'OPEN', receivedAt: '2026-10-29T10:30:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0', ipPrefix: '198.51.100.0/24', location: null },
+      { id: 3, type: 'OPEN', receivedAt: '2026-10-29T10:15:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0', ipPrefix: null, location: null },
+      ...detail.events,
+    ],
+  };
+
+  it('shows where each request came from, with the time to the second', async () => {
+    mockApi({ [`GET /api/emails/${located.summary.id}`]: { body: located } });
+    renderAt(`/emails/${located.summary.id}`);
+    const table = await screen.findByRole('table');
+    for (const name of ['Location', 'Latitude', 'Longitude']) {
+      expect(within(table).getByRole('columnheader', { name })).toBeTruthy();
+    }
+    expect(within(table).getByText(/\d:\d{2}:42/)).toBeTruthy();
+    expect(within(table).getByText('Lahore, Punjab, Pakistan')).toBeTruthy();
+    expect(within(table).getByText('31.5497')).toBeTruthy();
+    expect(within(table).getByText('74.3436')).toBeTruthy();
+    expect(within(table).getByText('Network: Example Telecom')).toBeTruthy();
+    expect(within(table).getByText('Mountain View, California, United States')).toBeTruthy();
+    expect(within(table).getByText('-122.0775')).toBeTruthy();
+    expect(within(table).getByText(/Network: Google LLC \(a mail or cloud server, probably not the reader\)/)).toBeTruthy();
+    expect(within(table).getByText('Unknown')).toBeTruthy();
+    expect(within(table).getByText('No network address stored')).toBeTruthy();
+    expect(within(table).getAllByText('Hidden by Gmail')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: 'IP Geolocation by DB-IP' }).getAttribute('href')).toBe('https://db-ip.com');
+  });
 
   it('explains every request and mutes notifications', async () => {
     const calls = mockApi({

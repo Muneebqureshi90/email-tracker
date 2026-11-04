@@ -616,3 +616,15 @@ which looked like a failure to the owner. Since 2026-10-31 a sent email shows a 
 drawing as Delivered (deliveredAt set: a recipient-side fetch before any open); their labels still say "Sent" and
 "Delivered". Opened and clicked stay green, Unreliable keeps its single tick with "?", and the compose chip keeps
 a single grey tick for "Tracking off" and while it registers. Owner's choice.
+
+## D-133 Approximate location of each request — Accepted
+The owner asked for the location (place name, latitude, longitude) of every request on the email page, and the
+time to the second. MailPulse looks up the stored network prefix (D-016: IPv4 /24, IPv6 /48) in the free DB-IP
+Lite files (city and network owner, CC BY 4.0, attribution "IP Geolocation by DB-IP" under the table).
+`scripts\geo-db.ps1` downloads the newest monthly release that is at least 14 days old (D-036) into `data\geo`
+(git-ignored); `dev.ps1` runs it and Docker mounts the folder read-only. Lookups happen on read, on this PC, so
+no address goes to a third party, old events get a location too, and turning IP storage off in Settings also
+turns location off. Requests through Gmail, Outlook, Yahoo or Apple Mail proxies get no location (D-034): it
+would be the mail service's server. Network owners such as Google or Microsoft are flagged as "probably not the
+reader". Without the files every lookup is empty (fail open). An online lookup service was rejected: it would
+send recipients' addresses to a third party. Precision is city level at best, never a live position.

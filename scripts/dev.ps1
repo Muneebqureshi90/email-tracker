@@ -34,6 +34,13 @@ foreach ($app in 'dashboard', 'viewer') {
     }
 }
 
+# Approximate IP location (D-133). Optional: without the files MailPulse runs with location off.
+try {
+    & (Join-Path $PSScriptRoot 'geo-db.ps1')
+} catch {
+    Write-Warning "IP location databases not updated: $($_.Exception.Message). Run .\scripts\geo-db.ps1 later."
+}
+
 $compose = @('compose', '-p', $ProjectName, '--env-file', $EnvFile, '-f', (Join-Path $root 'infra\docker-compose.yml'))
 & docker @compose up -d --build
 if ($LASTEXITCODE -ne 0) { throw 'docker compose up failed' }

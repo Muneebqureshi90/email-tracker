@@ -236,6 +236,7 @@ public class TrackingEventRepository {
                 rs.getString("source"),
                 Sql.uuid(rs, "tracked_link_id"),
                 rs.getString("user_agent"),
-                rs.getString("ip_prefix"));
+                rs.getString("ip_prefix"),
+                null);
     }
 }

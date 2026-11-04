@@ -4,6 +4,7 @@ import com.mailpulse.common.crypto.FieldCipher;
 import com.mailpulse.common.web.ApiException;
 import com.mailpulse.common.web.Paging;
 import com.mailpulse.documents.DocumentQueries;
+import com.mailpulse.tracking.EventLocations;
 import com.mailpulse.tracking.RepeatOpens;
 import com.mailpulse.tracking.TrackingEventRepository;
 import java.time.Instant;
@@ -35,6 +36,7 @@ public class EmailQueries {
     private final TrackingEventRepository events;
     private final DocumentQueries documents;
     private final FieldCipher cipher;
+    private final EventLocations locations;
 
     EmailQueries(
             EmailRepository emails,
@@ -42,13 +44,15 @@ public class EmailQueries {
             LinkRepository links,
             TrackingEventRepository events,
             DocumentQueries documents,
-            FieldCipher cipher) {
+            FieldCipher cipher,
+            EventLocations locations) {
         this.emails = emails;
         this.addressBook = addressBook;
         this.links = links;
         this.events = events;
         this.documents = documents;
         this.cipher = cipher;
+        this.locations = locations;
     }
 
     public EmailApi.Page<EmailApi.EmailSummary> list(
@@ -106,7 +110,8 @@ public class EmailQueries {
     public EmailApi.Page<EmailApi.EventView> events(UUID id, int page, int size) {
         Paging.check(page, size);
         emails.find(id).orElseThrow(() -> ApiException.notFound("Email not found"));
-        return new EmailApi.Page<>(events.findForEmail(id, size, (long) page * size), page, size, events.countForEmail(id));
+        return new EmailApi.Page<>(
+                locations.addTo(events.findForEmail(id, size, (long) page * size)), page, size, events.countForEmail(id));
     }
 
     private EmailApi.Page<EmailApi.EmailSummary> page(
@@ -165,7 +170,7 @@ public class EmailQueries {
                 email.gmailThreadId(),
                 email.cancelledAt(),
                 links.findForEmail(id),
-                events.findForEmail(id, MAX_EVENTS, 0),
+                locations.addTo(events.findForEmail(id, MAX_EVENTS, 0)),
                 events.countedOpens(id),
                 documents.linksForEmail(id),
                 documents.eventsForEmail(id, MAX_EVENTS));

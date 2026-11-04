@@ -19,6 +19,7 @@ coverage/
 backups/
 *.dump
 *.mmdb
+data/geo/
 spikes/out/
 
 # IDE / OS

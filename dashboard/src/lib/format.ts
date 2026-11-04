@@ -40,6 +40,12 @@ export function formatDateTime(iso: string | null): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: displayZone });
 }
 
+/** To the second, for the request log: "Nov 4, 2026, 3:45:12 PM". */
+export function formatDateTimeSeconds(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium', timeZone: displayZone });
+}
+
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: displayZone });
 }

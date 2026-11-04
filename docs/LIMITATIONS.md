@@ -7,6 +7,9 @@ Draft from Step 0. Spike results will confirm or correct each item.
   default, but readers can turn images off, and some apps and privacy tools block trackers.
 - Gmail loads images through Google's proxy. The server sees Google's IP and a fixed user agent, so
   the reader's location and device are unknown for Gmail opens.
+- Location (D-133) is approximate, at city level, from the network address in the DB-IP Lite
+  database. It shows only for link clicks and direct opens, and it can be the reader's internet
+  provider, office network or VPN rather than where the reader is. No email can reveal a live position.
 - Google's proxy may cache the pixel, so some repeat opens never reach the server. Open counts are a
   lower bound.
 - Apple Mail Privacy Protection loads images when mail arrives, even if nobody reads it. MailPulse

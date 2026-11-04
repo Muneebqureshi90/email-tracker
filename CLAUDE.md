@@ -38,6 +38,8 @@ Decisions: docs/DECISIONS.md. Research notes: docs/research/.
 - `.\scripts\funnel.ps1 [-Action on|status|off]` — Tailscale Funnel mounts for /t/, /c/ and /d/ only, then
   `check-public.ps1` (pixel 200, document routes reach MailPulse, everything else 404). `-BaseUrl http://127.0.0.1:8081`
   tests without Tailscale.
+- `.\scripts\geo-db.ps1 [-Force]` — downloads the free DB-IP Lite files (CC BY 4.0) into `data\geo` for the
+  approximate location of clicks and direct opens (D-133); `dev.ps1` runs it, Docker mounts it read-only.
 - `.\scripts\autostart.ps1 -Install|-Remove` — Startup-folder shortcut; at sign-in starts Docker stack + Funnel.
 - `.\scripts\backup.ps1 [-Keep N] [-CopyTo <folder>] [-Install|-Remove]` — pg_dump into `backups\`; `-Keep` keeps
   the newest N dumps (omitted: nothing deleted), `-CopyTo` also copies the dump there (warns if missing),

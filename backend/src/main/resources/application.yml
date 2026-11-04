@@ -53,3 +53,5 @@ mailpulse:
   session-cookie-secure: false
   ingest-queue-capacity: 10000
   jobs-enabled: true
+  # Folder with the DB-IP Lite files from scripts\geo-db.ps1 (D-133); empty turns IP location off.
+  geo-dir: ${MAILPULSE_GEO_DIR:}

@@ -72,6 +72,19 @@ export interface EventView {
   linkId: string | null;
   userAgent: string | null;
   ipPrefix: string | null;
+  /** Approximate place of the network (D-133); null for mail proxies and unknown networks. */
+  location: IpLocation | null;
+}
+
+/** City-level place of a network from the local DB-IP Lite files; any field can be missing. */
+export interface IpLocation {
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  countryCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  networkOwner: string | null;
 }
 
 export interface EmailDetail {
