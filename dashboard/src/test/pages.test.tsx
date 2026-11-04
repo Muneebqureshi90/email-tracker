@@ -122,9 +122,9 @@ describe('email detail', () => {
   const located: EmailDetail = {
     ...detail,
     events: [
-      { id: 6, type: 'CLICK', receivedAt: '2026-10-29T11:00:42Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0', ipPrefix: '203.0.113.0/24', location: lahore },
-      { id: 5, type: 'OPEN', receivedAt: '2026-10-29T10:45:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Chrome/42.0 Edge/12.246', ipPrefix: '66.249.90.0/24', location: { city: 'Mountain View', region: 'California', country: 'United States', countryCode: 'US', latitude: 37.4056, longitude: -122.0775, networkOwner: 'Google LLC' } },
-      { id: 4, type: 'OPEN', receivedAt: '2026-10-29T10:30:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0', ipPrefix: '198.51.100.0/24', location: null },
+      { id: 6, type: 'CLICK', receivedAt: '2026-10-29T11:00:42Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36', ipPrefix: '203.0.113.0/24', location: lahore },
+      { id: 5, type: 'OPEN', receivedAt: '2026-10-29T10:45:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246', ipPrefix: '66.249.90.0/24', location: { city: 'Mountain View', region: 'California', country: 'United States', countryCode: 'US', latitude: 37.4056, longitude: -122.0775, networkOwner: 'Google LLC' } },
+      { id: 4, type: 'OPEN', receivedAt: '2026-10-29T10:30:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', ipPrefix: '198.51.100.0/24', location: null },
       { id: 3, type: 'OPEN', receivedAt: '2026-10-29T10:15:00Z', verdict: 'COUNTED', reason: null, source: 'DIRECT', linkId: null, userAgent: 'Mozilla/5.0', ipPrefix: null, location: null },
       ...detail.events,
     ],
@@ -145,10 +145,28 @@ describe('email detail', () => {
     expect(within(table).getByText('Mountain View, California, United States')).toBeTruthy();
     expect(within(table).getByText('-122.0775')).toBeTruthy();
     expect(within(table).getByText(/Network: Google LLC \(a mail or cloud server, probably not the reader\)/)).toBeTruthy();
-    expect(within(table).getByText('Unknown')).toBeTruthy();
+    expect(within(within(table).getByText('Network 198.51.100.0/24').closest('tr')!).getByText('Unknown')).toBeTruthy();
     expect(within(table).getByText('No network address stored')).toBeTruthy();
-    expect(within(table).getAllByText('Hidden by Gmail')).toHaveLength(2);
+    // Location and Device both say so for the two Gmail rows.
+    expect(within(table).getAllByText('Hidden by Gmail')).toHaveLength(4);
     expect(screen.getByRole('link', { name: 'IP Geolocation by DB-IP' }).getAttribute('href')).toBe('https://db-ip.com');
+  });
+
+  it('shows the device, system and browser of each request', async () => {
+    mockApi({ [`GET /api/emails/${located.summary.id}`]: { body: located } });
+    renderAt(`/emails/${located.summary.id}`);
+    const table = await screen.findByRole('table');
+    for (const name of ['Device', 'System']) {
+      expect(within(table).getByRole('columnheader', { name })).toBeTruthy();
+    }
+    const phone = within(table).getByText('Samsung Internet 27').closest('tr')!;
+    expect(within(phone).getByText('Mobile')).toBeTruthy();
+    expect(within(phone).getByText('Android 14')).toBeTruthy();
+    const desktop = within(table).getByText('Edge 12').closest('tr')!;
+    expect(within(desktop).getByText('Desktop')).toBeTruthy();
+    expect(within(desktop).getByText('Windows 10 or 11')).toBeTruthy();
+    // "Mozilla/5.0" alone says nothing about the device.
+    expect(within(table).getAllByText('Unknown').length).toBeGreaterThanOrEqual(2);
   });
 
   it('explains every request and mutes notifications', async () => {

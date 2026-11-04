@@ -628,3 +628,12 @@ turns location off. Requests through Gmail, Outlook, Yahoo or Apple Mail proxies
 would be the mail service's server. Network owners such as Google or Microsoft are flagged as "probably not the
 reader". Without the files every lookup is empty (fail open). An online lookup service was rejected: it would
 send recipients' addresses to a third party. Precision is city level at best, never a live position.
+
+## D-134 Device and system of each request - Accepted
+The owner asked to see the reader's device (mobile or not) and system on the email page. The dashboard reads them
+from the stored user agent (dashboard/src/lib/device.ts): Device is Mobile, Tablet or Desktop; System is the OS name
+("Android 14", "iOS 18.1", "Windows 10 or 11", "macOS") with the browser or mail app under it ("Chrome 140",
+"Apple Mail", "Outlook"). A small own parser instead of Yauaa (D-017): no new dependency and no backend or API
+change. Mail-proxy requests show "Hidden by Gmail" (D-034), since the proxy sends its own fixed user agent.
+User agents are shortened by browsers, so Windows 11 reads as Windows 10 or 11, Chrome on Android hides its version,
+and iPads can look like Macs.

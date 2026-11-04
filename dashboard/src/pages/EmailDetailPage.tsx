@@ -4,6 +4,7 @@ import type { EmailDetail, EventView } from '../api/types';
 import { Select } from '../components/controls';
 import { Card, Empty, ErrorBox, OpenMark, PageHeader, QueryState, Stat, TextLink, Toggle } from '../components/ui';
 import { REASONS, SOURCES, count, formatDateTime, formatDateTimeSeconds, relativeTime } from '../lib/format';
+import { describeDevice } from '../lib/device';
 import { MAIL_PROXY_SOURCES, formatCoordinate, isServerNetwork, placeName } from '../lib/location';
 import { useNow } from '../lib/now';
 
@@ -150,6 +151,8 @@ function EmailView({ detail }: { detail: EmailDetail }) {
                   <th>What</th>
                   <th>Result</th>
                   <th>Seen through</th>
+                  <th>Device</th>
+                  <th>System</th>
                   <th>Location</th>
                   <th>Latitude</th>
                   <th>Longitude</th>
@@ -166,6 +169,7 @@ function EmailView({ detail }: { detail: EmailDetail }) {
                       {event.reason && <span className="block text-xs text-muted">{REASONS[event.reason] ?? event.reason}</span>}
                     </td>
                     <td>{SOURCES[event.source] ?? event.source}</td>
+                    <DeviceCells event={event} />
                     <td className="min-w-40">
                       <LocationCell event={event} />
                     </td>
@@ -185,13 +189,37 @@ function EmailView({ detail }: { detail: EmailDetail }) {
           <p className="border-t border-line px-4 py-3 text-xs text-muted">
             Location is approximate (city level): MailPulse looks up the network address on this PC in the free DB-IP Lite database. An email
             cannot reveal anyone&apos;s live position. Gmail, Outlook, Yahoo and Apple Mail load images through their own servers, so their
-            opens hide the reader&apos;s location; link clicks and other mail apps show it.{' '}
+            opens hide the reader&apos;s location and device; link clicks and other mail apps show them. Device and system come from the
+            browser&apos;s user agent, which browsers shorten: Windows 11 reports as Windows 10, Chrome on Android hides its version, and
+            iPads can look like Macs.{' '}
             <a href="https://db-ip.com" target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
               IP Geolocation by DB-IP
             </a>
           </p>
         )}
       </Card>
+    </>
+  );
+}
+
+/** Device (Mobile, Tablet, Desktop) and system with the browser or app, from the user agent (D-134). */
+function DeviceCells({ event }: { event: EventView }) {
+  if (MAIL_PROXY_SOURCES.has(event.source)) {
+    return (
+      <>
+        <td className="text-muted">Hidden by {SOURCES[event.source] ?? 'the mail service'}</td>
+        <td className="text-muted">—</td>
+      </>
+    );
+  }
+  const device = describeDevice(event.userAgent);
+  return (
+    <>
+      <td className={device?.kind ? 'whitespace-nowrap' : 'text-muted'}>{device?.kind ?? 'Unknown'}</td>
+      <td className="min-w-32">
+        <span className={device?.system ? undefined : 'text-muted'}>{device?.system ?? 'Unknown'}</span>
+        {device?.app && <span className="block text-xs text-muted">{device.app}</span>}
+      </td>
     </>
   );
 }
