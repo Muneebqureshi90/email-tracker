@@ -13,6 +13,9 @@ Draft from Step 0. Spike results will confirm or correct each item.
 - Device and system (D-134) come from the user agent, so they show only for link clicks and direct opens.
   Browsers shorten it: Windows 11 reads as "Windows 10 or 11", Chrome on Android hides its version, and
   iPads can look like Macs.
+- The phone model (D-135) comes only from Chrome-based browsers on Android, which send it after MailPulse has asked
+  once: the first link click from a new phone usually has none, later clicks and document views do. iPhones,
+  Firefox and desktop browsers never send it, and Samsung sends a model code ("SM-S911B"), not the marketing name.
 - Google's proxy may cache the pixel, so some repeat opens never reach the server. Open counts are a
   lower bound.
 - Apple Mail Privacy Protection loads images when mail arrives, even if nobody reads it. MailPulse

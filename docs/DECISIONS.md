@@ -637,3 +637,18 @@ from the stored user agent (dashboard/src/lib/device.ts): Device is Mobile, Tabl
 change. Mail-proxy requests show "Hidden by Gmail" (D-034), since the proxy sends its own fixed user agent.
 User agents are shortened by browsers, so Windows 11 reads as Windows 10 or 11, Chrome on Android hides its version,
 and iPads can look like Macs.
+
+## D-135 Phone model from Chrome client hints — Accepted
+The owner asked for the reader's phone model (Samsung, iPhone and so on) on the email page. User agents no longer
+carry it: Chrome on Android sends "Android 10; K" whatever the phone is. Chrome-based browsers send the model in the
+`Sec-CH-UA-Model` request header once a site asks for it, so the link-click redirect (`/c/`) and the document viewer
+page (`/d/{token}`) answer with `Accept-CH: Sec-CH-UA-Model` (not the pixel: mail proxies load it). The backend
+keeps the header (an RFC 8941 string: quotes removed, at most 64 printable ASCII characters, otherwise dropped) in
+`device_model` on `tracking_event` and `document_event` (V14), next to the user agent, and never logs it. The API
+returns it as `deviceModel`; the dashboard shows it with a readable family name for common codes ("Samsung Galaxy S
+series (SM-S911B)"). No popup and no third party; a missing or invalid header changes nothing (fail open).
+`Critical-CH` was rejected: it makes Chrome repeat the request, which would record a click or view twice.
+Limits: the browser remembers `Accept-CH` only after it has seen it once, so the first click on a phone that never
+visited MailPulse has no model, while later clicks and the document viewer's own requests (`/info`, `/pdf`, `/beat`)
+carry it. iPhones (Safari and every other iOS browser), Firefox and desktop browsers never send a model; an iPhone
+stays "iPhone" from the user agent. Gmail opens never reach MailPulse from the phone (D-034), so they show no model.
