@@ -84,7 +84,11 @@ public final class EmailApi {
 
     public record LinkView(UUID id, String url, boolean used, int clickCount, Instant firstClickedAt, Instant lastClickedAt) {}
 
-    /** @param location approximate place of the network (D-133); null for mail proxies and unknown networks */
+    /**
+     * @param location approximate place of the network (D-133); null for mail proxies and unknown networks
+     * @param deviceModel phone model from the Sec-CH-UA-Model client hint (D-135), for example "SM-S911B"; null when the
+     *     browser did not send it (iPhones, Firefox, Safari, mail proxies)
+     */
     public record EventView(
             long id,
             String type,
@@ -95,10 +99,11 @@ public final class EmailApi {
             UUID linkId,
             String userAgent,
             String ipPrefix,
-            IpLocation location) {
+            IpLocation location,
+            String deviceModel) {
 
         public EventView withLocation(IpLocation place) {
-            return new EventView(id, type, receivedAt, verdict, reason, source, linkId, userAgent, ipPrefix, place);
+            return new EventView(id, type, receivedAt, verdict, reason, source, linkId, userAgent, ipPrefix, place, deviceModel);
         }
     }
 

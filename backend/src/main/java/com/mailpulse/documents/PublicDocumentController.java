@@ -2,6 +2,7 @@ package com.mailpulse.documents;
 
 import com.mailpulse.common.RandomTokens;
 import com.mailpulse.common.net.ClientAddress;
+import com.mailpulse.common.net.ClientHints;
 import com.mailpulse.common.web.ApiException;
 import com.mailpulse.tracking.SelfHeader;
 import jakarta.servlet.http.HttpServletRequest;
@@ -62,7 +63,10 @@ class PublicDocumentController {
         this.clock = clock;
     }
 
-    /** The viewer page. Serving it counts nothing: the viewer's first beat counts the view. */
+    /**
+     * The viewer page. Serving it counts nothing: the viewer's first beat counts the view. Accept-CH asks Chromium
+     * browsers to send the phone model with the viewer's own requests (D-135); no Critical-CH, so nothing is retried.
+     */
     @RequestMapping(path = "/d/{token}", method = {RequestMethod.GET, RequestMethod.HEAD})
     ResponseEntity<byte[]> page(@PathVariable String token, HttpServletRequest request) {
         if (!RandomTokens.isTrackingToken(token)) {
@@ -88,6 +92,7 @@ class PublicDocumentController {
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
                 .header("Referrer-Policy", "no-referrer")
                 .header("X-Content-Type-Options", "nosniff")
+                .header(ClientHints.ACCEPT_CH, ClientHints.REQUESTED)
                 .body(html.get());
     }
 
@@ -181,7 +186,7 @@ class PublicDocumentController {
     private DocumentTracking.Request request(HttpServletRequest request, Optional<InetAddress> client) {
         return new DocumentTracking.Request(
                 clock.instant(), request.getMethod(), request.getHeader(HttpHeaders.USER_AGENT), client.orElse(null),
-                selfHeader.isSelf(request));
+                selfHeader.isSelf(request), ClientHints.deviceModel(request.getHeader(ClientHints.MODEL_HEADER)));
     }
 
     private static boolean isJsonOrText(String contentType) {

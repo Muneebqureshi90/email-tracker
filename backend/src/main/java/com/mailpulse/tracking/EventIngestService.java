@@ -68,6 +68,7 @@ class EventIngestService {
                 EventClassifier.sourceKey(source, ipPrefix, raw.userAgent()),
                 reason.isPresent() ? Verdict.IGNORED : Verdict.PENDING,
                 reason.orElse(null),
-                reason.isPresent() ? clock.instant() : null));
+                reason.isPresent() ? clock.instant() : null,
+                raw.deviceModel()));
     }
 }

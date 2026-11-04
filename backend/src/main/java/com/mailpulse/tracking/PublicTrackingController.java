@@ -3,6 +3,7 @@ package com.mailpulse.tracking;
 import com.mailpulse.common.RandomTokens;
 import com.mailpulse.common.RateLimiter;
 import com.mailpulse.common.net.ClientAddress;
+import com.mailpulse.common.net.ClientHints;
 import com.mailpulse.emails.LinkRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.Inet6Address;
@@ -84,10 +85,13 @@ class PublicTrackingController {
         if (withinLimits(client)) {
             queue.offer(rawEvent(EventType.CLICK, token, request, client));
         }
+        // Asks Chrome on Android for the phone model on later requests (D-135). No Critical-CH: its automatic
+        // retry would record the click twice.
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, target.get().url())
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
                 .header("Referrer-Policy", "no-referrer")
+                .header(ClientHints.ACCEPT_CH, ClientHints.REQUESTED)
                 .build();
     }
 
@@ -112,7 +116,8 @@ class PublicTrackingController {
                 request.getMethod(),
                 request.getHeader(HttpHeaders.USER_AGENT),
                 client.orElse(null),
-                selfHeader.isSelf(request));
+                selfHeader.isSelf(request),
+                ClientHints.deviceModel(request.getHeader(ClientHints.MODEL_HEADER)));
     }
 
     private static ResponseEntity<String> notFound() {

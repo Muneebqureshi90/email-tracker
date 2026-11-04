@@ -62,7 +62,8 @@ public final class DocumentApi {
             String userAgent,
             String ipPrefix,
             Integer readSeconds,
-            Integer pagesViewed) {}
+            Integer pagesViewed,
+            String deviceModel) {}
 
     public record DocumentDetail(DocumentSummary summary, List<DocLinkView> links, List<DocEventView> events) {}
 

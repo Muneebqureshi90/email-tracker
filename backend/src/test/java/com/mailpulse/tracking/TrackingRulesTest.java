@@ -99,6 +99,6 @@ class TrackingRulesTest {
     }
 
     private static RawEvent raw(String method, boolean self) {
-        return new RawEvent(EventType.OPEN, "t", SENT, method, "ua", null, self);
+        return new RawEvent(EventType.OPEN, "t", SENT, method, "ua", null, self, null);
     }
 }

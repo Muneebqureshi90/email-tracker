@@ -32,7 +32,8 @@ public class TrackingEventRepository {
             String sourceKey,
             Verdict verdict,
             Reason reason,
-            Instant decidedAt) {}
+            Instant decidedAt,
+            String deviceModel) {}
 
     record PendingEvent(long id, UUID emailId, UUID linkId, EventType type, Instant receivedAt, Source source, String sourceKey) {}
 
@@ -56,9 +57,9 @@ public class TrackingEventRepository {
     long insert(NewEvent event) {
         return jdbc.sql("""
                 INSERT INTO tracking_event (tracked_email_id, tracked_link_id, type, received_at, http_method, user_agent,
-                    ip_prefix, source, source_key, verdict, reason, decided_at)
+                    ip_prefix, source, source_key, verdict, reason, decided_at, device_model)
                 VALUES (:email, :link, :type, :receivedAt, :method, :userAgent, :ipPrefix, :source, :sourceKey,
-                    :verdict, :reason, :decidedAt)
+                    :verdict, :reason, :decidedAt, :deviceModel)
                 RETURNING id
                 """)
                 .param("email", event.emailId())
@@ -73,6 +74,7 @@ public class TrackingEventRepository {
                 .param("verdict", event.verdict().name())
                 .param("reason", event.reason() == null ? null : event.reason().name())
                 .param("decidedAt", Sql.ts(event.decidedAt()))
+                .param("deviceModel", event.deviceModel())
                 .query(Long.class)
                 .single();
     }
@@ -208,7 +210,7 @@ public class TrackingEventRepository {
     /** Events of an email, newest first. */
     public List<EmailApi.EventView> findForEmail(UUID emailId, int limit, long offset) {
         return jdbc.sql("""
-                SELECT id, type, received_at, verdict, reason, source, tracked_link_id, user_agent, ip_prefix
+                SELECT id, type, received_at, verdict, reason, source, tracked_link_id, user_agent, ip_prefix, device_model
                 FROM tracking_event WHERE tracked_email_id = :email ORDER BY received_at DESC, id DESC
                 LIMIT :limit OFFSET :offset
                 """)
@@ -237,6 +239,7 @@ public class TrackingEventRepository {
                 Sql.uuid(rs, "tracked_link_id"),
                 rs.getString("user_agent"),
                 rs.getString("ip_prefix"),
-                null);
+                null,
+                rs.getString("device_model"));
     }
 }

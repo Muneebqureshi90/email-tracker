@@ -33,7 +33,8 @@ class DocumentEventRepository {
             String source,
             String sourceKey,
             String reason,
-            Seq seq) {
+            Seq seq,
+            String deviceModel) {
 
         boolean counted() {
             return reason == null;
@@ -51,12 +52,13 @@ class DocumentEventRepository {
             String userAgent,
             String ipPrefix,
             Long visibleMs,
-            Integer pagesViewed) {}
+            Integer pagesViewed,
+            String deviceModel) {}
 
     private static final String VIEW = "SELECT id, merged_into, counted, first_beat_at, own_ms, visible_ms, read_at FROM document_view";
     private static final String EVENTS = """
             SELECT e.id, e.link_id, e.type, e.received_at, e.verdict, e.reason, e.source, e.user_agent, e.ip_prefix,
-                   v.visible_ms, cardinality(v.pages_viewed) AS pages_viewed
+                   v.visible_ms, cardinality(v.pages_viewed) AS pages_viewed, e.device_model
             FROM document_event e JOIN document_link l ON l.id = e.link_id LEFT JOIN document_view v ON v.id = e.view_id
             """;
 
@@ -181,9 +183,9 @@ class DocumentEventRepository {
     long insertEvent(NewEvent event) {
         return jdbc.sql("""
                 INSERT INTO document_event (link_id, view_id, type, received_at, http_method, user_agent, ip_prefix, source,
-                    source_key, verdict, reason, seq_number, seq_previous_at)
+                    source_key, verdict, reason, seq_number, seq_previous_at, device_model)
                 VALUES (:link, :view, :type, :at, :method, :userAgent, :ipPrefix, :source, :sourceKey, :verdict, :reason,
-                    :number, :previous)
+                    :number, :previous, :deviceModel)
                 RETURNING id
                 """)
                 .param("link", event.linkId())
@@ -199,6 +201,7 @@ class DocumentEventRepository {
                 .param("reason", event.reason())
                 .param("number", event.seq() == null ? null : event.seq().number())
                 .param("previous", event.seq() == null ? null : Sql.ts(event.seq().previousAt()))
+                .param("deviceModel", event.deviceModel())
                 .query(Long.class)
                 .single();
     }
@@ -322,6 +325,7 @@ class DocumentEventRepository {
                 rs.getString("user_agent"),
                 rs.getString("ip_prefix"),
                 visibleMs,
-                Sql.nullableInt(rs, "pages_viewed"));
+                Sql.nullableInt(rs, "pages_viewed"),
+                rs.getString("device_model"));
     }
 }

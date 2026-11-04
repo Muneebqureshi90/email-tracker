@@ -52,12 +52,15 @@ public class DocumentTracking {
         DOWNLOAD_OFF
     }
 
-    /** What the public route knows about the request. {@code client} is null when unknown. */
-    record Request(Instant at, String method, String userAgent, InetAddress client, boolean self) {}
+    /**
+     * What the public route knows about the request. {@code client} is null when unknown; {@code deviceModel} is the
+     * phone model a Chromium browser sends after Accept-CH (D-135), null when it sent none.
+     */
+    record Request(Instant at, String method, String userAgent, InetAddress client, boolean self, String deviceModel) {}
 
     record Download(Status status, String name, byte[] content, int sizeBytes) {}
 
-    private record Origin(Source source, String ipPrefix, String sourceKey, String userAgent) {}
+    private record Origin(Source source, String ipPrefix, String sourceKey, String userAgent, String deviceModel) {}
 
     private final DocumentRepository documents;
     private final DocumentEventRepository events;
@@ -288,13 +291,15 @@ public class DocumentTracking {
         String userAgent = request.userAgent() == null || request.userAgent().length() <= MAX_USER_AGENT
                 ? request.userAgent()
                 : request.userAgent().substring(0, MAX_USER_AGENT);
-        return new Origin(source, ipPrefix, EventClassifier.sourceKey(source, ipPrefix, request.userAgent()), userAgent);
+        return new Origin(source, ipPrefix, EventClassifier.sourceKey(source, ipPrefix, request.userAgent()), userAgent,
+                request.deviceModel());
     }
 
     private static DocumentEventRepository.NewEvent newEvent(DocumentRepository.PublicLink link, Long viewId, String type,
             Request request, Origin origin, Optional<Reason> reason, DocumentEventRepository.Seq seq) {
         return new DocumentEventRepository.NewEvent(link.id(), viewId, type, request.at(), request.method(), origin.userAgent(),
-                origin.ipPrefix(), origin.source().name(), origin.sourceKey(), reason.map(Enum::name).orElse(null), seq);
+                origin.ipPrefix(), origin.source().name(), origin.sourceKey(), reason.map(Enum::name).orElse(null), seq,
+                origin.deviceModel());
     }
 
     /** A PostgreSQL int array literal from validated page numbers. */

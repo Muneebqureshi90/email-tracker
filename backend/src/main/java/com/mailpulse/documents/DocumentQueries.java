@@ -184,7 +184,8 @@ public class DocumentQueries {
                         row.userAgent(),
                         row.ipPrefix(),
                         row.visibleMs() == null ? null : (int) (row.visibleMs() / 1000),
-                        row.pagesViewed()))
+                        row.pagesViewed(),
+                        row.deviceModel()))
                 .toList();
     }
 
